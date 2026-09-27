@@ -27,7 +27,7 @@ export function BetaMissions() {
     <section className="enter mx-3 mt-3 bg-raised p-3 ring-1 ring-white/10">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h3 className="text-xs font-semibold tracking-[0.16em] text-thread">BETA MISSIONS</h3>
+          <h3 className="text-xs font-semibold tracking-[0.16em] text-thread">Beta missions</h3>
           <p className="mt-1 font-mono text-xs text-ink-dim">
             {done} of {MISSIONS.length}
           </p>

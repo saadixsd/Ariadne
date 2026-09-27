@@ -75,6 +75,7 @@ export function Dashboard({
   accountFirstName,
   accountLastName,
   runsLeft,
+  openSettings = false,
 }: {
   initial: ProjectDTO;
   projects: ProjectOption[];
@@ -85,6 +86,7 @@ export function Dashboard({
   accountFirstName: string;
   accountLastName: string;
   runsLeft: number;
+  openSettings?: boolean;
 }) {
   const [data, setData] = useState(initial);
   const [projects, setProjects] = useState(initialProjects);
@@ -95,12 +97,13 @@ export function Dashboard({
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [approvalId, setApprovalId] = useState<string | null>(null);
   const [contextOpen, setContextOpen] = useState(false);
+  const [contextGateDismissed, setContextGateDismissed] = useState<string | null>(null);
   const [newProjectOpen, setNewProjectOpen] = useState(false);
   const [selectedId, setSelectedId] = useState(initial.id);
   const selectedIdRef = useRef(initial.id);
   const [lineageId, setLineageId] = useState<string | null>(null);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
-  const [accountOpen, setAccountOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(openSettings);
   const [menu, setMenu] = useState<null | "beta" | "settings">(null);
   const closeAccount = useCallback(() => setAccountOpen(false), []);
   const [confirmReset, setConfirmReset] = useState(false);
@@ -142,6 +145,14 @@ export function Dashboard({
     const timer = setTimeout(() => setToast(null), 6000);
     return () => clearTimeout(timer);
   }, [toast]);
+
+  useEffect(() => {
+    if (!openSettings) return;
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has("settings")) return;
+    url.searchParams.delete("settings");
+    window.history.replaceState(null, "", url);
+  }, [openSettings]);
 
   useEffect(() => {
     if (!pulseRunId) return;
@@ -475,7 +486,8 @@ export function Dashboard({
   const approved =
     data.events.some((event) => event.type === "approved") ||
     data.tasks.some((task) => task.requiresApproval && task.status === "done");
-  const sharedContextGate = needsSharedContextPrompt(data);
+  const sharedContextGate =
+    needsSharedContextPrompt(data) && contextGateDismissed !== data.id;
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-base text-ink">
@@ -611,7 +623,7 @@ export function Dashboard({
         </div>
       </header>
       <p className="border-b border-white/10 px-4 py-2 text-sm leading-normal text-ink-dim">
-        {statusLine(data)} {remaining} model {remaining === 1 ? "run" : "runs"} left today.
+        {statusLine(data)} Daily budget: {remaining} of {DAILY_MODEL_RUNS} agent runs remaining.
       </p>
       <WelcomeOverlay
         metAgents={metAgents}
@@ -708,8 +720,11 @@ export function Dashboard({
           key={`${data.id}\n${data.name}\n${data.brief}`}
           name={data.name}
           brief={data.brief}
-          blocking={sharedContextGate}
-          onClose={() => setContextOpen(false)}
+          prompting={sharedContextGate}
+          onClose={() => {
+            if (sharedContextGate) setContextGateDismissed(data.id);
+            setContextOpen(false);
+          }}
           onSave={async (name, brief) => {
             await saveContext(name, brief);
           }}

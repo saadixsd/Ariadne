@@ -2,7 +2,7 @@ import { Dashboard } from "@/components/Dashboard";
 import { accountDisplay } from "@/lib/account";
 import { currentUser } from "@/lib/auth";
 import { pickBoardProject } from "@/lib/board-project";
-import { ensureOwnProject } from "@/lib/demo";
+import { ensureDemo, ensureMarketProject, ensureOwnProject } from "@/lib/demo";
 import { missingSetup } from "@/lib/setup";
 import { DAILY_MODEL_RUNS, modelRunsToday } from "@/lib/usage";
 import { prisma } from "@/lib/prisma";
@@ -14,12 +14,14 @@ export const dynamic = "force-dynamic";
 export default async function Home({
   searchParams,
 }: {
-  searchParams: Promise<{ project?: string }>;
+  searchParams: Promise<{ project?: string; settings?: string }>;
 }) {
   const user = await currentUser();
   if (!user) redirect("/sign-in");
   if (!user.emailVerified) redirect("/verify");
-  const { project: requested } = await searchParams;
+  const { project: requested, settings } = await searchParams;
+  await ensureDemo(user.id);
+  await ensureMarketProject(user.id);
   await ensureOwnProject(user.id);
   const projects = await prisma.project.findMany({
     where: { userId: user.id },
@@ -67,6 +69,7 @@ export default async function Home({
       accountFirstName={account.firstName}
       accountLastName={account.lastName}
       runsLeft={runsLeft}
+      openSettings={settings === "1" || settings === "true"}
     />
   );
 }
