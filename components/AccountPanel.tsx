@@ -12,6 +12,10 @@ export function AccountPanel({
   email,
   firstName,
   lastName,
+  projectId,
+  projectName,
+  brief,
+  onSaveBrief,
 }: {
   open: boolean;
   onClose: () => void;
@@ -20,12 +24,31 @@ export function AccountPanel({
   email: string;
   firstName: string;
   lastName: string;
+  projectId: string;
+  projectName: string;
+  brief: string;
+  onSaveBrief: (name: string, brief: string) => Promise<string | null>;
 }) {
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const [mounted, setMounted] = useState(false);
   const [visible, setVisible] = useState(false);
+  const [draftName, setDraftName] = useState(projectName);
+  const [draftBrief, setDraftBrief] = useState(brief);
+  const [briefError, setBriefError] = useState<string | null>(null);
+  const [briefSaved, setBriefSaved] = useState(false);
+  const [savingBrief, setSavingBrief] = useState(false);
+
+  useEffect(() => {
+    setBriefSaved(false);
+    setBriefError(null);
+  }, [projectId]);
+
+  useEffect(() => {
+    setDraftName(projectName);
+    setDraftBrief(brief);
+  }, [projectName, brief]);
 
   useEffect(() => {
     if (open) {
@@ -90,6 +113,29 @@ export function AccountPanel({
     };
   }, [visible, onClose]);
 
+  async function submitBrief() {
+    const nextName = draftName.trim();
+    const nextBrief = draftBrief.trim();
+    if (!nextName || !nextBrief) {
+      setBriefError("Write what this project is before saving.");
+      setBriefSaved(false);
+      return;
+    }
+    setSavingBrief(true);
+    setBriefError(null);
+    try {
+      const message = await onSaveBrief(nextName, nextBrief);
+      if (message) {
+        setBriefError(message);
+        setBriefSaved(false);
+        return;
+      }
+      setBriefSaved(true);
+    } finally {
+      setSavingBrief(false);
+    }
+  }
+
   if (!mounted) return null;
 
   const shown = visible ? "opacity-100" : "opacity-0";
@@ -105,7 +151,7 @@ export function AccountPanel({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className={`account-panel absolute bottom-14 left-4 flex max-h-[min(32rem,calc(100%-5rem))] w-[min(26rem,calc(100vw-2rem))] origin-bottom-left flex-col overflow-y-auto bg-raised ring-1 ring-white/10 ${
+        className={`account-panel absolute bottom-14 left-4 flex max-h-[min(40rem,calc(100%-5rem))] w-[min(26rem,calc(100vw-2rem))] origin-bottom-left flex-col overflow-y-auto bg-raised ring-1 ring-white/10 ${
           visible ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"
         }`}
       >
@@ -114,7 +160,9 @@ export function AccountPanel({
             <h2 id={titleId} className="text-lg font-semibold leading-tight">
               Settings
             </h2>
-            <p className="mt-1 text-sm leading-normal text-ink-dim">More settings will come later.</p>
+            <p className="mt-1 text-sm leading-normal text-ink-dim">
+              Account details and this project&apos;s shared context.
+            </p>
           </div>
           <button
             ref={closeRef}
@@ -152,6 +200,60 @@ export function AccountPanel({
               <dd className="truncate">{email}</dd>
             </div>
           </dl>
+          <form
+            className="mt-4 space-y-3 border-t border-white/10 pt-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void submitBrief();
+            }}
+          >
+            <h3 className="text-sm font-semibold">Shared context</h3>
+            <p className="text-sm leading-normal text-ink-dim">
+              Scout and Maker read this when you press Run. Saving does not call Claude or GPT.
+            </p>
+            <label className="block text-sm">
+              Project name
+              <input
+                value={draftName}
+                onChange={(event) => {
+                  setDraftName(event.target.value);
+                  setBriefSaved(false);
+                }}
+                maxLength={120}
+                className="mt-1 w-full bg-base px-3 py-2 text-sm ring-1 ring-white/10"
+                aria-label="Project name"
+              />
+            </label>
+            <label className="block text-sm">
+              Brief
+              <textarea
+                value={draftBrief}
+                onChange={(event) => {
+                  setDraftBrief(event.target.value);
+                  setBriefSaved(false);
+                }}
+                className="mt-1 min-h-28 w-full bg-base px-3 py-2 text-sm leading-normal ring-1 ring-white/10"
+                aria-label="Project brief"
+              />
+            </label>
+            {briefError ? (
+              <p role="alert" className="text-sm text-danger">
+                {briefError}
+              </p>
+            ) : null}
+            {briefSaved ? (
+              <p role="status" className="text-sm text-ok">
+                Saved. Tasks stay pending until you press Run.
+              </p>
+            ) : null}
+            <button
+              type="submit"
+              disabled={savingBrief}
+              className="bg-thread px-3 py-2 text-sm font-medium text-(--color-base) disabled:opacity-50"
+            >
+              {savingBrief ? "Saving" : "Save shared context"}
+            </button>
+          </form>
         </div>
       </div>
     </div>

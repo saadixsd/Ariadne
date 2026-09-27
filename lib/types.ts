@@ -37,6 +37,7 @@ export type ProjectDTO = {
   id: string;
   name: string;
   brief: string;
+  template: string;
   createdAt: string;
   agents: AgentDTO[];
   tasks: TaskDTO[];

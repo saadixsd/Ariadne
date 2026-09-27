@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { parseHandoffMessage, previewChips } from "@/lib/handoff-preview";
+import { hideModelIds } from "@/lib/model-label";
 import { canRunTask } from "@/lib/task-rules";
 import type { ActivityEventDTO, TaskDTO } from "@/lib/types";
 
@@ -85,6 +86,8 @@ export function ActivityFeed({
                 </time>
               );
 
+              const message = hideModelIds(event.message);
+
               if (event.type === "handoff") {
                 const parsed = parseHandoffMessage(event.message);
                 const source = parsed
@@ -99,7 +102,7 @@ export function ActivityFeed({
                       {time}
                     </span>
                     <span className="mt-1 block text-sm font-semibold leading-snug text-ink">
-                      {parsed ? `${parsed.from} → ${parsed.to}` : event.message}
+                      {parsed ? `${parsed.from} → ${parsed.to}` : message}
                     </span>
                     {parsed ? (
                       <span className="mt-1 block text-xs leading-normal text-ink-dim">{parsed.title}</span>
@@ -138,7 +141,7 @@ export function ActivityFeed({
                       <span className="text-xs font-semibold tracking-[0.16em] text-thread-bright">{labelFor(event.type)}</span>
                       {time}
                     </span>
-                    <span className="mt-1 block text-sm leading-normal">{event.message}</span>
+                    <span className="mt-1 block text-sm leading-normal">{message}</span>
                     {reviewable ? (
                       <button
                         type="button"
@@ -167,7 +170,7 @@ export function ActivityFeed({
                     </span>
                     {time}
                   </span>
-                  <span className="mt-1 block text-sm leading-normal">{event.message}</span>
+                  <span className="mt-1 block text-sm leading-normal">{message}</span>
                   {retryable && event.taskId ? (
                     <button
                       type="button"

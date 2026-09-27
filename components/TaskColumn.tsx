@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AddTaskForm, type NewTaskInput } from "@/components/AddTaskForm";
 import { OutputView } from "@/components/OutputView";
+import { displayModel, hideModelIds } from "@/lib/model-label";
 import { canRunTask, dependenciesMet, dependencyLabel, providerLabel } from "@/lib/task-rules";
 import type { ActivityEventDTO, AgentDTO, TaskDTO } from "@/lib/types";
 
@@ -137,8 +138,9 @@ export function TaskColumn({
           const displayStatus = busy && task.status !== "running" ? "running" : task.status;
           const flowed = task.status === "done";
           const needs = task.dependsOn.length > 0 ? dependencyLabel(task, tasks) : "";
-          const timing = [task.model, elapsed(task)].filter(Boolean).join(" · ");
-          const errorText = task.status === "failed" ? failureMessage(task.id, events) : null;
+          const timing = [displayModel(task.model, agent?.provider), elapsed(task)].filter(Boolean).join(" · ");
+          const rawError = task.status === "failed" ? failureMessage(task.id, events) : null;
+          const errorText = rawError ? hideModelIds(rawError) : null;
           const showHint = task.id === hintTaskId;
           const isLast = index === tasks.length - 1;
           const next = tasks[index + 1];

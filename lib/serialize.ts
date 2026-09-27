@@ -42,14 +42,21 @@ type ProjectRecord = {
   id: string;
   name: string;
   brief: string;
+  template: string;
   createdAt: Date;
   agents: AgentRecord[];
   tasks: TaskRecord[];
   events: EventRecord[];
 };
 
-function iso(value: Date | null): string | null {
-  return value ? value.toISOString() : null;
+function iso(value: unknown): string | null {
+  if (value == null || value === "") return null;
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value.toISOString();
+  if (typeof value === "string" || typeof value === "number") {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+  }
+  return null;
 }
 
 export function serializeAgent(agent: AgentRecord): AgentDTO {
@@ -78,7 +85,7 @@ export function serializeTask(task: TaskRecord): TaskDTO {
     model: task.model,
     startedAt: iso(task.startedAt),
     completedAt: iso(task.completedAt),
-    createdAt: task.createdAt.toISOString(),
+    createdAt: iso(task.createdAt) ?? new Date(0).toISOString(),
   };
 }
 
@@ -89,7 +96,7 @@ export function serializeEvent(event: EventRecord): ActivityEventDTO {
     type: event.type,
     message: event.message,
     taskId: event.taskId,
-    createdAt: event.createdAt.toISOString(),
+    createdAt: iso(event.createdAt) ?? new Date(0).toISOString(),
   };
 }
 
@@ -103,7 +110,8 @@ export function serializeProject(project: ProjectRecord): ProjectDTO {
     id: project.id,
     name: project.name,
     brief: project.brief,
-    createdAt: project.createdAt.toISOString(),
+    template: project.template,
+    createdAt: iso(project.createdAt) ?? new Date(0).toISOString(),
     agents: agents.map(serializeAgent),
     tasks: project.tasks.map(serializeTask),
     events: project.events.map(serializeEvent),

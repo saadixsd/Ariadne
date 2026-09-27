@@ -10,12 +10,15 @@ import { BetaMissions } from "@/components/BetaMissions";
 import { ContextDrawer } from "@/components/ContextDrawer";
 import { FeedbackModal } from "@/components/FeedbackModal";
 import { LineageRail } from "@/components/LineageRail";
+import { NewProjectDialog } from "@/components/NewProjectDialog";
 import { RegionBoundary } from "@/components/RegionBoundary";
 import { SetupBanner } from "@/components/SetupBanner";
 import { TaskColumn } from "@/components/TaskColumn";
 import { WelcomeOverlay } from "@/components/WelcomeOverlay";
 import { useFlag, writeFlag } from "@/components/client-storage";
+import { acceptPolledProject, needsSharedContextPrompt } from "@/lib/board-project";
 import { DAILY_MODEL_RUNS } from "@/lib/limits";
+import { hideModelIds } from "@/lib/model-label";
 import { buildLineage } from "@/lib/lineage";
 import { cascadeFrom, taskNumber } from "@/lib/task-rules";
 import type { ActivityEventDTO, ProjectDTO, TaskDTO } from "@/lib/types";
@@ -92,6 +95,9 @@ export function Dashboard({
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [approvalId, setApprovalId] = useState<string | null>(null);
   const [contextOpen, setContextOpen] = useState(false);
+  const [newProjectOpen, setNewProjectOpen] = useState(false);
+  const [selectedId, setSelectedId] = useState(initial.id);
+  const selectedIdRef = useRef(initial.id);
   const [lineageId, setLineageId] = useState<string | null>(null);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
@@ -120,6 +126,17 @@ export function Dashboard({
     setData(next);
   }, []);
 
+  function rememberProject(id: string) {
+    selectedIdRef.current = id;
+    setSelectedId(id);
+  }
+
+  function writeProjectUrl(id: string) {
+    const url = new URL(window.location.href);
+    url.searchParams.set("project", id);
+    window.history.replaceState(null, "", url);
+  }
+
   useEffect(() => {
     if (!toast) return;
     const timer = setTimeout(() => setToast(null), 6000);
@@ -133,18 +150,19 @@ export function Dashboard({
   }, [pulseRunId]);
 
   useEffect(() => {
-    const projectId = initial.id;
     let cancelled = false;
 
     async function poll() {
+      const projectId = selectedIdRef.current;
       const eventsRes = await fetch(`/api/projects/${projectId}/events`);
-      if (!eventsRes.ok || cancelled) return;
+      if (!eventsRes.ok || cancelled || !acceptPolledProject(selectedIdRef.current, projectId)) return;
       const events = (await eventsRes.json()) as ActivityEventDTO[];
       const signature = events.map((event) => event.id).join(",");
-      if (signature === seen.current) return;
+      if (signature === seen.current || cancelled || !acceptPolledProject(selectedIdRef.current, projectId)) return;
       const projectRes = await fetch(`/api/projects/${projectId}`);
-      if (!projectRes.ok || cancelled) return;
+      if (!projectRes.ok || cancelled || !acceptPolledProject(selectedIdRef.current, projectId)) return;
       const project = (await projectRes.json()) as ProjectDTO;
+      if (cancelled || !acceptPolledProject(selectedIdRef.current, project.id)) return;
       applyProject({ ...project, events });
     }
 
@@ -155,7 +173,7 @@ export function Dashboard({
       cancelled = true;
       clearInterval(timer);
     };
-  }, [applyProject, initial.id]);
+  }, [applyProject, selectedId]);
 
   useEffect(() => {
     if (!menu) return;
@@ -179,15 +197,18 @@ export function Dashboard({
   }, []);
 
   async function refresh() {
+    const projectId = selectedIdRef.current;
     const [projectRes, eventsRes] = await Promise.all([
-      fetch(`/api/projects/${data.id}`),
-      fetch(`/api/projects/${data.id}/events`),
+      fetch(`/api/projects/${projectId}`),
+      fetch(`/api/projects/${projectId}/events`),
     ]);
+    if (!acceptPolledProject(selectedIdRef.current, projectId)) return null;
     if (!projectRes.ok) {
       setToast({ tone: "danger", text: "Could not refresh the project. Check the dev server, then try the action again." });
       return null;
     }
     const project = (await projectRes.json()) as ProjectDTO;
+    if (!acceptPolledProject(selectedIdRef.current, project.id)) return null;
     const events = eventsRes.ok ? ((await eventsRes.json()) as ActivityEventDTO[]) : project.events;
     const next = { ...project, events };
     applyProject(next);
@@ -213,7 +234,7 @@ export function Dashboard({
       if (!response.ok) {
         setToast({
           tone: "danger",
-          text: `${body.error ?? "Run failed"}. Open the task to copy the error, or press Retry when you want another attempt.`,
+          text: `${hideModelIds(body.error ?? "Run failed")}. Open the task to copy the error, or press Retry when you want another attempt.`,
         });
       } else if (data.agents.find((agent) => agent.id === task?.agentId)?.provider !== "human") {
         setRemaining((count) => Math.max(0, count - 1));
@@ -234,58 +255,115 @@ export function Dashboard({
 
   async function decide(approved: boolean, note: string) {
     if (!approvalId) return;
-    const response = await fetch(`/api/tasks/${approvalId}/approve`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ approved, note }),
-    });
-    const body = (await response.json()) as { error?: string };
-    if (!response.ok) {
+    const id = approvalId;
+    const saved = (project: ProjectDTO | null) => {
+      const current = project?.tasks.find((task) => task.id === id);
+      return approved ? current?.status === "done" : current?.status === "pending";
+    };
+    try {
+      const response = await fetch(`/api/tasks/${id}/approve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ approved, note }),
+      });
+      const body = (await response.json().catch(() => null)) as { error?: string } | null;
+      const next = await refresh();
+      if (response.ok || saved(next)) {
+        setApprovalId(null);
+        return;
+      }
       setToast({
         tone: "danger",
-        text: `${body.error ?? "Could not save the decision"}. The gate is unchanged. Try again.`,
+        text: `${body?.error ?? "Could not save the decision"}. The gate is unchanged. Try again.`,
       });
-      return;
+    } catch {
+      const next = await refresh().catch(() => null);
+      if (saved(next)) {
+        setApprovalId(null);
+        return;
+      }
+      setToast({
+        tone: "danger",
+        text: "Could not save the decision. The gate is unchanged. Try again.",
+      });
     }
-    setApprovalId(null);
-    await refresh();
   }
 
-  async function saveContext(name: string, brief: string) {
-    const response = await fetch(`/api/projects/${data.id}`, {
+  async function saveContext(name: string, brief: string, options?: { quiet?: boolean }): Promise<string | null> {
+    const projectId = data.id;
+    if (!acceptPolledProject(selectedIdRef.current, projectId)) {
+      return "That project changed before the brief could be saved.";
+    }
+    const response = await fetch(`/api/projects/${projectId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name, brief }),
     });
     const body = (await response.json()) as { error?: string };
+    if (!acceptPolledProject(selectedIdRef.current, projectId)) {
+      return "That project changed before the brief could be saved.";
+    }
     if (!response.ok) {
-      setToast({
-        tone: "danger",
-        text: `${body.error ?? "Could not save shared context"}. Your previous brief is still in use. Try again.`,
-      });
-      return;
+      const message = body.error ?? "Could not save shared context";
+      if (!options?.quiet) {
+        setToast({
+          tone: "danger",
+          text: `${message}. Your previous brief is still in use. Try again.`,
+        });
+      }
+      return message;
     }
     setContextOpen(false);
-    setProjects((current) => current.map((project) => (project.id === data.id ? { ...project, name } : project)));
+    setData((current) => (current.id === projectId ? { ...current, name, brief } : current));
+    setProjects((current) => current.map((project) => (project.id === projectId ? { ...project, name } : project)));
     await refresh();
+    return null;
   }
 
   async function switchProject(id: string) {
-    if (id === data.id) return;
+    if (id === selectedIdRef.current) return;
+    const previous = selectedIdRef.current;
+    rememberProject(id);
     const response = await fetch(`/api/projects/${id}`);
+    if (!acceptPolledProject(selectedIdRef.current, id)) return;
     if (!response.ok) {
+      rememberProject(previous);
       setToast({ tone: "danger", text: "Could not open that project. The current board is unchanged." });
       return;
     }
     const project = (await response.json()) as ProjectDTO;
+    if (!acceptPolledProject(selectedIdRef.current, id) || project.id !== id) return;
     applyProject(project);
     setApprovalId(null);
     setExpandedTaskId(null);
     setRerunId(null);
     setPulseRunId(null);
-    const url = new URL(window.location.href);
-    url.searchParams.set("project", id);
-    window.history.replaceState(null, "", url);
+    writeProjectUrl(id);
+  }
+
+  async function createProject(name: string, brief: string) {
+    try {
+      const response = await fetch("/api/projects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, brief }),
+      });
+      const body = (await response.json()) as ProjectDTO & { error?: string };
+      if (!response.ok || !body.id) return body.error ?? "Could not create the project.";
+      setProjects((current) =>
+        current.some((project) => project.id === body.id) ? current : [...current, { id: body.id, name: body.name }],
+      );
+      rememberProject(body.id);
+      applyProject(body);
+      setApprovalId(null);
+      setExpandedTaskId(null);
+      setRerunId(null);
+      setPulseRunId(null);
+      writeProjectUrl(body.id);
+      return null;
+    } catch {
+      return "Could not reach the server. The project was not created.";
+    }
   }
 
   async function confirmRerun() {
@@ -299,7 +377,7 @@ export function Dashboard({
       if (!response.ok) {
         setToast({
           tone: "danger",
-          text: `${body.error ?? "Could not re-run"}. Refresh the board before trying again.`,
+          text: `${hideModelIds(body.error ?? "Could not re-run")}. Refresh the board before trying again.`,
         });
         await refresh();
         return;
@@ -394,7 +472,10 @@ export function Dashboard({
   const lineageSteps = lineageId ? buildLineage(data, lineageId) : null;
   const first = data.tasks[0];
   const ranTask = !!first && first.status !== "pending";
-  const approved = data.events.some((event) => event.type === "approved") || data.tasks.some((task) => task.requiresApproval && task.status === "done");
+  const approved =
+    data.events.some((event) => event.type === "approved") ||
+    data.tasks.some((task) => task.requiresApproval && task.status === "done");
+  const sharedContextGate = needsSharedContextPrompt(data);
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-base text-ink">
@@ -409,7 +490,7 @@ export function Dashboard({
           <label className="min-w-0">
             <span className="sr-only">Project</span>
             <select
-              value={data.id}
+              value={selectedId}
               onChange={(event) => void switchProject(event.target.value)}
               className="max-w-56 truncate bg-base px-2 py-1 text-sm font-semibold text-ink ring-1 ring-white/15"
             >
@@ -420,6 +501,13 @@ export function Dashboard({
               ))}
             </select>
           </label>
+          <button
+            type="button"
+            onClick={() => setNewProjectOpen(true)}
+            className="px-2 py-1 text-sm ring-1 ring-white/15 hover:ring-thread"
+          >
+            New project
+          </button>
         </div>
         <div ref={menuRef} className="flex flex-wrap items-center gap-2">
           <p className="max-w-40 truncate text-xs text-ink-dim" title={email}>
@@ -604,6 +692,10 @@ export function Dashboard({
         email={email}
         firstName={accountFirstName}
         lastName={accountLastName}
+        projectId={data.id}
+        projectName={data.name}
+        brief={data.brief}
+        onSaveBrief={(name, brief) => saveContext(name, brief, { quiet: true })}
       />
       {approvalTask ? (
         <ApprovalModal task={approvalTask} tasks={data.tasks} onClose={() => setApprovalId(null)} onDecide={decide} />
@@ -611,14 +703,20 @@ export function Dashboard({
       {lineageSteps ? (
         <LineageRail key={lineageId ?? "lineage"} steps={lineageSteps} onClose={() => setLineageId(null)} />
       ) : null}
-      {contextOpen ? (
+      {sharedContextGate || contextOpen ? (
         <ContextDrawer
-          key={`${data.name}\n${data.brief}`}
+          key={`${data.id}\n${data.name}\n${data.brief}`}
           name={data.name}
           brief={data.brief}
+          blocking={sharedContextGate}
           onClose={() => setContextOpen(false)}
-          onSave={saveContext}
+          onSave={async (name, brief) => {
+            await saveContext(name, brief);
+          }}
         />
+      ) : null}
+      {newProjectOpen && !sharedContextGate ? (
+        <NewProjectDialog onClose={() => setNewProjectOpen(false)} onCreate={createProject} />
       ) : null}
       {feedbackOpen ? <FeedbackModal onClose={() => setFeedbackOpen(false)} /> : null}
       {rerunId ? (
@@ -660,8 +758,9 @@ export function Dashboard({
               Reset demo
             </h2>
             <p className="mt-2 text-sm leading-normal text-ink-dim">
-              Tasks return to pending. Outputs and activity are cleared. The example name and brief are restored.
-              Claude and GPT are not called.
+              {data.template === "own"
+                ? "Tasks return to pending. Outputs and activity are cleared. Your project name and brief stay. Claude and GPT are not called."
+                : "Tasks return to pending. Outputs and activity are cleared. The example name and brief are restored. Claude and GPT are not called."}
             </p>
             <div className="mt-4 flex justify-end gap-2">
               <button type="button" onClick={() => setConfirmReset(false)} className="px-3 py-2 text-sm text-ink-dim hover:text-ink">

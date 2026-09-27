@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
 
 export const DEMO_NAME = "Launch landing page";
@@ -112,6 +113,50 @@ const MARKET_TASKS: TaskSpec[] = [
   },
 ];
 
+const OWN_TASKS: TaskSpec[] = [
+  {
+    key: "research",
+    agent: "Scout",
+    title: "Research the brief",
+    instructions:
+      "Read the shared context. List the goals, constraints, and the questions that have to be answered before anyone builds.",
+    dependsOn: [],
+    requiresApproval: false,
+  },
+  {
+    key: "draft",
+    agent: "Maker",
+    title: "Draft from the brief",
+    instructions: "Using the shared context and the research, draft the work the brief asks for.",
+    dependsOn: ["research"],
+    requiresApproval: false,
+  },
+  {
+    key: "review",
+    agent: "Scout",
+    title: "Review the draft",
+    instructions: "Critique the draft against the shared context. Flag anything off-brief and suggest fixes.",
+    dependsOn: ["draft"],
+    requiresApproval: false,
+  },
+  {
+    key: "approve",
+    agent: "You",
+    title: "Approve the direction",
+    instructions: "Read the draft and the review. Approve it, or request changes.",
+    dependsOn: ["review"],
+    requiresApproval: true,
+  },
+  {
+    key: "build",
+    agent: "Maker",
+    title: "Produce the work",
+    instructions: "Produce the artifact the shared context asks for, using the approved direction.",
+    dependsOn: ["approve"],
+    requiresApproval: false,
+  },
+];
+
 const TEMPLATES = {
   landing: { name: DEMO_NAME, brief: DEMO_BRIEF, tasks: LANDING_TASKS },
   market: { name: MARKET_NAME, brief: MARKET_BRIEF, tasks: MARKET_TASKS },
@@ -190,6 +235,57 @@ export async function createDemoTasks(
   }
 }
 
+async function seedOwnBoard(projectId: string) {
+  const agents = await createRoster(projectId);
+  await createDemoTasks(projectId, agents, OWN_TASKS);
+}
+
+function isUniqueConflict(error: unknown) {
+  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
+}
+
+export const OWN_PROJECT_NAME = "My project";
+
+export async function createUserProject(userId: string, name: string, brief: string) {
+  const project = await prisma.project.create({
+    data: { userId, name, brief, template: "own" },
+  });
+  await seedOwnBoard(project.id);
+  return project.id;
+}
+
+export async function ensureOwnProject(userId: string) {
+  const existing = await prisma.project.findFirst({
+    where: { userId, template: "own" },
+    orderBy: { createdAt: "asc" },
+  });
+  if (existing) {
+    const agents = await prisma.agent.count({ where: { projectId: existing.id } });
+    if (agents === 0) await seedOwnBoard(existing.id);
+    return existing.id;
+  }
+
+  const id = `own_${userId}`;
+  try {
+    await prisma.project.create({
+      data: { id, userId, name: OWN_PROJECT_NAME, brief: "", template: "own" },
+    });
+  } catch (error) {
+    if (!isUniqueConflict(error)) throw error;
+    const raced = await prisma.project.findFirst({
+      where: { userId, template: "own" },
+      orderBy: { createdAt: "asc" },
+    });
+    if (!raced) throw error;
+    const agents = await prisma.agent.count({ where: { projectId: raced.id } });
+    if (agents === 0) await seedOwnBoard(raced.id);
+    return raced.id;
+  }
+
+  await seedOwnBoard(id);
+  return id;
+}
+
 async function createFromTemplate(template: TemplateKey, userId: string) {
   const spec = TEMPLATES[template];
   const project = await prisma.project.create({
@@ -206,6 +302,15 @@ export async function createDemoProject(userId: string) {
 
 export async function resetDemo(projectId: string) {
   const existing = await prisma.project.findUnique({ where: { id: projectId } });
+  if (existing?.template === "own") {
+    await prisma.$transaction([
+      prisma.activityEvent.deleteMany({ where: { projectId } }),
+      prisma.task.deleteMany({ where: { projectId } }),
+      prisma.agent.deleteMany({ where: { projectId } }),
+    ]);
+    await seedOwnBoard(projectId);
+    return projectId;
+  }
   const template: TemplateKey = existing?.template === "market" ? "market" : "landing";
   const spec = TEMPLATES[template];
   await prisma.$transaction([

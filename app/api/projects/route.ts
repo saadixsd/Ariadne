@@ -1,5 +1,5 @@
 import { requireUser } from "@/lib/auth";
-import { createRoster } from "@/lib/demo";
+import { createUserProject } from "@/lib/demo";
 import { errorResponse } from "@/lib/errors";
 import { prisma } from "@/lib/prisma";
 import { getProject } from "@/lib/project";
@@ -36,10 +36,12 @@ export async function POST(request: Request) {
     if (!name || !brief) {
       return Response.json({ error: "Name and brief are required" }, { status: 400 });
     }
+    if (name.length > 120) {
+      return Response.json({ error: "Name is too long" }, { status: 400 });
+    }
     const user = await requireUser();
-    const project = await prisma.project.create({ data: { userId: user.id, name, brief } });
-    await createRoster(project.id);
-    const created = await getProject(project.id, user.id);
+    const projectId = await createUserProject(user.id, name, brief);
+    const created = await getProject(projectId, user.id);
     return Response.json(created, { status: 201 });
   } catch (error) {
     return errorResponse(error);

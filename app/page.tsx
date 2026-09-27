@@ -1,6 +1,8 @@
 import { Dashboard } from "@/components/Dashboard";
 import { accountDisplay } from "@/lib/account";
 import { currentUser } from "@/lib/auth";
+import { pickBoardProject } from "@/lib/board-project";
+import { ensureOwnProject } from "@/lib/demo";
 import { missingSetup } from "@/lib/setup";
 import { DAILY_MODEL_RUNS, modelRunsToday } from "@/lib/usage";
 import { prisma } from "@/lib/prisma";
@@ -18,12 +20,13 @@ export default async function Home({
   if (!user) redirect("/sign-in");
   if (!user.emailVerified) redirect("/verify");
   const { project: requested } = await searchParams;
+  await ensureOwnProject(user.id);
   const projects = await prisma.project.findMany({
     where: { userId: user.id },
     orderBy: { createdAt: "asc" },
-    select: { id: true, name: true },
+    select: { id: true, name: true, brief: true, template: true },
   });
-  const existing = projects.find((project) => project.id === requested) ?? projects[0];
+  const existing = pickBoardProject(projects, requested);
 
   if (!existing) {
     return (
@@ -56,7 +59,7 @@ export default async function Home({
   return (
     <Dashboard
       initial={project}
-      projects={projects}
+      projects={projects.map(({ id, name }) => ({ id, name }))}
       missingSetup={missingSetup()}
       email={user.email}
       accountInitial={account.initial}

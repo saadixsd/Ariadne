@@ -1,3 +1,4 @@
+import { hideModelIds } from "@/lib/model-label";
 import { providerLabel, taskNumber } from "@/lib/task-rules";
 import type { ActivityEventDTO, AgentDTO, ProjectDTO, TaskDTO } from "@/lib/types";
 
@@ -106,7 +107,7 @@ function approvalFromEvents(taskId: string, events: ActivityEventDTO[]): Lineage
   const match = approved ? event.message.match(/^(.+?) approved "/) : null;
   return {
     approver: match?.[1] ?? null,
-    message: event.message,
+    message: hideModelIds(event.message),
     at: event.createdAt,
   };
 }

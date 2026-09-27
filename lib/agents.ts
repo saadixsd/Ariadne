@@ -61,6 +61,14 @@ function toHandoff(task: TaskWithAgent): HandoffInput {
   };
 }
 
+function latestChangeNote(instructions: string): string | null {
+  const marker = "Human requested changes:";
+  const index = instructions.lastIndexOf(marker);
+  if (index < 0) return null;
+  const note = instructions.slice(index + marker.length).trim();
+  return note.length > 0 ? note : null;
+}
+
 function modelForProvider(provider: string): string {
   if (provider === "openai") return process.env.OPENAI_MODEL?.trim() ?? "";
   if (provider === "anthropic") return process.env.ANTHROPIC_MODEL?.trim() ?? "";
@@ -84,7 +92,11 @@ function assertConfigured(provider: string, model: string) {
 }
 
 async function callAnthropic(model: string, system: string, user: string) {
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  const client = new Anthropic({
+    apiKey: process.env.ANTHROPIC_API_KEY,
+    maxRetries: 0,
+    timeout: 60_000,
+  });
   const response = await client.messages.create({
     model,
     max_tokens: 8192,
@@ -101,7 +113,11 @@ async function callAnthropic(model: string, system: string, user: string) {
 }
 
 async function callOpenAI(model: string, system: string, user: string) {
-  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  const client = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+    maxRetries: 0,
+    timeout: 60_000,
+  });
   const response = await client.chat.completions.create({
     model,
     messages: [
@@ -212,7 +228,10 @@ export async function runTask(taskId: string, userId: string) {
   }
 
   if (task.agent.provider === "human") {
-    const output = packageDependencyOutputs(handoffs);
+    const note = latestChangeNote(task.instructions);
+    const output = note
+      ? `${packageDependencyOutputs(handoffs)}\n\n## Changes you requested\n${note}`
+      : packageDependencyOutputs(handoffs);
     await prisma.task.update({
       where: { id: task.id },
       data: { output, status: "awaiting_approval", model: "human" },

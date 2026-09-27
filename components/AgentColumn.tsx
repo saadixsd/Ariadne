@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import type { AgentDTO, TaskDTO } from "@/lib/types";
+import { displayModel } from "@/lib/model-label";
 import { providerLabel, taskNumber } from "@/lib/task-rules";
 
 function statusClass(status: string) {
@@ -58,6 +59,7 @@ export function AgentColumn({
         {agents.map((agent, index) => {
           const assigned = tasks.filter((task) => task.agentId === agent.id);
           const open = expandedId === agent.id;
+          const modelLabel = displayModel(agent.model, agent.provider);
           return (
             <li
               key={agent.id}
@@ -88,10 +90,10 @@ export function AgentColumn({
                 </button>
                 {open ? (
                   <div className="border-t border-white/10 px-3 pt-3 pb-3" aria-label={`${agent.name} assignments`}>
-                    {agent.provider !== "human" ? (
-                      <p className="font-mono text-xs text-ink-dim">{agent.model}</p>
+                    {modelLabel ? (
+                      <p className="font-mono text-xs text-ink-dim">{modelLabel}</p>
                     ) : null}
-                    <p className={`${agent.provider !== "human" ? "mt-3" : ""} text-xs font-semibold tracking-[0.14em] text-ink-dim`}>
+                    <p className={`${modelLabel ? "mt-3" : ""} text-xs font-semibold tracking-[0.14em] text-ink-dim`}>
                       ASSIGNED
                     </p>
                     {assigned.length === 0 ? (
