@@ -46,6 +46,11 @@ a[href] {
   animation: fade-up 320ms ease both;
 }
 
+.account-scrim,
+.account-panel {
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
 .pulse-status,
 .pulse-run {
   animation: status-pulse 1.5s ease-in-out infinite;
@@ -95,6 +100,11 @@ a[href] {
   .thread-flow,
   .animate-pulse {
     animation: none !important;
+  }
+
+  .account-scrim,
+  .account-panel {
+    transition: none;
   }
 }
 

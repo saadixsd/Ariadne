@@ -61,6 +61,8 @@ export default async function Home({
       email={user.email}
       accountInitial={account.initial}
       accountName={account.name}
+      accountFirstName={account.firstName}
+      accountLastName={account.lastName}
       runsLeft={runsLeft}
     />
   );

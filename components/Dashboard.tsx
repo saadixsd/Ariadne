@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { AccountPanel } from "@/components/AccountPanel";
 import type { NewTaskInput } from "@/components/AddTaskForm";
 import { ActivityFeed } from "@/components/ActivityFeed";
 import { AgentColumn } from "@/components/AgentColumn";
@@ -69,6 +69,8 @@ export function Dashboard({
   email,
   accountInitial,
   accountName,
+  accountFirstName,
+  accountLastName,
   runsLeft,
 }: {
   initial: ProjectDTO;
@@ -77,6 +79,8 @@ export function Dashboard({
   email: string;
   accountInitial: string;
   accountName: string;
+  accountFirstName: string;
+  accountLastName: string;
   runsLeft: number;
 }) {
   const [data, setData] = useState(initial);
@@ -90,7 +94,9 @@ export function Dashboard({
   const [contextOpen, setContextOpen] = useState(false);
   const [lineageId, setLineageId] = useState<string | null>(null);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
   const [menu, setMenu] = useState<null | "beta" | "settings">(null);
+  const closeAccount = useCallback(() => setAccountOpen(false), []);
   const [confirmReset, setConfirmReset] = useState(false);
   const [activityOpen, setActivityOpen] = useState(true);
   const [toast, setToast] = useState<{ tone: "danger" | "ok"; text: string } | null>(null);
@@ -567,8 +573,14 @@ export function Dashboard({
         ) : null}
       </main>
       <footer className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-white/10 px-4 py-2">
-        <Link
-          href="/settings"
+        <button
+          type="button"
+          aria-haspopup="dialog"
+          aria-expanded={accountOpen}
+          onClick={() => {
+            setMenu(null);
+            setAccountOpen((current) => !current);
+          }}
           className="flex min-w-0 items-center gap-2 py-0.5 hover:text-thread"
         >
           <span
@@ -579,11 +591,20 @@ export function Dashboard({
           </span>
           <span className="max-w-56 truncate text-sm text-ink">{accountName}</span>
           <span className="sr-only">Open settings</span>
-        </Link>
+        </button>
         <p className="text-xs leading-normal text-ink-dim">
           Scout and Maker are AI agents and can make mistakes. Nothing ships without your approval.
         </p>
       </footer>
+      <AccountPanel
+        open={accountOpen}
+        onClose={closeAccount}
+        initial={accountInitial}
+        name={accountName}
+        email={email}
+        firstName={accountFirstName}
+        lastName={accountLastName}
+      />
       {approvalTask ? (
         <ApprovalModal task={approvalTask} tasks={data.tasks} onClose={() => setApprovalId(null)} onDecide={decide} />
       ) : null}
