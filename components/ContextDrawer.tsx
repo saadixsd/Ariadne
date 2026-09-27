@@ -11,7 +11,7 @@ export function ContextDrawer({
 }: {
   name: string;
   brief: string;
-  /** First-visit nudge for an empty own project — always dismissible. */
+  /** Empty own-project nudge — always dismissible; never blocks the board. */
   prompting?: boolean;
   onClose: () => void;
   onSave: (name: string, brief: string) => Promise<void>;
@@ -29,7 +29,7 @@ export function ContextDrawer({
     if (draftName.trim().length === 0 || draft.trim().length === 0) {
       setError(
         prompting
-          ? "Write what this project is, or close and explore the seeded demo first."
+          ? "Add a brief to save, or close and explore the board first."
           : "Name and brief are required.",
       );
       return;
@@ -77,18 +77,32 @@ export function ContextDrawer({
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose, prompting]);
 
-  const body = (
-    <>
-      <div className="border-b border-white/10 px-5 py-4">
+  const header = (
+    <div className="flex items-start justify-between gap-3 border-b border-white/10 px-5 py-4">
+      <div className="min-w-0">
         <h2 id={titleId} className="text-lg font-semibold leading-tight">
           Shared context
         </h2>
         <p className="mt-1 text-sm leading-normal text-ink-dim">
           {prompting
-            ? "Optional for exploring. Scout and Maker use this when you press Run on your own project. You can close and open the seeded Launch landing page anytime."
+            ? "Optional. Scout and Maker use this when you press Run. You can close anytime and explore the board first."
             : "Every agent receives this automatically. This is the thread."}
         </p>
       </div>
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="Close shared context"
+        className="shrink-0 px-2 py-1 text-lg leading-none text-ink-dim hover:text-ink"
+      >
+        ×
+      </button>
+    </div>
+  );
+
+  const body = (
+    <>
+      {header}
       <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-5 py-4">
         <label className="block text-sm">
           Project name
@@ -120,7 +134,7 @@ export function ContextDrawer({
       </div>
       <div className="flex justify-end gap-2 border-t border-white/10 px-5 py-4">
         <button type="button" onClick={onClose} className="px-3 py-2 text-sm text-ink-dim hover:text-ink">
-          {prompting ? "Skip for now" : "Close"}
+          Close
         </button>
         <button
           type="button"

@@ -97,7 +97,6 @@ export function Dashboard({
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [approvalId, setApprovalId] = useState<string | null>(null);
   const [contextOpen, setContextOpen] = useState(false);
-  const [contextGateDismissed, setContextGateDismissed] = useState<string | null>(null);
   const [newProjectOpen, setNewProjectOpen] = useState(false);
   const [selectedId, setSelectedId] = useState(initial.id);
   const selectedIdRef = useRef(initial.id);
@@ -486,8 +485,7 @@ export function Dashboard({
   const approved =
     data.events.some((event) => event.type === "approved") ||
     data.tasks.some((task) => task.requiresApproval && task.status === "done");
-  const sharedContextGate =
-    needsSharedContextPrompt(data) && contextGateDismissed !== data.id;
+  const emptyOwnBrief = needsSharedContextPrompt(data);
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-base text-ink">
@@ -715,22 +713,19 @@ export function Dashboard({
       {lineageSteps ? (
         <LineageRail key={lineageId ?? "lineage"} steps={lineageSteps} onClose={() => setLineageId(null)} />
       ) : null}
-      {sharedContextGate || contextOpen ? (
+      {contextOpen ? (
         <ContextDrawer
           key={`${data.id}\n${data.name}\n${data.brief}`}
           name={data.name}
           brief={data.brief}
-          prompting={sharedContextGate}
-          onClose={() => {
-            if (sharedContextGate) setContextGateDismissed(data.id);
-            setContextOpen(false);
-          }}
+          prompting={emptyOwnBrief}
+          onClose={() => setContextOpen(false)}
           onSave={async (name, brief) => {
             await saveContext(name, brief);
           }}
         />
       ) : null}
-      {newProjectOpen && !sharedContextGate ? (
+      {newProjectOpen ? (
         <NewProjectDialog onClose={() => setNewProjectOpen(false)} onCreate={createProject} />
       ) : null}
       {feedbackOpen ? <FeedbackModal onClose={() => setFeedbackOpen(false)} /> : null}
