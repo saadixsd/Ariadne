@@ -92,6 +92,8 @@ export function TaskColumn({
   onReview,
   onCopyError,
   onAdd,
+  lineageTaskId,
+  onOpenLineage,
 }: {
   tasks: TaskDTO[];
   agents: AgentDTO[];
@@ -107,6 +109,8 @@ export function TaskColumn({
   onReview: (id: string) => void;
   onCopyError: (message: string) => void;
   onAdd: (input: NewTaskInput) => Promise<string | null>;
+  lineageTaskId: string | null;
+  onOpenLineage: (id: string) => void;
 }) {
   const anyOutput = tasks.some((task) => task.output);
   const hintTaskId = showDependencyHint
@@ -233,6 +237,15 @@ export function TaskColumn({
                   <div className="mt-3 space-y-3 border-t border-white/10 pt-3">
                     <p className="text-sm leading-normal whitespace-pre-wrap text-ink">{task.instructions}</p>
                     {timing ? <p className="font-mono text-xs text-ink-dim">{timing}</p> : null}
+                    <button
+                      type="button"
+                      aria-expanded={lineageTaskId === task.id}
+                      aria-haspopup="dialog"
+                      onClick={() => onOpenLineage(task.id)}
+                      className="text-sm font-medium text-thread hover:text-thread-bright"
+                    >
+                      Lineage
+                    </button>
                     {busy ? (
                       <div className="space-y-2" aria-hidden>
                         <div className="h-3 w-4/5 animate-pulse bg-raised" />

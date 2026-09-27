@@ -8,12 +8,14 @@ import { ApprovalModal } from "@/components/ApprovalModal";
 import { BetaMissions } from "@/components/BetaMissions";
 import { ContextDrawer } from "@/components/ContextDrawer";
 import { FeedbackModal } from "@/components/FeedbackModal";
+import { LineageRail } from "@/components/LineageRail";
 import { RegionBoundary } from "@/components/RegionBoundary";
 import { SetupBanner } from "@/components/SetupBanner";
 import { TaskColumn } from "@/components/TaskColumn";
 import { WelcomeOverlay } from "@/components/WelcomeOverlay";
 import { useFlag, writeFlag } from "@/components/client-storage";
 import { DAILY_MODEL_RUNS } from "@/lib/limits";
+import { buildLineage } from "@/lib/lineage";
 import { cascadeFrom, taskNumber } from "@/lib/task-rules";
 import type { ActivityEventDTO, ProjectDTO, TaskDTO } from "@/lib/types";
 
@@ -81,6 +83,7 @@ export function Dashboard({
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [approvalId, setApprovalId] = useState<string | null>(null);
   const [contextOpen, setContextOpen] = useState(false);
+  const [lineageId, setLineageId] = useState<string | null>(null);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [menu, setMenu] = useState<null | "beta" | "settings">(null);
   const [confirmReset, setConfirmReset] = useState(false);
@@ -377,6 +380,7 @@ export function Dashboard({
 
   const waiting = data.tasks.find((task) => task.status === "awaiting_approval") ?? null;
   const approvalTask = data.tasks.find((task) => task.id === approvalId) ?? null;
+  const lineageSteps = lineageId ? buildLineage(data, lineageId) : null;
   const first = data.tasks[0];
   const ranTask = !!first && first.status !== "pending";
   const approved = data.events.some((event) => event.type === "approved") || data.tasks.some((task) => task.requiresApproval && task.status === "done");
@@ -539,6 +543,8 @@ export function Dashboard({
             onReview={setApprovalId}
             onCopyError={(message) => void copyError(message)}
             onAdd={addTask}
+            lineageTaskId={lineageId}
+            onOpenLineage={(id) => setLineageId((current) => (current === id ? null : id))}
           />
         </RegionBoundary>
         {activityOpen ? (
@@ -560,6 +566,9 @@ export function Dashboard({
       </footer>
       {approvalTask ? (
         <ApprovalModal task={approvalTask} tasks={data.tasks} onClose={() => setApprovalId(null)} onDecide={decide} />
+      ) : null}
+      {lineageSteps ? (
+        <LineageRail key={lineageId ?? "lineage"} steps={lineageSteps} onClose={() => setLineageId(null)} />
       ) : null}
       {contextOpen ? (
         <ContextDrawer
