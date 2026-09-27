@@ -5,13 +5,14 @@ import { useEffect, useId, useRef, useState } from "react";
 export function ContextDrawer({
   name,
   brief,
-  blocking = false,
+  prompting = false,
   onClose,
   onSave,
 }: {
   name: string;
   brief: string;
-  blocking?: boolean;
+  /** First-visit nudge for an empty own project — always dismissible. */
+  prompting?: boolean;
   onClose: () => void;
   onSave: (name: string, brief: string) => Promise<void>;
 }) {
@@ -23,15 +24,14 @@ export function ContextDrawer({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const unchanged = draftName.trim() === name.trim() && draft.trim() === brief.trim();
-  const blankMessage = "Write what this project is before continuing.";
-
-  function rejectDismiss() {
-    setError(blankMessage);
-  }
 
   async function save() {
     if (draftName.trim().length === 0 || draft.trim().length === 0) {
-      setError(blocking ? blankMessage : "Name and brief are required.");
+      setError(
+        prompting
+          ? "Write what this project is, or close and explore the seeded demo first."
+          : "Name and brief are required.",
+      );
       return;
     }
     setError(null);
@@ -44,14 +44,13 @@ export function ContextDrawer({
   }
 
   useEffect(() => {
-    if (!blocking) return;
     const root = panelRef.current;
-    root?.querySelector<HTMLElement>("textarea")?.focus();
+    root?.querySelector<HTMLElement>(prompting ? "textarea" : "input, textarea")?.focus();
 
     function onKey(event: KeyboardEvent) {
       if (event.key === "Escape") {
         event.preventDefault();
-        setError(blankMessage);
+        onClose();
         return;
       }
       if (event.key !== "Tab" || !root) return;
@@ -76,7 +75,7 @@ export function ContextDrawer({
 
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [blocking]);
+  }, [onClose, prompting]);
 
   const body = (
     <>
@@ -85,8 +84,8 @@ export function ContextDrawer({
           Shared context
         </h2>
         <p className="mt-1 text-sm leading-normal text-ink-dim">
-          {blocking
-            ? "Describe this project. Scout and Maker use it when you press Run. Saving does not call Claude or GPT, and nothing runs until you do."
+          {prompting
+            ? "Optional for exploring. Scout and Maker use this when you press Run on your own project. You can close and open the seeded Launch landing page anytime."
             : "Every agent receives this automatically. This is the thread."}
         </p>
       </div>
@@ -120,14 +119,12 @@ export function ContextDrawer({
         </p>
       </div>
       <div className="flex justify-end gap-2 border-t border-white/10 px-5 py-4">
-        {blocking ? null : (
-          <button type="button" onClick={onClose} className="px-3 py-2 text-sm text-ink-dim hover:text-ink">
-            Close
-          </button>
-        )}
+        <button type="button" onClick={onClose} className="px-3 py-2 text-sm text-ink-dim hover:text-ink">
+          {prompting ? "Skip for now" : "Close"}
+        </button>
         <button
           type="button"
-          disabled={saving || (!blocking && (unchanged || draft.trim().length === 0 || draftName.trim().length === 0))}
+          disabled={saving || unchanged || draft.trim().length === 0 || draftName.trim().length === 0}
           onClick={() => void save()}
           className="bg-thread px-3 py-2 text-sm font-medium text-(--color-base) disabled:opacity-50"
         >
@@ -137,12 +134,12 @@ export function ContextDrawer({
     </>
   );
 
-  if (blocking) {
+  if (prompting) {
     return (
       <div className="fixed inset-0 z-50">
         <div
           className="account-scrim absolute inset-0 bg-base/60 opacity-100 backdrop-blur-md"
-          onMouseDown={rejectDismiss}
+          onMouseDown={onClose}
         />
         <div className="absolute inset-0 flex items-end justify-center p-4 sm:items-center">
           <aside
