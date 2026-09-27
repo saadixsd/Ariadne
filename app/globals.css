@@ -1,0 +1,155 @@
+@import "tailwindcss";
+
+@theme inline {
+  --font-sans: var(--font-inter), ui-sans-serif, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, monospace;
+
+  --color-base: #09090b;
+  --color-panel: #101014;
+  --color-raised: #18181d;
+  --color-thread: #f59e0b;
+  --color-thread-bright: #fbbf24;
+  --color-thread-dim: #27272a;
+  --color-ink: #f4f4f5;
+  --color-ink-dim: #a1a1aa;
+  --color-ok: #4ade80;
+  --color-working: #fbbf24;
+  --color-danger: #f87171;
+  --color-gate: #f59e0b;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: var(--color-base);
+  color: var(--color-ink);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-thread);
+  outline-offset: 2px;
+}
+
+button:not(:disabled),
+a[href] {
+  cursor: pointer;
+}
+
+.ink-on-thread {
+  color: var(--color-base);
+}
+
+.enter {
+  animation: fade-up 320ms ease both;
+}
+
+.pulse-status,
+.pulse-run {
+  animation: status-pulse 1.5s ease-in-out infinite;
+}
+
+.thread-flow {
+  transform-origin: top;
+  animation: thread-light 900ms ease both;
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes status-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+@keyframes thread-light {
+  from {
+    opacity: 0.3;
+    transform: scaleY(0.15);
+  }
+  to {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .enter,
+  .pulse-status,
+  .pulse-run,
+  .thread-flow,
+  .animate-pulse {
+    animation: none !important;
+  }
+}
+
+.markdown > :first-child {
+  margin-top: 0;
+}
+
+.markdown h1,
+.markdown h2,
+.markdown h3 {
+  font-weight: 600;
+  line-height: 1.25;
+  margin: 0.75rem 0 0.25rem;
+}
+
+.markdown h1 {
+  font-size: 1.25rem;
+}
+
+.markdown h2 {
+  font-size: 1.05rem;
+}
+
+.markdown p {
+  margin: 0.4rem 0;
+}
+
+.markdown ul,
+.markdown ol {
+  margin: 0.4rem 0;
+  padding-left: 1.2rem;
+}
+
+.markdown ul {
+  list-style: disc;
+}
+
+.markdown ol {
+  list-style: decimal;
+}
+
+.markdown pre {
+  overflow: auto;
+  background: var(--color-base);
+  color: var(--color-ink);
+  padding: 0.75rem;
+  font-size: 0.75rem;
+}
+
+.markdown code {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.85em;
+}
+
+.markdown p code {
+  background: var(--color-raised);
+  padding: 0.1rem 0.3rem;
+}
