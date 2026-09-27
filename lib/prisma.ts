@@ -1,10 +1,8 @@
 import "server-only";
 
-import { AsyncLocalStorage } from "node:async_hooks";
 import { PrismaClient } from "@prisma/client";
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
-const requestClients = new AsyncLocalStorage<PrismaClient>();
 
 async function createClient() {
   if (process.env.NODE_ENV === "development") {
@@ -26,21 +24,16 @@ async function createClient() {
   return new WorkerPrisma({ adapter: new PrismaD1(env.DB) });
 }
 
+// One client per isolate. Workerd does not implement AsyncLocalStorage.enterWith(),
+// and calling it crashes every signed-in page. D1's binding is safe to share here.
 export async function getPrisma() {
-  if (process.env.NODE_ENV !== "production") {
-    if (!globalForPrisma.prisma) globalForPrisma.prisma = await createClient();
-    return globalForPrisma.prisma;
-  }
-  const current = requestClients.getStore();
-  if (current) return current;
-  const client = await createClient();
-  requestClients.enterWith(client);
-  return client;
+  if (!globalForPrisma.prisma) globalForPrisma.prisma = await createClient();
+  return globalForPrisma.prisma;
 }
 
 export const prisma: PrismaClient = new Proxy({} as PrismaClient, {
   get(_target, prop, receiver) {
-    const client = requestClients.getStore() ?? globalForPrisma.prisma;
+    const client = globalForPrisma.prisma;
     if (!client) throw new Error("Database client is not open yet");
     const value = Reflect.get(client, prop, receiver) as unknown;
     return typeof value === "function" ? (value as (...args: unknown[]) => unknown).bind(client) : value;
