@@ -2,7 +2,7 @@ import { ColumnTypeEnum, type ColumnType, type SqlDriverAdapter, type SqlDriverA
 
 type StatementColumn = { name: string; type: string | null };
 type StatementSync = {
-  columns(): StatementColumn[];
+  columns?: () => StatementColumn[];
   all(...args: unknown[]): unknown[];
   run(...args: unknown[]): { changes: number | bigint; lastInsertRowid: number | bigint };
 };
@@ -46,6 +46,14 @@ function bind(arg: unknown, scalarType: string) {
   return arg;
 }
 
+function isMutatingSql(sql: string) {
+  const trimmed = sql.trim().replace(/^\(+/, "");
+  return (
+    !/\bRETURNING\b/i.test(trimmed) &&
+    /^(INSERT|UPDATE|DELETE|REPLACE|CREATE|DROP|ALTER|BEGIN|COMMIT|ROLLBACK|VACUUM|REINDEX)\b/i.test(trimmed)
+  );
+}
+
 class NodeSqliteConnection implements SqlDriverAdapter {
   readonly provider = "sqlite" as const;
   readonly adapterName = "node-sqlite";
@@ -55,9 +63,9 @@ class NodeSqliteConnection implements SqlDriverAdapter {
   async queryRaw(params: SqlQuery): Promise<SqlResultSet> {
     const statement = this.db.prepare(params.sql);
     const args = params.args.map((arg, index) => bind(arg, params.argTypes[index]?.scalarType ?? "unknown"));
-    const columns = statement.columns();
-    const names = columns.map((column: StatementColumn) => column.name);
-    if (names.length === 0) {
+    const columnsApi = typeof statement.columns === "function" ? statement.columns.bind(statement) : null;
+
+    if ((!columnsApi && isMutatingSql(params.sql)) || (columnsApi && columnsApi().length === 0)) {
       const result = statement.run(...(args as never[]));
       return {
         columnNames: [],
@@ -66,7 +74,12 @@ class NodeSqliteConnection implements SqlDriverAdapter {
         lastInsertId: String(result.lastInsertRowid),
       };
     }
+
     const objects = statement.all(...(args as never[])) as Record<string, unknown>[];
+    const columns: StatementColumn[] =
+      columnsApi?.() ??
+      (objects[0] ? Object.keys(objects[0]).map((name) => ({ name, type: null })) : []);
+    const names = columns.map((column) => column.name);
     const rows = objects.map((row) =>
       columns.map((column: StatementColumn) => {
         const value = row[column.name] ?? null;
