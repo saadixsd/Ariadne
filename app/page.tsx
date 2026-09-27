@@ -1,7 +1,10 @@
 import { Dashboard } from "@/components/Dashboard";
+import { currentUser } from "@/lib/auth";
 import { missingSetup } from "@/lib/setup";
+import { DAILY_MODEL_RUNS, modelRunsToday } from "@/lib/usage";
 import { prisma } from "@/lib/prisma";
 import { getProject } from "@/lib/project";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
@@ -10,8 +13,12 @@ export default async function Home({
 }: {
   searchParams: Promise<{ project?: string }>;
 }) {
+  const user = await currentUser();
+  if (!user) redirect("/sign-in");
+  if (!user.emailVerified) redirect("/verify");
   const { project: requested } = await searchParams;
   const projects = await prisma.project.findMany({
+    where: { userId: user.id },
     orderBy: { createdAt: "asc" },
     select: { id: true, name: true },
   });
@@ -23,15 +30,15 @@ export default async function Home({
         <p className="text-xs font-semibold tracking-[0.22em] text-thread">ARIADNE</p>
         <h1 className="mt-2 text-2xl font-semibold leading-tight">No project yet</h1>
         <p className="mt-3 text-sm leading-normal text-ink-dim">
-          Run <code className="bg-raised px-1.5 py-0.5 font-mono text-ink">npm run db:setup</code> to
-          seed the landing-page example, then refresh. That writes pending tasks only. It does not
-          call Claude or GPT.
+          Your example projects were not created. Sign out and sign in again. That writes pending
+          tasks only. It does not call Claude or GPT.
         </p>
       </main>
     );
   }
 
-  const project = await getProject(existing.id);
+  const project = await getProject(existing.id, user.id);
+  const runsLeft = Math.max(0, DAILY_MODEL_RUNS - (await modelRunsToday(user.id)));
   if (!project) {
     return (
       <main className="mx-auto flex min-h-full max-w-lg flex-col justify-center px-6">
@@ -44,5 +51,13 @@ export default async function Home({
     );
   }
 
-  return <Dashboard initial={project} projects={projects} missingSetup={missingSetup()} />;
+  return (
+    <Dashboard
+      initial={project}
+      projects={projects}
+      missingSetup={missingSetup()}
+      email={user.email}
+      runsLeft={runsLeft}
+    />
+  );
 }

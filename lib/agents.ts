@@ -5,6 +5,7 @@ import OpenAI from "openai";
 import { dependentTasks, directDependencies, transitiveDependencies, unmetDependencyIds } from "@/lib/depends";
 import { safeErrorMessage, TaskRunError } from "@/lib/errors";
 import { prisma } from "@/lib/prisma";
+import { consumeModelRun } from "@/lib/usage";
 import {
   composeSystemPrompt,
   composeUserPrompt,
@@ -138,12 +139,12 @@ async function failTask(taskId: string, agentId: string, projectId: string, agen
   return message;
 }
 
-export async function runTask(taskId: string) {
+export async function runTask(taskId: string, userId: string) {
   const task = await prisma.task.findUnique({
     where: { id: taskId },
     include: { agent: true, project: true },
   });
-  if (!task) throw new TaskRunError("Task not found", 404);
+  if (!task || task.project.userId !== userId) throw new TaskRunError("Task not found", 404);
   if (task.status === "running") throw new TaskRunError("Task is already running", 409);
   if (task.status === "awaiting_approval") {
     throw new TaskRunError("Task is awaiting approval", 409);
@@ -170,6 +171,19 @@ export async function runTask(taskId: string) {
     },
   });
   if (claimed.count !== 1) throw new TaskRunError("Task is already running", 409);
+
+  if (task.agent.provider !== "human") {
+    try {
+      await consumeModelRun(userId);
+    } catch (error) {
+      await prisma.task.update({
+        where: { id: task.id },
+        data: { status: "pending", startedAt: null, output: null, model: null },
+      });
+      await syncAgentStatus(task.agentId);
+      throw error;
+    }
+  }
 
   await prisma.agent.update({
     where: { id: task.agentId },
@@ -260,11 +274,11 @@ export async function runTask(taskId: string) {
     task.id,
   );
   await syncAgentStatus(task.agentId);
-  if (status === "done") await openReadyHumanGates(task.projectId);
+  if (status === "done") await openReadyHumanGates(task.projectId, userId);
   return serializeTask(await prisma.task.findUniqueOrThrow({ where: { id: task.id } }));
 }
 
-async function openReadyHumanGates(projectId: string) {
+async function openReadyHumanGates(projectId: string, userId: string) {
   const tasks = await prisma.task.findMany({
     where: { projectId },
     include: { agent: true },
@@ -274,16 +288,16 @@ async function openReadyHumanGates(projectId: string) {
     if (candidate.agent.provider !== "human") continue;
     if (candidate.status !== "pending") continue;
     if (unmetDependencyIds(candidate.dependsOn, byId).length > 0) continue;
-    await runTask(candidate.id);
+    await runTask(candidate.id, userId);
   }
 }
 
-export async function rerunTask(taskId: string) {
+export async function rerunTask(taskId: string, userId: string) {
   const task = await prisma.task.findUnique({
     where: { id: taskId },
-    include: { agent: true },
+    include: { agent: true, project: true },
   });
-  if (!task) throw new TaskRunError("Task not found", 404);
+  if (!task || task.project.userId !== userId) throw new TaskRunError("Task not found", 404);
   if (task.status !== "done") throw new TaskRunError("Only a finished task can be re-run", 409);
 
   const tasks = await prisma.task.findMany({ where: { projectId: task.projectId } });
@@ -311,15 +325,15 @@ export async function rerunTask(taskId: string) {
   );
   const agentIds = [...new Set(wipe.map((item) => item.agentId))];
   for (const agentId of agentIds) await syncAgentStatus(agentId);
-  return runTask(task.id);
+  return runTask(task.id, userId);
 }
 
-export async function decideTask(taskId: string, approved: boolean, note?: string) {
+export async function decideTask(taskId: string, approved: boolean, note: string | undefined, userId: string) {
   const task = await prisma.task.findUnique({
     where: { id: taskId },
-    include: { agent: true },
+    include: { agent: true, project: true },
   });
-  if (!task) throw new TaskRunError("Task not found", 404);
+  if (!task || task.project.userId !== userId) throw new TaskRunError("Task not found", 404);
   if (task.status !== "awaiting_approval") {
     throw new TaskRunError("Task is not awaiting approval", 409);
   }

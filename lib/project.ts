@@ -10,18 +10,18 @@ const projectInclude = {
   events: { orderBy: { createdAt: "desc" as const }, take: 100 },
 };
 
-export async function getProject(id: string): Promise<ProjectDTO | null> {
-  const project = await prisma.project.findUnique({
-    where: { id },
+export async function getProject(id: string, userId: string): Promise<ProjectDTO | null> {
+  const project = await prisma.project.findFirst({
+    where: { id, userId },
     include: projectInclude,
   });
   if (!project) return null;
   return serializeProject(project);
 }
 
-export async function getEvents(projectId: string): Promise<ActivityEventDTO[] | null> {
-  const project = await prisma.project.findUnique({
-    where: { id: projectId },
+export async function getEvents(projectId: string, userId: string): Promise<ActivityEventDTO[] | null> {
+  const project = await prisma.project.findFirst({
+    where: { id: projectId, userId },
     select: { id: true },
   });
   if (!project) return null;

@@ -1,4 +1,5 @@
 import { decideTask } from "@/lib/agents";
+import { requireUser } from "@/lib/auth";
 import { errorResponse } from "@/lib/errors";
 
 export const runtime = "nodejs";
@@ -16,8 +17,9 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
         { status: 400 },
       );
     }
+    const user = await requireUser();
     const note = typeof body.note === "string" ? body.note : undefined;
-    const task = await decideTask(id, body.approved, note);
+    const task = await decideTask(id, body.approved, note, user.id);
     return Response.json({ task });
   } catch (error) {
     return errorResponse(error);

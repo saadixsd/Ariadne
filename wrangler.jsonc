@@ -3,16 +3,31 @@
   "name": "ariadne",
   "account_id": "7a89d9dae3714c68933b37664f2b3d71",
   "main": ".open-next/worker.js",
+  "workers_dev": true,
   "compatibility_date": "2026-09-26",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS"
   },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "ariadne",
+      "database_id": "4c3b880c-68e7-427b-af68-43710ec3f863"
+    }
+  ],
   "services": [
     {
       "binding": "WORKER_SELF_REFERENCE",
       "service": "ariadne"
+    }
+  ],
+  "rules": [
+    {
+      "type": "CompiledWasm",
+      "globs": ["**/*.wasm"],
+      "fallthrough": true
     }
   ],
   "vars": {

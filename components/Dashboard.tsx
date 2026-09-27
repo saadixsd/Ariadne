@@ -13,6 +13,7 @@ import { SetupBanner } from "@/components/SetupBanner";
 import { TaskColumn } from "@/components/TaskColumn";
 import { WelcomeOverlay } from "@/components/WelcomeOverlay";
 import { useFlag, writeFlag } from "@/components/client-storage";
+import { DAILY_MODEL_RUNS } from "@/lib/limits";
 import { cascadeFrom, taskNumber } from "@/lib/task-rules";
 import type { ActivityEventDTO, ProjectDTO, TaskDTO } from "@/lib/types";
 
@@ -62,10 +63,14 @@ export function Dashboard({
   initial,
   projects: initialProjects,
   missingSetup,
+  email,
+  runsLeft,
 }: {
   initial: ProjectDTO;
   projects: ProjectOption[];
   missingSetup: string[];
+  email: string;
+  runsLeft: number;
 }) {
   const [data, setData] = useState(initial);
   const [projects, setProjects] = useState(initialProjects);
@@ -81,6 +86,7 @@ export function Dashboard({
   const [confirmReset, setConfirmReset] = useState(false);
   const [activityOpen, setActivityOpen] = useState(true);
   const [toast, setToast] = useState<{ tone: "danger" | "ok"; text: string } | null>(null);
+  const [remaining, setRemaining] = useState(runsLeft);
   const [resetting, setResetting] = useState(false);
   const [pulseRunId, setPulseRunId] = useState<string | null>(null);
   const hintDismissed = useFlag(HINT_KEY);
@@ -195,6 +201,8 @@ export function Dashboard({
           tone: "danger",
           text: `${body.error ?? "Run failed"}. Open the task to copy the error, or press Retry when you want another attempt.`,
         });
+      } else if (data.agents.find((agent) => agent.id === task?.agentId)?.provider !== "human") {
+        setRemaining((count) => Math.max(0, count - 1));
       }
       const next = await refresh();
       const updated = next?.tasks.find((item) => item.id === taskId);
@@ -281,6 +289,10 @@ export function Dashboard({
         });
         await refresh();
         return;
+      }
+      const rerunTask = data.tasks.find((item) => item.id === rerunId);
+      if (data.agents.find((agent) => agent.id === rerunTask?.agentId)?.provider !== "human") {
+        setRemaining((count) => Math.max(0, count - 1));
       }
       setRerunId(null);
       const next = await refresh();
@@ -395,6 +407,20 @@ export function Dashboard({
           </label>
         </div>
         <div ref={menuRef} className="flex flex-wrap items-center gap-2">
+          <p className="max-w-40 truncate text-xs text-ink-dim" title={email}>
+            {email}
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              void fetch("/api/auth/sign-out", { method: "POST" }).then(() => {
+                window.location.href = "/sign-in";
+              });
+            }}
+            className="px-2 py-1 text-sm ring-1 ring-white/15 hover:ring-thread"
+          >
+            Sign out
+          </button>
           <div className="relative">
             <button
               type="button"
@@ -408,7 +434,7 @@ export function Dashboard({
               <div className="absolute right-0 z-20 mt-2 w-72 bg-raised p-3 text-sm leading-normal ring-1 ring-white/10">
                 <p className="font-semibold leading-tight">What&apos;s beta</p>
                 <ul className="mt-2 list-disc space-y-1 pl-4 text-ink-dim">
-                  <li>Two seeded projects. No accounts, teams, or billing.</li>
+                  <li>Sign in with email and password. Each account gets {DAILY_MODEL_RUNS} model runs a day.</li>
                   <li>Scout calls Claude and Maker calls GPT only after you press Run.</li>
                   <li>Reset demo clears outputs and does not call the models.</li>
                   <li>Tasks are this seeded workflow, not a builder.</li>
@@ -481,7 +507,9 @@ export function Dashboard({
           )}
         </div>
       </header>
-      <p className="border-b border-white/10 px-4 py-2 text-sm leading-normal text-ink-dim">{statusLine(data)}</p>
+      <p className="border-b border-white/10 px-4 py-2 text-sm leading-normal text-ink-dim">
+        {statusLine(data)} {remaining} model {remaining === 1 ? "run" : "runs"} left today.
+      </p>
       <WelcomeOverlay
         metAgents={metAgents}
         ranTask={ranTask}

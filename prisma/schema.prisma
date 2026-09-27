@@ -1,5 +1,6 @@
 generator client {
-  provider = "prisma-client-js"
+  provider   = "prisma-client-js"
+  engineType = "client"
 }
 
 datasource db {
@@ -7,8 +8,52 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id            String             @id @default(cuid())
+  email         String             @unique
+  passwordHash  String
+  passwordSalt  String
+  emailVerified Boolean            @default(false)
+  createdAt     DateTime           @default(now())
+  sessions      Session[]
+  codes         VerificationCode[]
+  projects      Project[]
+  usage         UsageDay[]
+  feedback      Feedback[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationCode {
+  id        String   @id @default(cuid())
+  userId    String
+  codeHash  String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model UsageDay {
+  id     String @id @default(cuid())
+  userId String
+  day    String
+  runs   Int    @default(0)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, day])
+}
+
 model Project {
   id        String          @id @default(cuid())
+  userId    String?
+  user      User?           @relation(fields: [userId], references: [id], onDelete: Cascade)
   name      String
   brief     String
   template  String          @default("landing")
@@ -60,6 +105,8 @@ model ActivityEvent {
 
 model Feedback {
   id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   kind      String
   message   String
   createdAt DateTime @default(now())

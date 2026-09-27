@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +15,12 @@ function timeLabel(value: Date) {
 }
 
 export default async function FeedbackInbox() {
-  const rows = await prisma.feedback.findMany({ orderBy: { createdAt: "desc" } });
+  const user = await requireUser().catch(() => null);
+  if (!user) redirect("/sign-in");
+  const rows = await prisma.feedback.findMany({
+    where: { userId: user.id },
+    orderBy: { createdAt: "desc" },
+  });
 
   return (
     <main className="mx-auto min-h-full max-w-2xl px-4 py-8">

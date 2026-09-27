@@ -1,3 +1,4 @@
+import { requireUser } from "@/lib/auth";
 import { errorResponse } from "@/lib/errors";
 import { prisma } from "@/lib/prisma";
 import { getProject } from "@/lib/project";
@@ -7,8 +8,9 @@ export const runtime = "nodejs";
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
+    const user = await requireUser();
     const { id } = await context.params;
-    const project = await prisma.project.findUnique({ where: { id }, select: { id: true } });
+    const project = await prisma.project.findFirst({ where: { id, userId: user.id }, select: { id: true } });
     if (!project) return Response.json({ error: "Project not found" }, { status: 404 });
 
     const body = (await request.json().catch(() => null)) as {
@@ -54,7 +56,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
         requiresApproval: body?.requiresApproval === true,
       },
     });
-    return Response.json({ task: serializeTask(task), project: await getProject(id) }, { status: 201 });
+    return Response.json({ task: serializeTask(task), project: await getProject(id, user.id) }, { status: 201 });
   } catch (error) {
     return errorResponse(error);
   }

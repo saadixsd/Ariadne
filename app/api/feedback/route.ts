@@ -1,3 +1,4 @@
+import { requireUser } from "@/lib/auth";
 import { errorResponse } from "@/lib/errors";
 import { prisma } from "@/lib/prisma";
 
@@ -20,7 +21,8 @@ export async function POST(request: Request) {
     if (message.length > 4000) {
       return Response.json({ error: "Message is too long" }, { status: 400 });
     }
-    const feedback = await prisma.feedback.create({ data: { kind, message } });
+    const user = await requireUser();
+    const feedback = await prisma.feedback.create({ data: { userId: user.id, kind, message } });
     return Response.json(
       {
         id: feedback.id,

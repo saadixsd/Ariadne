@@ -190,18 +190,18 @@ export async function createDemoTasks(
   }
 }
 
-async function createFromTemplate(template: TemplateKey) {
+async function createFromTemplate(template: TemplateKey, userId: string) {
   const spec = TEMPLATES[template];
   const project = await prisma.project.create({
-    data: { name: spec.name, brief: spec.brief, template },
+    data: { userId, name: spec.name, brief: spec.brief, template },
   });
   const agents = await createRoster(project.id);
   await createDemoTasks(project.id, agents, spec.tasks);
   return project.id;
 }
 
-export async function createDemoProject() {
-  return createFromTemplate("landing");
+export async function createDemoProject(userId: string) {
+  return createFromTemplate("landing", userId);
 }
 
 export async function resetDemo(projectId: string) {
@@ -222,21 +222,21 @@ export async function resetDemo(projectId: string) {
   return projectId;
 }
 
-export async function ensureDemo(options?: { reset?: boolean }) {
+export async function ensureDemo(userId: string, options?: { reset?: boolean }) {
   const existing = await prisma.project.findFirst({
-    where: { template: "landing" },
+    where: { template: "landing", userId },
     orderBy: { createdAt: "asc" },
   });
-  if (!existing) return createFromTemplate("landing");
+  if (!existing) return createFromTemplate("landing", userId);
   if (options?.reset) return resetDemo(existing.id);
   return existing.id;
 }
 
-export async function ensureMarketProject() {
+export async function ensureMarketProject(userId: string) {
   const existing = await prisma.project.findFirst({
-    where: { template: "market" },
+    where: { template: "market", userId },
     orderBy: { createdAt: "asc" },
   });
   if (existing) return existing.id;
-  return createFromTemplate("market");
+  return createFromTemplate("market", userId);
 }

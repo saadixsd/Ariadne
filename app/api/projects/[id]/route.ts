@@ -1,3 +1,4 @@
+import { requireUser } from "@/lib/auth";
 import { errorResponse } from "@/lib/errors";
 import { prisma } from "@/lib/prisma";
 import { getProject } from "@/lib/project";
@@ -7,16 +8,22 @@ export const runtime = "nodejs";
 type Context = { params: Promise<{ id: string }> };
 
 export async function GET(_request: Request, context: Context) {
-  const { id } = await context.params;
-  const project = await getProject(id);
-  if (!project) return Response.json({ error: "Project not found" }, { status: 404 });
-  return Response.json(project);
+  try {
+    const user = await requireUser();
+    const { id } = await context.params;
+    const project = await getProject(id, user.id);
+    if (!project) return Response.json({ error: "Project not found" }, { status: 404 });
+    return Response.json(project);
+  } catch (error) {
+    return errorResponse(error);
+  }
 }
 
 export async function PATCH(request: Request, context: Context) {
   try {
+    const user = await requireUser();
     const { id } = await context.params;
-    const existing = await prisma.project.findUnique({ where: { id }, select: { id: true } });
+    const existing = await prisma.project.findFirst({ where: { id, userId: user.id }, select: { id: true } });
     if (!existing) return Response.json({ error: "Project not found" }, { status: 404 });
 
     const body = (await request.json().catch(() => null)) as {
@@ -40,7 +47,7 @@ export async function PATCH(request: Request, context: Context) {
     }
 
     await prisma.project.update({ where: { id }, data });
-    const project = await getProject(id);
+    const project = await getProject(id, user.id);
     return Response.json(project);
   } catch (error) {
     return errorResponse(error);
