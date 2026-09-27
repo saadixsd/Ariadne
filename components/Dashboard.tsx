@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { NewTaskInput } from "@/components/AddTaskForm";
 import { ActivityFeed } from "@/components/ActivityFeed";
@@ -66,12 +67,16 @@ export function Dashboard({
   projects: initialProjects,
   missingSetup,
   email,
+  accountInitial,
+  accountName,
   runsLeft,
 }: {
   initial: ProjectDTO;
   projects: ProjectOption[];
   missingSetup: string[];
   email: string;
+  accountInitial: string;
+  accountName: string;
   runsLeft: number;
 }) {
   const [data, setData] = useState(initial);
@@ -561,8 +566,23 @@ export function Dashboard({
           </RegionBoundary>
         ) : null}
       </main>
-      <footer className="border-t border-white/10 px-4 py-2 text-xs leading-normal text-ink-dim">
-        Scout and Maker are AI agents and can make mistakes. Nothing ships without your approval.
+      <footer className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-white/10 px-4 py-2">
+        <Link
+          href="/settings"
+          className="flex min-w-0 items-center gap-2 py-0.5 hover:text-thread"
+        >
+          <span
+            aria-hidden
+            className="flex h-7 w-7 shrink-0 items-center justify-center bg-panel text-xs font-semibold text-thread ring-1 ring-white/15"
+          >
+            {accountInitial}
+          </span>
+          <span className="max-w-56 truncate text-sm text-ink">{accountName}</span>
+          <span className="sr-only">Open settings</span>
+        </Link>
+        <p className="text-xs leading-normal text-ink-dim">
+          Scout and Maker are AI agents and can make mistakes. Nothing ships without your approval.
+        </p>
       </footer>
       {approvalTask ? (
         <ApprovalModal task={approvalTask} tasks={data.tasks} onClose={() => setApprovalId(null)} onDecide={decide} />

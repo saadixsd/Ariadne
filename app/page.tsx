@@ -1,4 +1,5 @@
 import { Dashboard } from "@/components/Dashboard";
+import { accountDisplay } from "@/lib/account";
 import { currentUser } from "@/lib/auth";
 import { missingSetup } from "@/lib/setup";
 import { DAILY_MODEL_RUNS, modelRunsToday } from "@/lib/usage";
@@ -38,6 +39,7 @@ export default async function Home({
   }
 
   const project = await getProject(existing.id, user.id);
+  const account = accountDisplay(user);
   const runsLeft = Math.max(0, DAILY_MODEL_RUNS - (await modelRunsToday(user.id)));
   if (!project) {
     return (
@@ -57,6 +59,8 @@ export default async function Home({
       projects={projects}
       missingSetup={missingSetup()}
       email={user.email}
+      accountInitial={account.initial}
+      accountName={account.name}
       runsLeft={runsLeft}
     />
   );
