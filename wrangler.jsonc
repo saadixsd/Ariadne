@@ -14,5 +14,9 @@
       "binding": "WORKER_SELF_REFERENCE",
       "service": "ariadne"
     }
-  ]
+  ],
+  "vars": {
+    "ANTHROPIC_MODEL": "claude-haiku-4-5-20251001",
+    "OPENAI_MODEL": "gpt-6-luna"
+  }
 }
