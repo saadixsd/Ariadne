@@ -11,6 +11,10 @@ export type AccountDisplay = {
   lastName: string;
 };
 
+export function isDemoAccount(templates: readonly string[]): boolean {
+  return templates.length > 0 && templates.every((template) => template === "landing" || template === "market");
+}
+
 export function accountDisplay(account: AccountIdentity): AccountDisplay {
   const firstName = account.firstName?.trim() ?? "";
   const lastName = account.lastName?.trim() ?? "";

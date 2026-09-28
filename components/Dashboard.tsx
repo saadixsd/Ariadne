@@ -74,6 +74,7 @@ export function Dashboard({
   accountFirstName,
   accountLastName,
   runsLeft,
+  demoAccount = false,
   openSettings = false,
 }: {
   initial: ProjectDTO;
@@ -85,6 +86,7 @@ export function Dashboard({
   accountFirstName: string;
   accountLastName: string;
   runsLeft: number;
+  demoAccount?: boolean;
   openSettings?: boolean;
 }) {
   const [data, setData] = useState(initial);
@@ -596,17 +598,19 @@ export function Dashboard({
                 >
                   Settings
                 </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    setMenu(null);
-                    setConfirmReset(true);
-                  }}
-                  className="w-full px-3 py-2 text-left text-sm hover:bg-panel"
-                >
-                  Reset demo
-                </button>
+                {demoAccount ? (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setMenu(null);
+                      setConfirmReset(true);
+                    }}
+                    className="w-full px-3 py-2 text-left text-sm hover:bg-panel"
+                  >
+                    Reset demo
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   role="menuitem"
@@ -635,7 +639,7 @@ export function Dashboard({
         </div>
       </header>
       <p className="border-b border-white/10 px-4 py-2 text-sm leading-normal text-ink-dim">
-        {statusLine(data)} Daily budget: {remaining} of {DAILY_MODEL_RUNS} agent runs remaining.
+        {statusLine(data)} {remaining} of {DAILY_MODEL_RUNS} free agent runs left today.
       </p>
       <WelcomeOverlay
         metAgents={metAgents}
@@ -685,7 +689,7 @@ export function Dashboard({
       </main>
       <footer className="border-t border-white/10 px-4 py-2">
         <p className="text-xs leading-normal text-ink-dim">
-          Scout and Maker are AI agents and can make mistakes. Nothing ships without your approval.
+          Scout and Maker are AI agents and can make mistakes.
         </p>
       </footer>
       <AccountPanel

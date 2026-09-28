@@ -45,8 +45,7 @@ export function ProjectIntro() {
         <p className="mt-6 text-[13px] font-medium tracking-[0.22em] text-ink-dim">ARIADNE</p>
         <h1 className="mt-3 text-[2.75rem] font-semibold leading-[1.05] tracking-tight">What are you making?</h1>
         <p className="mt-4 text-[17px] leading-relaxed text-ink-dim">
-          Name the project and describe it in a sentence or two. Scout and Maker share that. Nothing runs until you
-          press Run.
+          Name the project and describe it in a sentence or two. Scout and Maker share that.
         </p>
         <label className="mt-10 block">
           <span className="text-[13px] text-ink-dim">Project name</span>
@@ -66,10 +65,13 @@ export function ProjectIntro() {
             value={description}
             onChange={(event) => setDescription(event.target.value)}
             maxLength={4000}
-            placeholder="What should this project accomplish?"
+            placeholder="e.g. Map Montreal pre-seed investors for my AI dev-tools startup — I need names, check sizes, and warm-intro paths."
             className="mt-2 min-h-36 w-full resize-none rounded-2xl bg-panel px-4 py-4 text-[17px] leading-relaxed ring-1 ring-white/10 placeholder:text-ink-dim/50"
             aria-label="Project description"
           />
+          <span className="mt-2 block text-[13px] leading-normal text-ink-dim">
+            Tip: state the goal, who it&apos;s for, and what a good result looks like.
+          </span>
         </label>
         {error ? (
           <p role="alert" className="mt-4 text-sm text-danger">

@@ -84,7 +84,9 @@ export function AgentColumn({
                           {providerLabel(agent.provider)}
                         </span>
                       </span>
-                      <span className="mt-1 block text-sm leading-normal text-ink-dim">{agent.role}</span>
+                      <span className="mt-1 block text-sm leading-normal text-ink-dim">
+                        {agent.provider === "human" ? "Nothing ships without your approval." : agent.role}
+                      </span>
                     </span>
                   </span>
                 </button>

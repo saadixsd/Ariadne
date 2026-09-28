@@ -124,7 +124,7 @@ export function TaskColumn({
         <h2 className="text-xs font-semibold tracking-[0.18em] text-ink-dim">WORKFLOW</h2>
         {!anyOutput && events.length === 0 ? (
           <p className="mt-2 text-sm leading-normal text-ink-dim">
-            Run task 1 to see Scout think. Instructions are readable now. Nothing runs until you press Run.
+            Run task 1 to see Scout think. Instructions are readable now.
           </p>
         ) : null}
       </div>
@@ -238,7 +238,7 @@ export function TaskColumn({
                 ) : null}
                 {showHint ? (
                   <p className="mt-3 flex items-start justify-between gap-3 bg-raised px-2 py-2 text-sm leading-normal text-ink">
-                    <span>This stays pending until the tasks it needs are done. Pressing Run here does nothing until then.</span>
+                    <span>Locked until the tasks it needs are finished.</span>
                     <button type="button" onClick={onDismissHint} className="shrink-0 text-xs text-ink-dim hover:text-ink">
                       Dismiss
                     </button>

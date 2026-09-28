@@ -1,6 +1,6 @@
 import { Dashboard } from "@/components/Dashboard";
 import { ProjectIntro } from "@/components/ProjectIntro";
-import { accountDisplay } from "@/lib/account";
+import { accountDisplay, isDemoAccount } from "@/lib/account";
 import { currentUser } from "@/lib/auth";
 import { pickBoardProject } from "@/lib/board-project";
 import { needsProjectIntro } from "@/lib/demo";
@@ -68,6 +68,7 @@ export default async function Home({
       accountFirstName={account.firstName}
       accountLastName={account.lastName}
       runsLeft={runsLeft}
+      demoAccount={isDemoAccount(projects.map((project) => project.template))}
       openSettings={settings === "1" || settings === "true"}
     />
   );
