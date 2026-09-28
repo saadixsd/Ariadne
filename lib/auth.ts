@@ -1,7 +1,6 @@
 import "server-only";
 
 import { cookies } from "next/headers";
-import { ensureMarketProject, ensureDemo, ensureOwnProject } from "@/lib/demo";
 import { TaskRunError } from "@/lib/errors";
 import { canSendEmail, recentCodeCount, sendVerificationCode } from "@/lib/mail";
 import { hashPassword, randomToken, sha256, verificationCode, verifyPassword } from "@/lib/password";
@@ -145,9 +144,6 @@ export async function signUp(emailInput: string, password: string) {
   }
 
   await claimUnownedProjects(user.id);
-  await ensureDemo(user.id);
-  await ensureMarketProject(user.id);
-  await ensureOwnProject(user.id);
   await startSession(user.id);
   return { verify: false as const };
 }
@@ -162,9 +158,6 @@ export async function signIn(emailInput: string, password: string) {
     throw new TaskRunError("Enter the code sent to your email", 403);
   }
   await claimUnownedProjects(user.id);
-  await ensureDemo(user.id);
-  await ensureMarketProject(user.id);
-  await ensureOwnProject(user.id);
   await startSession(user.id);
   return { email: user.email };
 }
@@ -183,9 +176,6 @@ export async function verifyEmail(emailInput: string, codeInput: string) {
   await prisma.user.update({ where: { id: user.id }, data: { emailVerified: true } });
   await prisma.verificationCode.deleteMany({ where: { userId: user.id } });
   await claimUnownedProjects(user.id);
-  await ensureDemo(user.id);
-  await ensureMarketProject(user.id);
-  await ensureOwnProject(user.id);
   await startSession(user.id);
 }
 

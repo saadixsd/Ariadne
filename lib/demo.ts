@@ -254,6 +254,60 @@ export async function createUserProject(userId: string, name: string, brief: str
   return project.id;
 }
 
+export async function needsProjectIntro(userId: string) {
+  const projects = await prisma.project.findMany({
+    where: { userId },
+    select: {
+      template: true,
+      brief: true,
+      tasks: { select: { status: true } },
+      _count: { select: { events: true } },
+    },
+  });
+  if (projects.length === 0) return true;
+  const used = projects.some(
+    (project) => project._count.events > 0 || project.tasks.some((task) => task.status !== "pending"),
+  );
+  if (used) return false;
+  return !projects.some((project) => project.template === "own" && project.brief.trim().length > 0);
+}
+
+export async function startFirstProject(userId: string, name: string, brief: string) {
+  const own = await prisma.project.findFirst({
+    where: { userId, template: "own" },
+    orderBy: { createdAt: "asc" },
+  });
+  let projectId: string;
+  if (own && own.brief.trim().length === 0) {
+    await prisma.project.update({ where: { id: own.id }, data: { name, brief } });
+    const agents = await prisma.agent.count({ where: { projectId: own.id } });
+    if (agents === 0) await seedOwnBoard(own.id);
+    projectId = own.id;
+  } else if (!own) {
+    projectId = await createUserProject(userId, name, brief);
+  } else {
+    projectId = own.id;
+  }
+
+  const examples = await prisma.project.findMany({
+    where: { userId, template: { in: ["landing", "market"] } },
+    select: {
+      id: true,
+      tasks: { select: { status: true } },
+      _count: { select: { events: true } },
+    },
+  });
+  const removable = examples
+    .filter(
+      (project) => project._count.events === 0 && project.tasks.every((task) => task.status === "pending"),
+    )
+    .map((project) => project.id);
+  if (removable.length > 0) {
+    await prisma.project.deleteMany({ where: { id: { in: removable } } });
+  }
+  return projectId;
+}
+
 export async function ensureOwnProject(userId: string) {
   const existing = await prisma.project.findFirst({
     where: { userId, template: "own" },

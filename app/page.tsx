@@ -1,7 +1,9 @@
 import { Dashboard } from "@/components/Dashboard";
+import { ProjectIntro } from "@/components/ProjectIntro";
 import { accountDisplay } from "@/lib/account";
 import { currentUser } from "@/lib/auth";
 import { pickBoardProject } from "@/lib/board-project";
+import { needsProjectIntro } from "@/lib/demo";
 import { missingSetup } from "@/lib/setup";
 import { DAILY_MODEL_RUNS, modelRunsToday } from "@/lib/usage";
 import { getPrisma } from "@/lib/prisma";
@@ -19,8 +21,7 @@ export default async function Home({
   if (!user) redirect("/sign-in");
   if (!user.emailVerified) redirect("/verify");
   const { project: requested, settings } = await searchParams;
-  // Projects are seeded on sign-up / sign-in. Do not re-ensure templates on
-  // every board load — that burns Worker CPU and can trip Error 1102.
+  if (await needsProjectIntro(user.id)) return <ProjectIntro />;
   const prisma = await getPrisma();
   const projects = await prisma.project.findMany({
     where: { userId: user.id },
@@ -35,8 +36,7 @@ export default async function Home({
         <p className="text-xs font-semibold tracking-[0.22em] text-thread">ARIADNE</p>
         <h1 className="mt-2 text-2xl font-semibold leading-tight">No project yet</h1>
         <p className="mt-3 text-sm leading-normal text-ink-dim">
-          Your example projects were not created. Sign out and sign in again. That writes pending
-          tasks only. It does not call Claude or GPT.
+          Sign out and sign in again to name your project. That does not call Claude or GPT.
         </p>
       </main>
     );
