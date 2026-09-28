@@ -255,21 +255,21 @@ export async function createUserProject(userId: string, name: string, brief: str
 }
 
 export async function needsProjectIntro(userId: string) {
-  const projects = await prisma.project.findMany({
-    where: { userId },
-    select: {
-      template: true,
-      brief: true,
-      tasks: { select: { status: true } },
-      _count: { select: { events: true } },
-    },
+  const named = await prisma.project.findFirst({
+    where: { userId, template: "own", NOT: { brief: "" } },
+    select: { id: true },
   });
-  if (projects.length === 0) return true;
-  const used = projects.some(
-    (project) => project._count.events > 0 || project.tasks.some((task) => task.status !== "pending"),
-  );
-  if (used) return false;
-  return !projects.some((project) => project.template === "own" && project.brief.trim().length > 0);
+  if (named) return false;
+  const anyProject = await prisma.project.findFirst({
+    where: { userId },
+    select: { id: true },
+  });
+  if (!anyProject) return true;
+  const started = await prisma.task.findFirst({
+    where: { status: { not: "pending" }, project: { userId } },
+    select: { id: true },
+  });
+  return !started;
 }
 
 export async function startFirstProject(userId: string, name: string, brief: string) {
@@ -289,21 +289,14 @@ export async function startFirstProject(userId: string, name: string, brief: str
     projectId = own.id;
   }
 
-  const examples = await prisma.project.findMany({
-    where: { userId, template: { in: ["landing", "market"] } },
-    select: {
-      id: true,
-      tasks: { select: { status: true } },
-      _count: { select: { events: true } },
-    },
+  const started = await prisma.task.findFirst({
+    where: { status: { not: "pending" }, project: { userId, template: { in: ["landing", "market"] } } },
+    select: { id: true },
   });
-  const removable = examples
-    .filter(
-      (project) => project._count.events === 0 && project.tasks.every((task) => task.status === "pending"),
-    )
-    .map((project) => project.id);
-  if (removable.length > 0) {
-    await prisma.project.deleteMany({ where: { id: { in: removable } } });
+  if (!started) {
+    await prisma.project.deleteMany({
+      where: { userId, template: { in: ["landing", "market"] } },
+    });
   }
   return projectId;
 }
