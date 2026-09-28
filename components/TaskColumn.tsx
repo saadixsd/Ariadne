@@ -149,6 +149,9 @@ export function TaskColumn({
             !!next &&
             next.dependsOn.includes(task.id) &&
             events.some((event) => event.type === "handoff" && event.taskId === next.id);
+          const leadsToGate = !!next && next.status === "awaiting_approval";
+          const threadGold = flowed || leadsToGate;
+          const awaiting = task.status === "awaiting_approval";
 
           return (
             <li
@@ -163,17 +166,23 @@ export function TaskColumn({
                 {isLast ? null : (
                   <span
                     aria-hidden
-                    className={`absolute top-3 -bottom-3 w-0.5 ${flowed ? "bg-thread" : "bg-thread-dim"} ${handedOn ? "thread-flow" : ""}`}
+                    className={`absolute top-3 -bottom-3 w-0.5 ${threadGold ? "bg-thread" : "bg-thread-dim"} ${handedOn || leadsToGate ? "thread-flow" : ""}`}
                   />
                 )}
                 <span className="relative z-10 mt-3 grid h-6 w-6 place-items-center bg-base">
                   <StatusMark status={displayStatus} />
                 </span>
               </div>
-              <article className={`mb-5 min-w-0 bg-panel px-3 py-3 ring-1 ring-white/10 ${blocked ? "opacity-70" : ""}`}>
+              <article
+                className={`mb-5 min-w-0 bg-panel px-3 py-3 ${
+                  awaiting
+                    ? "ring-2 ring-thread shadow-[0_0_0_1px_rgba(245,158,11,0.35)]"
+                    : "ring-1 ring-white/10"
+                } ${blocked ? "opacity-70" : ""}`}
+              >
                 <div className="flex items-start justify-between gap-3">
                   <button type="button" onClick={() => onToggle(task.id)} className="min-w-0 flex-1 text-left" aria-expanded={open}>
-                    <span className="block font-semibold leading-tight">
+                    <span className="block text-base font-semibold leading-tight">
                       <span className="mr-2 font-mono text-xs text-ink-dim">#{index + 1}</span>
                       {task.title}
                     </span>
