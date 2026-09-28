@@ -2,10 +2,9 @@ import { Dashboard } from "@/components/Dashboard";
 import { accountDisplay } from "@/lib/account";
 import { currentUser } from "@/lib/auth";
 import { pickBoardProject } from "@/lib/board-project";
-import { ensureDemo, ensureMarketProject, ensureOwnProject } from "@/lib/demo";
 import { missingSetup } from "@/lib/setup";
 import { DAILY_MODEL_RUNS, modelRunsToday } from "@/lib/usage";
-import { prisma } from "@/lib/prisma";
+import { getPrisma } from "@/lib/prisma";
 import { getProject } from "@/lib/project";
 import { redirect } from "next/navigation";
 
@@ -20,9 +19,9 @@ export default async function Home({
   if (!user) redirect("/sign-in");
   if (!user.emailVerified) redirect("/verify");
   const { project: requested, settings } = await searchParams;
-  await ensureDemo(user.id);
-  await ensureMarketProject(user.id);
-  await ensureOwnProject(user.id);
+  // Projects are seeded on sign-up / sign-in. Do not re-ensure templates on
+  // every board load — that burns Worker CPU and can trip Error 1102.
+  const prisma = await getPrisma();
   const projects = await prisma.project.findMany({
     where: { userId: user.id },
     orderBy: { createdAt: "asc" },
