@@ -363,28 +363,57 @@ export async function decideTask(taskId: string, approved: boolean, note: string
       data: { status: "done", completedAt: new Date() },
     });
     await emit(task.projectId, "approved", `You approved "${task.title}"`, task.id);
-  } else {
-    const trimmed = note?.trim() ?? "";
-    if (!trimmed) throw new TaskRunError("A note is required to request changes", 400);
-    await prisma.task.update({
-      where: { id: task.id },
-      data: {
-        status: "pending",
-        instructions: `${task.instructions}\n\nHuman requested changes: ${trimmed}`,
-        output: null,
-        startedAt: null,
-        completedAt: null,
-        model: null,
-      },
-    });
-    await emit(
-      task.projectId,
-      "note",
-      `You requested changes on "${task.title}": ${trimmed}`,
-      task.id,
-    );
+    await syncAgentStatus(task.agentId);
+    return serializeTask(await prisma.task.findUniqueOrThrow({ where: { id: task.id } }));
   }
 
-  await syncAgentStatus(task.agentId);
+  const trimmed = note?.trim() ?? "";
+  if (!trimmed) throw new TaskRunError("A note is required to request changes", 400);
+
+  const tasks = await prisma.task.findMany({
+    where: { projectId: task.projectId },
+    include: { agent: true },
+  });
+  const byId = new Map(tasks.map((item) => [item.id, item]));
+  const direct = directDependencies(task.dependsOn, byId);
+  const roots = (direct.length > 0 ? direct : [task]).map((item) => {
+    const parent = directDependencies(item.dependsOn, byId).find((candidate) => candidate.agent.provider !== "human");
+    return parent ?? item;
+  });
+  const rootIds = new Set(roots.map((item) => item.id));
+  const wipeIds = new Set<string>([task.id]);
+  for (const root of roots) {
+    wipeIds.add(root.id);
+    for (const later of dependentTasks(root.id, tasks)) wipeIds.add(later.id);
+  }
+
+  const marker = `Human requested changes: ${trimmed}`;
+  await prisma.$transaction(
+    [...wipeIds].map((id) => {
+      const item = byId.get(id) ?? task;
+      const keepNote = id === task.id || rootIds.has(id);
+      return prisma.task.update({
+        where: { id },
+        data: {
+          status: "pending",
+          output: null,
+          startedAt: null,
+          completedAt: null,
+          model: null,
+          ...(keepNote ? { instructions: `${item.instructions}\n\n${marker}` } : {}),
+        },
+      });
+    }),
+  );
+
+  const rootTitles = roots.map((item) => item.title).join(", ");
+  await emit(
+    task.projectId,
+    "note",
+    `You requested changes on "${task.title}": ${trimmed}. Run "${rootTitles}" again. Nothing was sent to Claude or GPT.`,
+    task.id,
+  );
+  const agentIds = [...new Set([...wipeIds].map((id) => (byId.get(id) ?? task).agentId))];
+  for (const agentId of agentIds) await syncAgentStatus(agentId);
   return serializeTask(await prisma.task.findUniqueOrThrow({ where: { id: task.id } }));
 }

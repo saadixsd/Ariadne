@@ -14,7 +14,7 @@ export function ContextDrawer({
   /** Empty own-project nudge — always dismissible; never blocks the board. */
   prompting?: boolean;
   onClose: () => void;
-  onSave: (name: string, brief: string) => Promise<void>;
+  onSave: (name: string, brief: string) => Promise<string | null>;
 }) {
   const titleId = useId();
   const errorId = useId();
@@ -37,7 +37,10 @@ export function ContextDrawer({
     setError(null);
     setSaving(true);
     try {
-      await onSave(draftName.trim(), draft.trim());
+      const message = await onSave(draftName.trim(), draft.trim());
+      if (message) setError(message);
+    } catch {
+      setError("Could not save shared context.");
     } finally {
       setSaving(false);
     }

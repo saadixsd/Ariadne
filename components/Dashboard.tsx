@@ -714,9 +714,7 @@ export function Dashboard({
           brief={data.brief}
           prompting={emptyOwnBrief}
           onClose={() => setContextOpen(false)}
-          onSave={async (name, brief) => {
-            await saveContext(name, brief);
-          }}
+          onSave={(name, brief) => saveContext(name, brief, { quiet: true })}
         />
       ) : null}
       {newProjectOpen ? (
