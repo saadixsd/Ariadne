@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
 import { parseHandoffMessage, previewChips } from "@/lib/handoff-preview";
 import { hideModelIds } from "@/lib/model-label";
 import { canRunTask } from "@/lib/task-rules";
@@ -8,7 +8,7 @@ import type { ActivityEventDTO, TaskDTO } from "@/lib/types";
 
 function labelFor(type: string) {
   if (type === "handoff") return "Handoff";
-  if (type === "approval_requested") return "Waiting on YOU";
+  if (type === "approval_requested") return "Waiting on you";
   if (type === "started") return "Started";
   if (type === "completed") return "Completed";
   if (type === "approved") return "Approved";
@@ -28,7 +28,6 @@ export function ActivityFeed({
   onReview,
   onRetry,
   onHide,
-  missions,
 }: {
   events: ActivityEventDTO[];
   tasks: TaskDTO[];
@@ -36,7 +35,6 @@ export function ActivityFeed({
   onReview: () => void;
   onRetry: (taskId: string) => void;
   onHide: () => void;
-  missions: ReactNode;
 }) {
   const scroller = useRef<HTMLDivElement>(null);
   const topId = events[0]?.id;
@@ -55,11 +53,10 @@ export function ActivityFeed({
           Hide
         </button>
       </div>
-      {missions}
       <div ref={scroller} className="flex-1 space-y-2 overflow-y-auto px-3 py-3" role="log" aria-live="polite">
         {waitingTask ? (
           <div className="sticky top-0 z-10 bg-gate/15 px-3 py-3 ring-1 ring-gate">
-            <p className="text-xs font-semibold tracking-[0.16em] text-thread-bright">WAITING ON YOU</p>
+            <p className="text-xs font-semibold tracking-[0.16em] text-thread-bright">Waiting on you</p>
             <p className="mt-1 text-sm leading-normal">{waitingTask.title}</p>
             <button
               type="button"

@@ -6,7 +6,6 @@ import type { NewTaskInput } from "@/components/AddTaskForm";
 import { ActivityFeed } from "@/components/ActivityFeed";
 import { AgentColumn } from "@/components/AgentColumn";
 import { ApprovalModal } from "@/components/ApprovalModal";
-import { BetaMissions } from "@/components/BetaMissions";
 import { ContextDrawer } from "@/components/ContextDrawer";
 import { FeedbackModal } from "@/components/FeedbackModal";
 import { LineageRail } from "@/components/LineageRail";
@@ -103,7 +102,7 @@ export function Dashboard({
   const [lineageId, setLineageId] = useState<string | null>(null);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(openSettings);
-  const [menu, setMenu] = useState<null | "beta" | "settings">(null);
+  const [menu, setMenu] = useState<null | "beta" | "account">(null);
   const closeAccount = useCallback(() => setAccountOpen(false), []);
   const [confirmReset, setConfirmReset] = useState(false);
   const [activityOpen, setActivityOpen] = useState(true);
@@ -491,12 +490,11 @@ export function Dashboard({
     <div className="flex h-full min-h-0 flex-col bg-base text-ink">
       <SetupBanner missing={missingSetup} />
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
-        <div className="flex min-w-0 items-center gap-3">
-          <span className="h-4 w-0.5 bg-thread" aria-hidden />
-          <p className="text-xs font-semibold tracking-[0.22em]">ARIADNE</p>
-          <span className="text-ink-dim" aria-hidden>
-            ·
-          </span>
+        <div className="flex min-w-0 flex-wrap items-end gap-3">
+          <div className="shrink-0 pb-0.5">
+            <p className="text-xs font-semibold tracking-[0.28em] text-ink">ARIADNE</p>
+            <span className="mt-1 block h-px w-full bg-thread" aria-hidden />
+          </div>
           <label className="min-w-0">
             <span className="sr-only">Project</span>
             <select
@@ -520,28 +518,24 @@ export function Dashboard({
           </button>
         </div>
         <div ref={menuRef} className="flex flex-wrap items-center gap-2">
-          <p className="max-w-40 truncate text-xs text-ink-dim" title={email}>
-            {email}
-          </p>
           <button
             type="button"
             onClick={() => {
-              void fetch("/api/auth/sign-out", { method: "POST" }).then(() => {
-                window.location.href = "/sign-in";
-              });
+              setMenu(null);
+              setFeedbackOpen(true);
             }}
             className="px-2 py-1 text-sm ring-1 ring-white/15 hover:ring-thread"
           >
-            Sign out
+            Give feedback
           </button>
           <div className="relative">
             <button
               type="button"
               aria-expanded={menu === "beta"}
               onClick={() => setMenu((current) => (current === "beta" ? null : "beta"))}
-              className="px-2 py-1 text-xs font-semibold tracking-[0.14em] text-thread ring-1 ring-thread/60"
+              className="px-1.5 py-0.5 text-[10px] font-semibold tracking-[0.16em] text-thread ring-1 ring-thread/50"
             >
-              Beta
+              BETA
             </button>
             {menu === "beta" ? (
               <div className="absolute right-0 z-20 mt-2 w-72 bg-raised p-3 text-sm leading-normal ring-1 ring-white/10">
@@ -559,39 +553,49 @@ export function Dashboard({
               </div>
             ) : null}
           </div>
-          <button
-            type="button"
-            onClick={() => {
-              setMenu(null);
-              setFeedbackOpen(true);
-            }}
-            className="px-2 py-1 text-sm ring-1 ring-white/15 hover:ring-thread"
-          >
-            Give feedback
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setMenu(null);
-              setContextOpen(true);
-            }}
-            className="px-2 py-1 text-sm ring-1 ring-white/15 hover:ring-thread"
-          >
-            Shared context
-          </button>
           <div className="relative">
             <button
               type="button"
-              aria-label="Settings"
-              aria-expanded={menu === "settings"}
+              aria-label="Account menu"
+              aria-expanded={menu === "account"}
               aria-haspopup="menu"
-              onClick={() => setMenu((current) => (current === "settings" ? null : "settings"))}
-              className="px-2 py-1 text-sm ring-1 ring-white/15 hover:ring-thread"
+              onClick={() => setMenu((current) => (current === "account" ? null : "account"))}
+              className="flex max-w-52 items-center gap-2 px-1.5 py-1 ring-1 ring-white/15 hover:ring-thread"
             >
-              Settings
+              <span
+                aria-hidden
+                className="flex h-6 w-6 shrink-0 items-center justify-center bg-panel text-[11px] font-semibold text-thread ring-1 ring-white/15"
+              >
+                {accountInitial}
+              </span>
+              <span className="min-w-0 truncate text-xs text-ink-dim" title={email}>
+                {email}
+              </span>
             </button>
-            {menu === "settings" ? (
-              <div role="menu" className="absolute right-0 z-20 mt-2 w-64 bg-raised p-2 ring-1 ring-white/10">
+            {menu === "account" ? (
+              <div role="menu" className="absolute right-0 z-20 mt-2 w-56 bg-raised p-1 ring-1 ring-white/10">
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setMenu(null);
+                    setContextOpen(true);
+                  }}
+                  className="w-full px-3 py-2 text-left text-sm hover:bg-panel"
+                >
+                  Shared context
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setMenu(null);
+                    setAccountOpen(true);
+                  }}
+                  className="w-full px-3 py-2 text-left text-sm hover:bg-panel"
+                >
+                  Settings
+                </button>
                 <button
                   type="button"
                   role="menuitem"
@@ -599,13 +603,23 @@ export function Dashboard({
                     setMenu(null);
                     setConfirmReset(true);
                   }}
-                  className="w-full px-2 py-2 text-left text-sm hover:bg-panel"
+                  className="w-full px-3 py-2 text-left text-sm hover:bg-panel"
                 >
                   Reset demo
                 </button>
-                <p className="px-2 pb-2 text-xs leading-normal text-ink-dim">
-                  Returns every task to pending and clears outputs. Does not call Claude or GPT.
-                </p>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setMenu(null);
+                    void fetch("/api/auth/sign-out", { method: "POST" }).then(() => {
+                      window.location.href = "/sign-in";
+                    });
+                  }}
+                  className="w-full px-3 py-2 text-left text-sm hover:bg-panel"
+                >
+                  Sign out
+                </button>
               </div>
             ) : null}
           </div>
@@ -665,31 +679,11 @@ export function Dashboard({
               onReview={() => waiting && setApprovalId(waiting.id)}
               onRetry={(id) => void run(id)}
               onHide={() => setActivityOpen(false)}
-              missions={<BetaMissions />}
             />
           </RegionBoundary>
         ) : null}
       </main>
-      <footer className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-white/10 px-4 py-2">
-        <button
-          type="button"
-          aria-haspopup="dialog"
-          aria-expanded={accountOpen}
-          onClick={() => {
-            setMenu(null);
-            setAccountOpen((current) => !current);
-          }}
-          className="flex min-w-0 items-center gap-2 py-0.5 hover:text-thread"
-        >
-          <span
-            aria-hidden
-            className="flex h-7 w-7 shrink-0 items-center justify-center bg-panel text-xs font-semibold text-thread ring-1 ring-white/15"
-          >
-            {accountInitial}
-          </span>
-          <span className="max-w-56 truncate text-sm text-ink">{accountName}</span>
-          <span className="sr-only">Open settings</span>
-        </button>
+      <footer className="border-t border-white/10 px-4 py-2">
         <p className="text-xs leading-normal text-ink-dim">
           Scout and Maker are AI agents and can make mistakes. Nothing ships without your approval.
         </p>

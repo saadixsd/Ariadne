@@ -35,10 +35,13 @@ export function WelcomeOverlay({
   }
 
   return (
-    <aside className="enter border-b border-thread/40 bg-raised px-4 py-3">
+    <aside className="enter mx-3 mt-3 bg-raised p-4 ring-1 ring-thread/40">
       <div className="flex items-start justify-between gap-3">
-        <h2 className="text-lg font-semibold leading-tight">You&apos;re the conductor now.</h2>
-        <button type="button" onClick={() => writeFlag(DISMISS_KEY, true)} className="text-sm text-ink-dim hover:text-ink">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold tracking-[0.16em] text-thread">Onboarding</p>
+          <h2 className="mt-1 text-lg font-semibold leading-tight">You&apos;re the conductor now.</h2>
+        </div>
+        <button type="button" onClick={() => writeFlag(DISMISS_KEY, true)} className="shrink-0 text-sm text-ink-dim hover:text-ink">
           Dismiss
         </button>
       </div>

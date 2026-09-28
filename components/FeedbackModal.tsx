@@ -74,6 +74,9 @@ export function FeedbackModal({ onClose }: { onClose: () => void }) {
             <p className="mt-1 text-sm leading-normal text-ink-dim">
               Bug, idea, or something that was confusing. This does not start a run.
             </p>
+            <p className="mt-2 text-sm leading-normal text-thread-bright">
+              Tell us the one thing you&apos;d use this for in your real work.
+            </p>
             <div className="mt-4 flex flex-wrap gap-2" role="group" aria-label="Feedback kind">
               {KINDS.map((item) => {
                 const selected = kind === item.id;
