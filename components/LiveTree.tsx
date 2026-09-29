@@ -8,8 +8,41 @@ import { acceptPolledProject } from "@/lib/board-project";
 import { DAILY_MODEL_RUNS } from "@/lib/limits";
 import { workflowTree } from "@/lib/live-tree";
 import { hideModelIds } from "@/lib/model-label";
-import { cascadeFrom, taskNumber } from "@/lib/task-rules";
-import type { ProjectDTO } from "@/lib/types";
+import { canRunTask, cascadeFrom, dependenciesMet, taskNumber } from "@/lib/task-rules";
+import type { ProjectDTO, TaskDTO } from "@/lib/types";
+import { useFlag, writeFlag } from "@/components/client-storage";
+
+const LEGEND_COLLAPSED = "ariadne.tree.legend.collapsed";
+
+function nextActionText(project: ProjectDTO): string {
+  const tasks = project.tasks;
+  const total = tasks.length;
+  if (total === 0) return "No steps yet.";
+  const step = (task: TaskDTO, rest: string) =>
+    `Step ${taskNumber(task.id, tasks)} of ${total} · ${task.title} ${rest}`;
+  const waiting = tasks.find((task) => task.status === "awaiting_approval");
+  if (waiting) return step(waiting, "is waiting on you");
+  const running = tasks.find((task) => task.status === "running");
+  if (running) return step(running, "is running");
+  const ready = tasks.find((task) => canRunTask(task, tasks));
+  if (ready) return step(ready, ready.status === "failed" ? "needs a retry" : "is ready to run");
+  const locked = tasks.find((task) => task.status === "pending" && !dependenciesMet(task, tasks));
+  if (locked) {
+    const names = locked.dependsOn
+      .map((id) => tasks.find((task) => task.id === id))
+      .filter((task): task is TaskDTO => task != null && task.status !== "done")
+      .map((task) => task.title);
+    const when =
+      names.length === 1
+        ? `${names[0]} finishes`
+        : names.length > 1
+          ? `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]} finish`
+          : "the steps it needs are finished";
+    return step(locked, `unlocks when ${when}`);
+  }
+  if (tasks.every((task) => task.status === "done")) return `All ${total} steps are finished.`;
+  return `Step 1 of ${total} · ${tasks[0]?.title ?? "The next step"}`;
+}
 
 export function LiveTree({
   initial,
@@ -31,6 +64,7 @@ export function LiveTree({
   const [toast, setToast] = useState<{ tone: "danger" | "ok"; text: string } | null>(null);
   const selectedIdRef = useRef(initial.id);
   const busy = useRef(false);
+  const legendCollapsed = useFlag(LEGEND_COLLAPSED);
   const tree = useMemo(() => workflowTree(data), [data]);
   const detailNode = tree.nodes.find((node) => node.id === detailId) ?? null;
 
@@ -195,6 +229,9 @@ export function LiveTree({
       <p className="border-b border-[#dfe9e1] px-4 py-2 text-sm leading-normal text-[#5c6f61]">
         {remaining} of {DAILY_MODEL_RUNS} free agent runs left today.
       </p>
+      <p data-next-action className="border-b border-[#dfe9e1] bg-white px-4 py-1.5 text-sm leading-normal text-[#101812]">
+        {nextActionText(data)}
+      </p>
       {detailNode ? (
         <button type="button" aria-label="Close details" className="fixed inset-0 z-30 bg-[#101812]/15" onClick={closeDetail} />
       ) : null}
@@ -209,7 +246,18 @@ export function LiveTree({
         onRerun={setRerunId}
       />
       <footer className="border-t border-[#dfe9e1] bg-white px-6 py-4">
-        <h2 className="text-xs font-semibold tracking-[0.16em] text-[#0e5c36]">LEGEND</h2>
+        <h2 className="text-xs font-semibold tracking-[0.16em] text-[#0e5c36]">
+          <button
+            type="button"
+            aria-expanded={!legendCollapsed}
+            onClick={() => writeFlag(LEGEND_COLLAPSED, !legendCollapsed)}
+            className="inline-flex items-center gap-2"
+          >
+            LEGEND
+            <span className="font-medium tracking-normal text-[#5c6f61]">{legendCollapsed ? "Show" : "Hide"}</span>
+          </button>
+        </h2>
+        {legendCollapsed ? null : (
         <ul className="mt-3 flex flex-wrap gap-x-6 gap-y-2 text-sm text-[#5c6f61]">
           <li className="flex items-center gap-2">
             <span className="h-2.5 w-2.5 rounded-full bg-[#0e5c36]" aria-hidden />
@@ -232,6 +280,7 @@ export function LiveTree({
             Green line — work that has moved. Gray line — a link. Dashed — a pruned path
           </li>
         </ul>
+        )}
       </footer>
       {detailNode ? (
         <TreeDetailRail

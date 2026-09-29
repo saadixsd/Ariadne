@@ -12,6 +12,12 @@
   }
 }
 
+@keyframes tree-dash {
+  to {
+    stroke-dashoffset: -14;
+  }
+}
+
 .tree-gate {
   animation: tree-gate-pulse 1.8s ease-in-out infinite;
 }
@@ -19,11 +25,33 @@
 .tree-card {
   transition:
     transform 150ms ease,
-    box-shadow 150ms ease;
+    box-shadow 150ms ease,
+    background-color 300ms ease,
+    border-color 300ms ease,
+    color 300ms ease,
+    opacity 300ms ease;
 }
 
 .tree-card:hover {
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+}
+
+.tree-node-btn:focus-visible {
+  outline: 2px solid #10b981;
+  outline-offset: 3px;
+}
+
+.tree-edge {
+  transition: stroke 300ms ease;
+}
+
+.tree-dot {
+  transition: background-color 300ms ease;
+}
+
+.tree-flow {
+  stroke-dasharray: 7 7;
+  animation: tree-dash 900ms linear infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -34,11 +62,17 @@
       0 4px 14px rgba(245, 158, 11, 0.22);
   }
 
-  .tree-card {
+  .tree-card,
+  .tree-edge,
+  .tree-dot {
     transition: none;
   }
 
   .tree-card:hover {
     transform: none;
+  }
+
+  .tree-flow {
+    animation: none;
   }
 }
