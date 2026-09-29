@@ -13,6 +13,7 @@ import { NewProjectDialog } from "@/components/NewProjectDialog";
 import { RegionBoundary } from "@/components/RegionBoundary";
 import { SetupBanner } from "@/components/SetupBanner";
 import { TaskColumn } from "@/components/TaskColumn";
+import { ViewSwitch } from "@/components/ViewSwitch";
 import { WelcomeOverlay } from "@/components/WelcomeOverlay";
 import { useFlag, writeFlag } from "@/components/client-storage";
 import { acceptPolledProject, needsSharedContextPrompt } from "@/lib/board-project";
@@ -104,7 +105,7 @@ export function Dashboard({
   const [lineageId, setLineageId] = useState<string | null>(null);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(openSettings);
-  const [menu, setMenu] = useState<null | "beta" | "account">(null);
+  const [menu, setMenu] = useState<null | "account">(null);
   const closeAccount = useCallback(() => setAccountOpen(false), []);
   const [confirmReset, setConfirmReset] = useState(false);
   const [activityOpen, setActivityOpen] = useState(true);
@@ -518,6 +519,7 @@ export function Dashboard({
           >
             New project
           </button>
+          <ViewSwitch view="board" projectId={selectedId} />
         </div>
         <div ref={menuRef} className="flex flex-wrap items-center gap-2">
           <button
@@ -530,31 +532,6 @@ export function Dashboard({
           >
             Give feedback
           </button>
-          <div className="relative">
-            <button
-              type="button"
-              aria-expanded={menu === "beta"}
-              onClick={() => setMenu((current) => (current === "beta" ? null : "beta"))}
-              className="px-1.5 py-0.5 text-[10px] font-semibold tracking-[0.16em] text-thread ring-1 ring-thread/50"
-            >
-              BETA
-            </button>
-            {menu === "beta" ? (
-              <div className="absolute right-0 z-20 mt-2 w-72 bg-raised p-3 text-sm leading-normal ring-1 ring-white/10">
-                <p className="font-semibold leading-tight">What&apos;s beta</p>
-                <ul className="mt-2 list-disc space-y-1 pl-4 text-ink-dim">
-                  <li>Sign in with email and password. Each account gets {DAILY_MODEL_RUNS} model runs a day.</li>
-                  <li>Scout calls Claude and Maker calls GPT only after you press Run.</li>
-                  <li>Reset demo clears outputs and does not call the models.</li>
-                  <li>Tasks are this seeded workflow, not a builder.</li>
-                  <li>Agents can be wrong. You approve before the last build continues.</li>
-                </ul>
-                <a href="/feedback" className="mt-3 inline-block text-thread hover:text-thread-bright">
-                  Read feedback
-                </a>
-              </div>
-            ) : null}
-          </div>
           <div className="relative">
             <button
               type="button"
