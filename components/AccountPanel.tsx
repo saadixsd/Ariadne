@@ -151,11 +151,11 @@ export function AccountPanel({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className={`account-panel absolute bottom-14 left-4 flex max-h-[min(40rem,calc(100%-5rem))] w-[min(26rem,calc(100vw-2rem))] origin-bottom-left flex-col overflow-y-auto bg-raised ring-1 ring-white/10 ${
+        className={`account-panel absolute bottom-14 left-4 flex max-h-[min(40rem,calc(100%-5rem))] w-[min(26rem,calc(100vw-2rem))] origin-bottom-left flex-col overflow-y-auto bg-raised ring-1 ring-line ${
           visible ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"
         }`}
       >
-        <div className="flex items-start justify-between gap-3 border-b border-white/10 px-4 py-3">
+        <div className="flex items-start justify-between gap-3 border-b border-line px-4 py-3">
           <div className="min-w-0">
             <h2 id={titleId} className="text-lg font-semibold leading-tight">
               Settings
@@ -186,7 +186,7 @@ export function AccountPanel({
               <p className="truncate text-sm text-ink-dim">{email}</p>
             </div>
           </div>
-          <dl className="mt-4 space-y-2 border-t border-white/10 pt-4 text-sm">
+          <dl className="mt-4 space-y-2 border-t border-line pt-4 text-sm">
             <div className="flex items-baseline justify-between gap-4">
               <dt className="text-ink-dim">First name</dt>
               <dd className="truncate">{firstName || "Not set"}</dd>
@@ -201,7 +201,7 @@ export function AccountPanel({
             </div>
           </dl>
           <form
-            className="mt-4 space-y-3 border-t border-white/10 pt-4"
+            className="mt-4 space-y-3 border-t border-line pt-4"
             onSubmit={(event) => {
               event.preventDefault();
               void submitBrief();
@@ -220,7 +220,7 @@ export function AccountPanel({
                   setBriefSaved(false);
                 }}
                 maxLength={120}
-                className="mt-1 w-full bg-base px-3 py-2 text-sm ring-1 ring-white/10"
+                className="mt-1 w-full bg-base px-3 py-2 text-sm ring-1 ring-line"
                 aria-label="Project name"
               />
             </label>
@@ -232,7 +232,7 @@ export function AccountPanel({
                   setDraftBrief(event.target.value);
                   setBriefSaved(false);
                 }}
-                className="mt-1 min-h-28 w-full bg-base px-3 py-2 text-sm leading-normal ring-1 ring-white/10"
+                className="mt-1 min-h-28 w-full bg-base px-3 py-2 text-sm leading-normal ring-1 ring-line"
                 aria-label="Project brief"
               />
             </label>

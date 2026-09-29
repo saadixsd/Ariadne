@@ -35,13 +35,13 @@ export default async function FeedbackInbox() {
         Notes people sent from Give feedback. Reading this page does not run an agent.
       </p>
       {rows.length === 0 ? (
-        <p className="mt-8 bg-panel px-4 py-6 text-sm leading-normal text-ink-dim ring-1 ring-white/10">
+        <p className="mt-8 bg-panel px-4 py-6 text-sm leading-normal text-ink-dim ring-1 ring-line">
           No feedback yet. Use Give feedback in the workspace header.
         </p>
       ) : (
         <ul className="mt-6 space-y-3">
           {rows.map((row) => (
-            <li key={row.id} className="bg-panel px-4 py-3 ring-1 ring-white/10">
+            <li key={row.id} className="bg-panel px-4 py-3 ring-1 ring-line">
               <div className="flex items-baseline justify-between gap-3">
                 <span className="text-xs font-semibold tracking-[0.14em] text-thread uppercase">
                   {row.kind}

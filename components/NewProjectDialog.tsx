@@ -61,7 +61,7 @@ export function NewProjectDialog({
           aria-modal="true"
           aria-labelledby={titleId}
           aria-describedby={error ? errorId : undefined}
-          className="enter w-full max-w-lg bg-raised p-5 ring-1 ring-white/10"
+          className="enter w-full max-w-lg bg-raised p-5 ring-1 ring-line"
           onMouseDown={(event) => event.stopPropagation()}
           onSubmit={async (event) => {
             event.preventDefault();
@@ -96,7 +96,7 @@ export function NewProjectDialog({
               value={name}
               onChange={(event) => setName(event.target.value)}
               maxLength={120}
-              className="mt-1 w-full bg-base px-3 py-2 text-sm ring-1 ring-white/10"
+              className="mt-1 w-full bg-base px-3 py-2 text-sm ring-1 ring-line"
               aria-label="Project name"
             />
           </label>
@@ -105,7 +105,7 @@ export function NewProjectDialog({
             <textarea
               value={brief}
               onChange={(event) => setBrief(event.target.value)}
-              className="mt-1 min-h-28 w-full bg-base px-3 py-2 text-sm leading-normal ring-1 ring-white/10"
+              className="mt-1 min-h-28 w-full bg-base px-3 py-2 text-sm leading-normal ring-1 ring-line"
               aria-label="Project brief"
             />
           </label>

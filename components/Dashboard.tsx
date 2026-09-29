@@ -492,7 +492,7 @@ export function Dashboard({
   return (
     <div className="flex h-full min-h-0 flex-col bg-base text-ink">
       <SetupBanner missing={missingSetup} />
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
         <div className="flex min-w-0 flex-wrap items-end gap-3">
           <div className="shrink-0 pb-0.5">
             <p className="text-xs font-semibold tracking-[0.28em] text-ink">ARIADNE</p>
@@ -503,7 +503,7 @@ export function Dashboard({
             <select
               value={selectedId}
               onChange={(event) => void switchProject(event.target.value)}
-              className="max-w-56 truncate bg-base px-2 py-1 text-sm font-semibold text-ink ring-1 ring-white/15"
+              className="max-w-56 truncate bg-base px-2 py-1 text-sm font-semibold text-ink ring-1 ring-line"
             >
               {projects.map((project) => (
                 <option key={project.id} value={project.id}>
@@ -515,7 +515,7 @@ export function Dashboard({
           <button
             type="button"
             onClick={() => setNewProjectOpen(true)}
-            className="px-2 py-1 text-sm ring-1 ring-white/15 hover:ring-thread"
+            className="px-2 py-1 text-sm ring-1 ring-line hover:ring-thread"
           >
             New project
           </button>
@@ -528,7 +528,7 @@ export function Dashboard({
               setMenu(null);
               setFeedbackOpen(true);
             }}
-            className="px-2 py-1 text-sm ring-1 ring-white/15 hover:ring-thread"
+            className="px-2 py-1 text-sm ring-1 ring-line hover:ring-thread"
           >
             Give feedback
           </button>
@@ -539,11 +539,11 @@ export function Dashboard({
               aria-expanded={menu === "account"}
               aria-haspopup="menu"
               onClick={() => setMenu((current) => (current === "account" ? null : "account"))}
-              className="flex max-w-52 items-center gap-2 px-1.5 py-1 ring-1 ring-white/15 hover:ring-thread"
+              className="flex max-w-52 items-center gap-2 px-1.5 py-1 ring-1 ring-line hover:ring-thread"
             >
               <span
                 aria-hidden
-                className="flex h-6 w-6 shrink-0 items-center justify-center bg-panel text-[11px] font-semibold text-thread ring-1 ring-white/15"
+                className="flex h-6 w-6 shrink-0 items-center justify-center bg-panel text-[11px] font-semibold text-thread ring-1 ring-line"
               >
                 {accountInitial}
               </span>
@@ -552,7 +552,7 @@ export function Dashboard({
               </span>
             </button>
             {menu === "account" ? (
-              <div role="menu" className="absolute right-0 z-20 mt-2 w-56 bg-raised p-1 ring-1 ring-white/10">
+              <div role="menu" className="absolute right-0 z-20 mt-2 w-56 bg-raised p-1 ring-1 ring-line">
                 <button
                   type="button"
                   role="menuitem"
@@ -615,7 +615,7 @@ export function Dashboard({
           )}
         </div>
       </header>
-      <p className="border-b border-white/10 px-4 py-2 text-sm leading-normal text-ink-dim">
+      <p className="border-b border-line px-4 py-2 text-sm leading-normal text-ink-dim">
         {statusLine(data)} {remaining} of {DAILY_MODEL_RUNS} free agent runs left today.
       </p>
       <WelcomeOverlay
@@ -664,7 +664,7 @@ export function Dashboard({
           </RegionBoundary>
         ) : null}
       </main>
-      <footer className="border-t border-white/10 px-4 py-2">
+      <footer className="border-t border-line px-4 py-2">
         <p className="text-xs leading-normal text-ink-dim">
           Scout and Maker are AI agents and can make mistakes.
         </p>
@@ -703,7 +703,7 @@ export function Dashboard({
       ) : null}
       {feedbackOpen ? <FeedbackModal onClose={() => setFeedbackOpen(false)} /> : null}
       {rerunId ? (
-        <div className="fixed inset-0 z-40 flex items-end justify-center bg-base/80 p-4 sm:items-center" role="presentation">
+        <div className="fixed inset-0 z-40 flex items-end justify-center bg-ink/30 p-4 sm:items-center" role="presentation">
           <div role="dialog" aria-modal="true" aria-labelledby="rerun-title" className="w-full max-w-md bg-raised p-5 ring-1 ring-thread/50">
             <h2 id="rerun-title" className="text-lg font-semibold leading-tight">
               Re-run this task
@@ -735,8 +735,8 @@ export function Dashboard({
         </div>
       ) : null}
       {confirmReset ? (
-        <div className="fixed inset-0 z-40 flex items-end justify-center bg-base/80 p-4 sm:items-center" role="presentation">
-          <div role="dialog" aria-modal="true" aria-labelledby="reset-title" className="w-full max-w-md bg-raised p-5 ring-1 ring-white/10">
+        <div className="fixed inset-0 z-40 flex items-end justify-center bg-ink/30 p-4 sm:items-center" role="presentation">
+          <div role="dialog" aria-modal="true" aria-labelledby="reset-title" className="w-full max-w-md bg-raised p-5 ring-1 ring-line">
             <h2 id="reset-title" className="text-lg font-semibold leading-tight">
               Reset demo
             </h2>
@@ -765,7 +765,7 @@ export function Dashboard({
         <div
           role="status"
           className={`fixed right-4 bottom-14 z-50 max-w-sm px-4 py-3 text-sm leading-normal ring-1 ${
-            toast.tone === "ok" ? "bg-raised text-ok ring-ok/40" : "bg-raised text-danger ring-danger/50"
+            toast.tone === "ok" ? "bg-raised text-thread ring-ok/40" : "bg-raised text-danger ring-danger/50"
           }`}
         >
           {toast.text}

@@ -166,7 +166,7 @@ export function TaskColumn({
                 {isLast ? null : (
                   <span
                     aria-hidden
-                    className={`absolute top-3 -bottom-3 w-0.5 ${threadGold ? "bg-thread" : "bg-thread-dim"} ${handedOn || leadsToGate ? "thread-flow" : ""}`}
+                    className={`absolute top-3 -bottom-3 w-0.5 ${leadsToGate ? "bg-gate" : threadGold ? "bg-thread" : "bg-thread-dim"} ${handedOn || leadsToGate ? "thread-flow" : ""}`}
                   />
                 )}
                 <span className="relative z-10 mt-3 grid h-6 w-6 place-items-center bg-base">
@@ -176,8 +176,8 @@ export function TaskColumn({
               <article
                 className={`mb-5 min-w-0 bg-panel px-3 py-3 ${
                   awaiting
-                    ? "ring-2 ring-thread shadow-[0_0_0_1px_rgba(245,158,11,0.35)]"
-                    : "ring-1 ring-white/10"
+                    ? "ring-2 ring-gate shadow-[0_0_0_1px_rgba(245,158,11,0.35)]"
+                    : "ring-1 ring-line"
                 } ${blocked ? "opacity-70" : ""}`}
               >
                 <div className="flex items-start justify-between gap-3">
@@ -187,11 +187,11 @@ export function TaskColumn({
                       {task.title}
                     </span>
                     <span className="mt-1 flex flex-wrap items-center gap-2 text-sm text-ink-dim">
-                      <span className="bg-base px-1.5 py-0.5 font-mono text-[11px] text-thread-bright ring-1 ring-white/10">
+                      <span className="bg-base px-1.5 py-0.5 font-mono text-[11px] text-thread-bright ring-1 ring-line">
                         {agent?.name ?? "Unassigned"} · {providerLabel(agent?.provider ?? "")}
                       </span>
                       {needs ? <span className="font-mono text-xs">{needs}</span> : null}
-                      {task.requiresApproval ? <span className="text-xs font-semibold tracking-wide text-gate">GATE</span> : null}
+                      {task.requiresApproval ? <span className="text-xs font-semibold tracking-wide text-gate-ink">GATE</span> : null}
                     </span>
                   </button>
                   <div className="shrink-0">
@@ -199,7 +199,7 @@ export function TaskColumn({
                       <button
                         type="button"
                         onClick={() => onReview(task.id)}
-                        className="bg-thread px-3 py-1.5 text-sm font-medium text-(--color-base) hover:bg-thread-bright"
+                        className="bg-gate px-3 py-1.5 text-sm font-semibold text-ink hover:bg-gate-bright"
                       >
                         Review
                       </button>
@@ -245,7 +245,7 @@ export function TaskColumn({
                   </p>
                 ) : null}
                 {open ? (
-                  <div className="mt-3 space-y-3 border-t border-white/10 pt-3">
+                  <div className="mt-3 space-y-3 border-t border-line pt-3">
                     <p className="text-sm leading-normal whitespace-pre-wrap text-ink">{task.instructions}</p>
                     {timing ? <p className="font-mono text-xs text-ink-dim">{timing}</p> : null}
                     <button
@@ -275,7 +275,7 @@ export function TaskColumn({
                           <button
                             type="button"
                             onClick={() => onCopyError(errorText)}
-                            className="mt-2 ring-1 ring-white/20 px-2 py-1 text-xs hover:ring-thread"
+                            className="mt-2 ring-1 ring-line px-2 py-1 text-xs hover:ring-thread"
                           >
                             Copy error
                           </button>

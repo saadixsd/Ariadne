@@ -106,7 +106,7 @@ export function AuthForm({
             required
             value={address}
             onChange={(event) => setAddress(event.target.value)}
-            className="mt-1 w-full bg-base px-3 py-2 text-sm ring-1 ring-white/10"
+            className="mt-1 w-full bg-base px-3 py-2 text-sm ring-1 ring-line"
           />
         </label>
         {mode === "verify" ? (
@@ -118,7 +118,7 @@ export function AuthForm({
               required
               value={code}
               onChange={(event) => setCode(event.target.value)}
-              className="mt-1 w-full bg-base px-3 py-2 font-mono text-sm ring-1 ring-white/10"
+              className="mt-1 w-full bg-base px-3 py-2 font-mono text-sm ring-1 ring-line"
             />
           </label>
         ) : (
@@ -131,7 +131,7 @@ export function AuthForm({
               minLength={8}
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              className="mt-1 w-full bg-base px-3 py-2 text-sm ring-1 ring-white/10"
+              className="mt-1 w-full bg-base px-3 py-2 text-sm ring-1 ring-line"
             />
           </label>
         )}

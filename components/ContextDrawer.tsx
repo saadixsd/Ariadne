@@ -81,7 +81,7 @@ export function ContextDrawer({
   }, [onClose, prompting]);
 
   const header = (
-    <div className="flex items-start justify-between gap-3 border-b border-white/10 px-5 py-4">
+    <div className="flex items-start justify-between gap-3 border-b border-line px-5 py-4">
       <div className="min-w-0">
         <h2 id={titleId} className="text-lg font-semibold leading-tight">
           Shared context
@@ -113,7 +113,7 @@ export function ContextDrawer({
             value={draftName}
             onChange={(event) => setDraftName(event.target.value)}
             maxLength={120}
-            className="mt-1 w-full bg-base px-3 py-2 text-sm ring-1 ring-white/10"
+            className="mt-1 w-full bg-base px-3 py-2 text-sm ring-1 ring-line"
             aria-label="Project name"
           />
         </label>
@@ -122,7 +122,7 @@ export function ContextDrawer({
           <textarea
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
-            className="mt-1 min-h-64 w-full flex-1 bg-base px-3 py-2 text-sm leading-normal ring-1 ring-white/10"
+            className="mt-1 min-h-64 w-full flex-1 bg-base px-3 py-2 text-sm leading-normal ring-1 ring-line"
             aria-label="Project brief"
           />
         </label>
@@ -135,7 +135,7 @@ export function ContextDrawer({
           Saving updates the name and brief for later runs. It does not call Claude or GPT.
         </p>
       </div>
-      <div className="flex justify-end gap-2 border-t border-white/10 px-5 py-4">
+      <div className="flex justify-end gap-2 border-t border-line px-5 py-4">
         <button type="button" onClick={onClose} className="px-3 py-2 text-sm text-ink-dim hover:text-ink">
           Close
         </button>
@@ -165,7 +165,7 @@ export function ContextDrawer({
             aria-modal="true"
             aria-labelledby={titleId}
             aria-describedby={error ? errorId : undefined}
-            className="enter flex max-h-[min(40rem,calc(100%-2rem))] w-full max-w-lg flex-col bg-raised ring-1 ring-white/10"
+            className="enter flex max-h-[min(40rem,calc(100%-2rem))] w-full max-w-lg flex-col bg-raised ring-1 ring-line"
             onMouseDown={(event) => event.stopPropagation()}
           >
             {body}
@@ -176,14 +176,14 @@ export function ContextDrawer({
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex justify-end bg-base/70" role="presentation" onMouseDown={onClose}>
+    <div className="fixed inset-0 z-40 flex justify-end bg-ink/30" role="presentation" onMouseDown={onClose}>
       <aside
         ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={error ? errorId : undefined}
-        className="flex h-full w-full max-w-md flex-col bg-raised ring-1 ring-white/10"
+        className="flex h-full w-full max-w-md flex-col bg-raised ring-1 ring-line"
         onMouseDown={(event) => event.stopPropagation()}
       >
         {body}

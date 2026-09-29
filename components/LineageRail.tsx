@@ -124,16 +124,16 @@ export function LineageRail({
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-base/70" role="presentation" onMouseDown={onClose}>
+    <div className="fixed inset-0 z-50 flex justify-end bg-ink/30" role="presentation" onMouseDown={onClose}>
       <aside
         role="dialog"
         aria-modal="true"
         aria-labelledby="lineage-title"
         data-lineage-rail
-        className="enter flex h-full w-full max-w-md flex-col bg-raised ring-1 ring-white/10"
+        className="enter flex h-full w-full max-w-md flex-col bg-raised ring-1 ring-line"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <div className="border-b border-white/10 px-5 py-4">
+        <div className="border-b border-line px-5 py-4">
           <div className="flex items-start justify-between gap-3">
             <div>
               <h2 id="lineage-title" className="text-lg font-semibold leading-tight">
@@ -206,13 +206,13 @@ export function LineageRail({
                         ? "bg-thread/10 ring-thread"
                         : node.kind !== "brief" && node.selected
                           ? "bg-panel ring-thread-bright"
-                          : "bg-panel ring-white/10"
+                          : "bg-panel ring-line"
                     }`}
                   >
                     {node.kind === "brief" ? (
                       <p className="text-xs font-semibold tracking-[0.16em] text-thread-bright">BRIEF</p>
                     ) : decision ? (
-                      <p className="text-xs font-semibold tracking-[0.16em] text-gate">DECISION</p>
+                      <p className="text-xs font-semibold tracking-[0.16em] text-gate-ink">DECISION</p>
                     ) : null}
                     <p className="font-semibold leading-tight">
                       {node.kind === "brief" ? null : (
@@ -222,7 +222,7 @@ export function LineageRail({
                     </p>
                     {node.kind === "brief" ? null : (
                       <p className="mt-1">
-                        <span className="bg-base px-1.5 py-0.5 font-mono text-[11px] text-thread-bright ring-1 ring-white/10">
+                        <span className="bg-base px-1.5 py-0.5 font-mono text-[11px] text-thread-bright ring-1 ring-line">
                           {node.badge}
                         </span>
                       </p>

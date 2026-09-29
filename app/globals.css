@@ -4,22 +4,26 @@
   --font-sans: var(--font-inter), ui-sans-serif, sans-serif;
   --font-mono: var(--font-jetbrains), ui-monospace, monospace;
 
-  --color-base: #09090b;
-  --color-panel: #101014;
-  --color-raised: #18181d;
-  --color-thread: #f59e0b;
-  --color-thread-bright: #fbbf24;
-  --color-thread-dim: #27272a;
-  --color-ink: #f4f4f5;
-  --color-ink-dim: #a1a1aa;
-  --color-ok: #4ade80;
-  --color-working: #fbbf24;
-  --color-danger: #f87171;
+  --color-base: #f6faf6;
+  --color-panel: #fbfdfb;
+  --color-raised: #ffffff;
+  --color-line: #dfe9e1;
+  --color-tint: #eef6f0;
+  --color-thread: #0e5c36;
+  --color-thread-bright: #15804c;
+  --color-thread-dim: #e6ebe7;
+  --color-ink: #101812;
+  --color-ink-dim: #5c6f61;
+  --color-ok: #10b981;
+  --color-working: #10b981;
+  --color-danger: #dc2626;
   --color-gate: #f59e0b;
+  --color-gate-bright: #fbbf24;
+  --color-gate-ink: #b45309;
 }
 
 html {
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 body {
@@ -36,6 +40,10 @@ body {
 button:not(:disabled),
 a[href] {
   cursor: pointer;
+}
+
+[role="dialog"] {
+  box-shadow: 0 12px 40px rgba(16, 24, 18, 0.14);
 }
 
 .ink-on-thread {
@@ -160,6 +168,6 @@ a[href] {
 }
 
 .markdown p code {
-  background: var(--color-raised);
+  background: var(--color-tint);
   padding: 0.1rem 0.3rem;
 }

@@ -41,12 +41,12 @@ export function FeedbackModal({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex items-end justify-center bg-base/70 p-4 sm:items-center" role="presentation">
+    <div className="fixed inset-0 z-40 flex items-end justify-center bg-ink/30 p-4 sm:items-center" role="presentation">
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="feedback-title"
-        className="w-full max-w-lg bg-raised p-5 ring-1 ring-white/10"
+        className="w-full max-w-lg bg-raised p-5 ring-1 ring-line"
       >
         {phase === "done" ? (
           <>
@@ -89,7 +89,7 @@ export function FeedbackModal({ onClose }: { onClose: () => void }) {
                     className={
                       selected
                         ? "bg-thread px-3 py-1.5 text-sm font-medium text-(--color-base)"
-                        : "bg-panel px-3 py-1.5 text-sm text-ink ring-1 ring-white/10 hover:ring-thread"
+                        : "bg-panel px-3 py-1.5 text-sm text-ink ring-1 ring-line hover:ring-thread"
                     }
                   >
                     {item.label}
@@ -103,7 +103,7 @@ export function FeedbackModal({ onClose }: { onClose: () => void }) {
                 value={message}
                 onChange={(event) => setMessage(event.target.value)}
                 rows={5}
-                className="mt-1 w-full bg-base px-3 py-2 text-sm leading-normal text-ink ring-1 ring-white/10"
+                className="mt-1 w-full bg-base px-3 py-2 text-sm leading-normal text-ink ring-1 ring-line"
               />
             </label>
             {phase === "error" && error ? (

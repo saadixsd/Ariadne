@@ -55,7 +55,7 @@ export function ProjectIntro() {
             maxLength={120}
             autoFocus
             placeholder="Name"
-            className="mt-2 w-full rounded-2xl bg-panel px-4 py-4 text-[17px] ring-1 ring-white/10 placeholder:text-ink-dim/50"
+            className="mt-2 w-full rounded-2xl bg-panel px-4 py-4 text-[17px] ring-1 ring-line placeholder:text-ink-dim/50"
             aria-label="Project name"
           />
         </label>
@@ -66,7 +66,7 @@ export function ProjectIntro() {
             onChange={(event) => setDescription(event.target.value)}
             maxLength={4000}
             placeholder="e.g. Map Montreal pre-seed investors for my AI dev-tools startup — I need names, check sizes, and warm-intro paths."
-            className="mt-2 min-h-36 w-full resize-none rounded-2xl bg-panel px-4 py-4 text-[17px] leading-relaxed ring-1 ring-white/10 placeholder:text-ink-dim/50"
+            className="mt-2 min-h-36 w-full resize-none rounded-2xl bg-panel px-4 py-4 text-[17px] leading-relaxed ring-1 ring-line placeholder:text-ink-dim/50"
             aria-label="Project description"
           />
           <span className="mt-2 block text-[13px] leading-normal text-ink-dim">

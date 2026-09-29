@@ -56,12 +56,12 @@ export function AddTaskForm({
 
   if (!open) {
     return (
-      <div className="border-t border-white/10 px-4 py-3">
+      <div className="border-t border-line px-4 py-3">
         <button
           type="button"
           onClick={() => setOpen(true)}
           disabled={agents.length === 0}
-          className="px-3 py-1.5 text-sm text-thread-bright ring-1 ring-thread/60 hover:bg-thread/10 disabled:cursor-not-allowed disabled:text-ink-dim disabled:ring-white/10"
+          className="px-3 py-1.5 text-sm text-thread-bright ring-1 ring-thread/60 hover:bg-thread/10 disabled:cursor-not-allowed disabled:text-ink-dim disabled:ring-line"
         >
           + Add task
         </button>
@@ -72,7 +72,7 @@ export function AddTaskForm({
   return (
     <form
       ref={formRef}
-      className="max-h-[min(32rem,55vh)] overflow-y-auto border-t border-white/10 px-4 py-3"
+      className="max-h-[min(32rem,55vh)] overflow-y-auto border-t border-line px-4 py-3"
       onSubmit={async (event) => {
         event.preventDefault();
         if (!ready || saving) return;
@@ -106,7 +106,7 @@ export function AddTaskForm({
           value={title}
           onChange={(event) => setTitle(event.target.value)}
           required
-          className="mt-1 w-full bg-base px-3 py-2 text-sm ring-1 ring-white/10"
+          className="mt-1 w-full bg-base px-3 py-2 text-sm ring-1 ring-line"
           aria-label="Task title"
         />
       </label>
@@ -115,7 +115,7 @@ export function AddTaskForm({
         <select
           value={agentId}
           onChange={(event) => setAgentId(event.target.value)}
-          className="mt-1 w-full bg-base px-3 py-2 text-sm ring-1 ring-white/10"
+          className="mt-1 w-full bg-base px-3 py-2 text-sm ring-1 ring-line"
           aria-label="Agent"
         >
           {agents.map((agent) => (
@@ -132,7 +132,7 @@ export function AddTaskForm({
           onChange={(event) => setInstructions(event.target.value)}
           required
           rows={4}
-          className="mt-1 w-full bg-base px-3 py-2 text-sm leading-normal ring-1 ring-white/10"
+          className="mt-1 w-full bg-base px-3 py-2 text-sm leading-normal ring-1 ring-line"
           aria-label="Task instructions"
         />
       </label>
@@ -171,11 +171,11 @@ export function AddTaskForm({
           aria-checked={requiresApproval}
           aria-labelledby="requires-approval-label"
           onClick={() => setRequiresApproval((current) => !current)}
-          className={`relative h-5 w-9 shrink-0 ring-1 ring-white/10 ${requiresApproval ? "bg-thread" : "bg-raised"}`}
+          className={`relative h-5 w-9 shrink-0 ring-1 ring-line ${requiresApproval ? "bg-gate" : "bg-thread-dim"}`}
         >
           <span
             aria-hidden
-            className={`absolute top-0.5 h-4 w-4 bg-ink transition-transform ${requiresApproval ? "translate-x-4" : "translate-x-0.5"}`}
+            className={`absolute top-0.5 h-4 w-4 bg-white shadow-sm transition-transform ${requiresApproval ? "translate-x-4" : "translate-x-0.5"}`}
           />
         </button>
       </div>

@@ -53,7 +53,7 @@ export function AgentColumn({
   }, [expandedId, onToggle]);
 
   return (
-    <section ref={panel} className="flex flex-col bg-panel ring-1 ring-white/10 xl:h-full xl:min-h-0 xl:overflow-hidden xl:ring-y-0 xl:ring-l-0">
+    <section ref={panel} className="flex flex-col bg-panel ring-1 ring-line xl:h-full xl:min-h-0 xl:overflow-hidden xl:ring-y-0 xl:ring-l-0">
       <h2 className="px-4 pt-4 text-xs font-semibold tracking-[0.18em] text-ink-dim">AGENTS</h2>
       <ul className="space-y-2 px-3 py-3 xl:min-h-0 xl:flex-1 xl:overflow-y-auto">
         {agents.map((agent, index) => {
@@ -67,11 +67,11 @@ export function AgentColumn({
               className="enter"
               style={{ animationDelay: `${index * 50}ms` }}
             >
-              <div className={`bg-raised ring-1 ${open ? "ring-thread/70" : "ring-white/10"}`}>
+              <div className={`bg-raised ring-1 ${open ? "ring-thread/70" : "ring-line"}`}>
                 <button
                   type="button"
                   onClick={() => onToggle(agent.id)}
-                  className="w-full px-3 py-3 text-left hover:bg-white/5"
+                  className="w-full px-3 py-3 text-left hover:bg-base"
                   aria-expanded={open}
                   aria-label={`${agent.name}, ${providerLabel(agent.provider)}, ${statusLabel(agent.status)}`}
                 >
@@ -80,7 +80,7 @@ export function AgentColumn({
                     <span className="min-w-0">
                       <span className="flex flex-wrap items-center gap-2">
                         <span className="font-semibold leading-tight">{agent.name}</span>
-                        <span className="bg-base px-1.5 py-0.5 font-mono text-[11px] text-thread-bright ring-1 ring-white/10">
+                        <span className="bg-base px-1.5 py-0.5 font-mono text-[11px] text-thread-bright ring-1 ring-line">
                           {providerLabel(agent.provider)}
                         </span>
                       </span>
@@ -91,7 +91,7 @@ export function AgentColumn({
                   </span>
                 </button>
                 {open ? (
-                  <div className="border-t border-white/10 px-3 pt-3 pb-3" aria-label={`${agent.name} assignments`}>
+                  <div className="border-t border-line px-3 pt-3 pb-3" aria-label={`${agent.name} assignments`}>
                     {modelLabel ? (
                       <p className="font-mono text-xs text-ink-dim">{modelLabel}</p>
                     ) : null}

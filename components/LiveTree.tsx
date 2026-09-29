@@ -157,7 +157,7 @@ export function LiveTree({
   }
 
   return (
-    <main className="tree-light min-h-full bg-[#f6faf6] text-[#101812]">
+    <main className="min-h-full bg-[#f6faf6] text-[#101812]">
       <header className="flex flex-wrap items-center justify-between gap-4 border-b border-[#dfe9e1] bg-white px-4 py-3">
         <div className="flex min-w-0 flex-wrap items-end gap-3">
           <div className="shrink-0 pb-0.5">
@@ -180,7 +180,7 @@ export function LiveTree({
               ))}
             </select>
           </label>
-          <ViewSwitch view="tree" projectId={data.id} tone="light" />
+          <ViewSwitch view="tree" projectId={data.id} />
         </div>
         <p className="flex items-center gap-1.5 rounded-full bg-[#e7f4ec] px-2.5 py-1 text-[11px] font-semibold tracking-[0.14em] text-[#0e5c36] ring-1 ring-[#cfe3d6]">
           <span className="pulse-status h-1.5 w-1.5 rounded-full bg-[#10b981]" aria-hidden />

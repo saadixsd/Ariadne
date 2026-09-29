@@ -46,7 +46,7 @@ export function ActivityFeed({
   }, [topId]);
 
   return (
-    <section className="flex min-h-0 flex-col bg-panel ring-1 ring-white/10 xl:ring-y-0 xl:ring-r-0">
+    <section className="flex min-h-0 flex-col bg-panel ring-1 ring-line xl:ring-y-0 xl:ring-r-0">
       <div className="flex items-center justify-between px-4 pt-4">
         <h2 className="text-xs font-semibold tracking-[0.18em] text-ink-dim">ACTIVITY</h2>
         <button type="button" onClick={onHide} className="text-xs text-ink-dim hover:text-ink" aria-expanded={true}>
@@ -55,20 +55,20 @@ export function ActivityFeed({
       </div>
       <div ref={scroller} className="flex-1 space-y-2 overflow-y-auto px-3 py-3" role="log" aria-live="polite">
         {waitingTask ? (
-          <div className="sticky top-0 z-10 bg-gate/15 px-3 py-3 ring-1 ring-gate">
-            <p className="text-xs font-semibold tracking-[0.16em] text-thread-bright">Waiting on you</p>
+          <div className="sticky top-0 z-10 bg-gate/10 px-3 py-3 ring-1 ring-gate">
+            <p className="text-xs font-semibold tracking-[0.16em] text-gate-ink">Waiting on you</p>
             <p className="mt-1 text-sm leading-normal">{waitingTask.title}</p>
             <button
               type="button"
               onClick={onReview}
-              className="mt-2 bg-thread px-3 py-1.5 text-sm font-medium text-(--color-base) hover:bg-thread-bright"
+              className="mt-2 bg-gate px-3 py-1.5 text-sm font-semibold text-ink hover:bg-gate-bright"
             >
               Review
             </button>
           </div>
         ) : null}
         {events.length === 0 ? (
-          <p className="border border-dashed border-white/15 px-3 py-6 text-sm leading-normal text-ink-dim">
+          <p className="border border-dashed border-line px-3 py-6 text-sm leading-normal text-ink-dim">
             Run task 1 to see Scout think. Starts, handoffs, and the approval gate show up here after you press Run.
           </p>
         ) : (
@@ -135,7 +135,7 @@ export function ActivityFeed({
                 return (
                   <li key={event.id} data-event-type={event.type} className="bg-gate/15 px-3 py-3 ring-1 ring-gate">
                     <span className="flex items-baseline justify-between gap-3">
-                      <span className="text-xs font-semibold tracking-[0.16em] text-thread-bright">{labelFor(event.type)}</span>
+                      <span className="text-xs font-semibold tracking-[0.16em] text-gate-ink">{labelFor(event.type)}</span>
                       {time}
                     </span>
                     <span className="mt-1 block text-sm leading-normal">{message}</span>
@@ -143,7 +143,7 @@ export function ActivityFeed({
                       <button
                         type="button"
                         onClick={onReview}
-                        className="mt-2 bg-thread px-3 py-1.5 text-sm font-medium text-(--color-base) hover:bg-thread-bright"
+                        className="mt-2 bg-gate px-3 py-1.5 text-sm font-semibold text-ink hover:bg-gate-bright"
                       >
                         Review
                       </button>
@@ -157,7 +157,7 @@ export function ActivityFeed({
                   ? "bg-danger/10 ring-1 ring-danger/40"
                   : event.type === "approved"
                     ? "bg-ok/10 ring-1 ring-ok/30"
-                    : "bg-raised ring-1 ring-white/10";
+                    : "bg-raised ring-1 ring-line";
 
               return (
                 <li key={event.id} data-event-type={event.type} className={`px-3 py-2 ${tone}`}>
