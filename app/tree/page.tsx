@@ -1,4 +1,5 @@
 import { LiveTree } from "@/components/LiveTree";
+import { accountDisplay } from "@/lib/account";
 import { currentUser } from "@/lib/auth";
 import { pickBoardProject } from "@/lib/board-project";
 import { needsProjectIntro } from "@/lib/demo";
@@ -41,6 +42,7 @@ export default async function TreePage({
       initial={project}
       projects={projects.map(({ id, name }) => ({ id, name }))}
       runsLeft={runsLeft}
+      authorName={accountDisplay(user).name}
     />
   );
 }

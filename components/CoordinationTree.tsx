@@ -72,18 +72,35 @@ function titleClass(node: TreeNode) {
   return "text-[#101812]";
 }
 
-function RootCard({ node }: { node: TreeNode }) {
+function RootCard({
+  node,
+  selected,
+  onSelect,
+}: {
+  node: TreeNode;
+  selected: boolean;
+  onSelect: (id: string) => void;
+}) {
   return (
     <article
       data-node-id={node.id}
-      className={`tree-card w-44 shrink-0 overflow-hidden rounded-[11px] border border-[#0e5c36] bg-white ${SHADOW} ${LIFT}`}
+      onClick={() => onSelect(node.id)}
+      className={`tree-card w-44 shrink-0 cursor-pointer overflow-hidden rounded-[11px] border border-[#0e5c36] bg-white ${SHADOW} ${LIFT} ${selected ? "ring-2 ring-[#0e5c36]" : ""}`}
     >
-      <div className="bg-[#0e5c36] px-3 py-3">
-        <div className="flex items-start gap-2">
+      <button
+        type="button"
+        data-node-focus={node.id}
+        onClick={(event) => {
+          event.stopPropagation();
+          onSelect(node.id);
+        }}
+        className="w-full bg-[#0e5c36] px-3 py-3 text-left"
+      >
+        <span className="flex items-start gap-2">
           <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-[#10b981]" aria-hidden />
           <h3 className="text-sm font-semibold leading-tight text-white">{node.label}</h3>
-        </div>
-      </div>
+        </span>
+      </button>
       {node.note ? <p className="px-3 py-2 text-xs leading-normal text-[#5c6f61]">{node.note}</p> : null}
     </article>
   );
@@ -92,12 +109,16 @@ function RootCard({ node }: { node: TreeNode }) {
 function NodeCard({
   node,
   pendingId,
+  selected,
+  onSelect,
   onRun,
   onReview,
   onRerun,
 }: {
   node: TreeNode;
   pendingId: string | null;
+  selected: boolean;
+  onSelect: (id: string) => void;
   onRun: (taskId: string) => void;
   onReview: (taskId: string) => void;
   onRerun: (taskId: string) => void;
@@ -105,9 +126,22 @@ function NodeCard({
   const chip = [node.role, node.model].filter(Boolean).join(" · ");
   const ticking = node.status === "active" || node.status === "waiting";
   const busy = node.taskId !== undefined && pendingId === node.taskId;
-  if (node.kind === "root") return <RootCard node={node} />;
+  if (node.kind === "root") return <RootCard node={node} selected={selected} onSelect={onSelect} />;
   return (
-    <article data-node-id={node.id} className={`tree-card w-44 shrink-0 rounded-[11px] px-3 py-3 ${cardClass(node)}`}>
+    <article
+      data-node-id={node.id}
+      onClick={() => onSelect(node.id)}
+      className={`tree-card w-44 shrink-0 cursor-pointer rounded-[11px] px-3 py-3 ${cardClass(node)} ${selected ? "ring-2 ring-[#0e5c36]" : ""}`}
+    >
+      <button
+        type="button"
+        data-node-focus={node.id}
+        onClick={(event) => {
+          event.stopPropagation();
+          onSelect(node.id);
+        }}
+        className="w-full text-left"
+      >
       {node.kind === "gate" && node.status === "waiting" ? (
         <p className="text-[10px] font-semibold tracking-[0.16em] text-[#b45309]">WAITING ON YOU</p>
       ) : null}
@@ -143,6 +177,8 @@ function NodeCard({
           {node.note}
         </p>
       ) : null}
+      </button>
+      <div onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()}>
       {node.taskId && node.taskStatus === "awaiting_approval" ? (
         <button
           type="button"
@@ -176,6 +212,7 @@ function NodeCard({
           {busy ? "Running" : node.taskStatus === "failed" ? "Retry" : "Run"}
         </button>
       ) : null}
+      </div>
     </article>
   );
 }
@@ -219,12 +256,18 @@ function aroundCards(x1: number, y1: number, x2: number, y2: number, lane: numbe
 export function CoordinationTree({
   tree,
   pendingId,
+  selectedId,
+  onSelect,
+  onBackdrop,
   onRun,
   onReview,
   onRerun,
 }: {
   tree: TreeWorkflow;
   pendingId: string | null;
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+  onBackdrop?: () => void;
   onRun: (taskId: string) => void;
   onReview: (taskId: string) => void;
   onRerun: (taskId: string) => void;
@@ -295,7 +338,15 @@ export function CoordinationTree({
   }, [tree]);
 
   return (
-    <div data-tree-scroll className="overflow-x-auto">
+    <div
+      data-tree-scroll
+      className={`overflow-x-auto ${onBackdrop ? "relative z-40" : ""}`}
+      onClick={(event) => {
+        if (!onBackdrop) return;
+        if ((event.target as HTMLElement).closest("[data-node-id]")) return;
+        onBackdrop();
+      }}
+    >
       <div ref={canvas} className="relative flex w-max min-w-full items-center gap-14 px-6 py-12">
         <svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" aria-hidden>
           <defs>
@@ -339,6 +390,8 @@ export function CoordinationTree({
                   <NodeCard
                     node={node}
                     pendingId={pendingId}
+                    selected={selectedId === node.id}
+                    onSelect={onSelect}
                     onRun={onRun}
                     onReview={onReview}
                     onRerun={onRerun}

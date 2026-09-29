@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ApprovalModal } from "@/components/ApprovalModal";
 import { CoordinationTree } from "@/components/CoordinationTree";
+import { TreeDetailRail } from "@/components/TreeDetailRail";
 import { ViewSwitch } from "@/components/ViewSwitch";
 import { acceptPolledProject } from "@/lib/board-project";
 import { DAILY_MODEL_RUNS } from "@/lib/limits";
@@ -15,22 +15,24 @@ export function LiveTree({
   initial,
   projects,
   runsLeft,
+  authorName,
 }: {
   initial: ProjectDTO;
   projects: { id: string; name: string }[];
   runsLeft: number;
+  authorName: string;
 }) {
   const [data, setData] = useState(initial);
   const [remaining, setRemaining] = useState(runsLeft);
   const [pendingId, setPendingId] = useState<string | null>(null);
-  const [approvalId, setApprovalId] = useState<string | null>(null);
+  const [detailId, setDetailId] = useState<string | null>(null);
   const [rerunId, setRerunId] = useState<string | null>(null);
   const [rerunning, setRerunning] = useState(false);
   const [toast, setToast] = useState<{ tone: "danger" | "ok"; text: string } | null>(null);
   const selectedIdRef = useRef(initial.id);
   const busy = useRef(false);
   const tree = useMemo(() => workflowTree(data), [data]);
-  const approvalTask = data.tasks.find((task) => task.id === approvalId) ?? null;
+  const detailNode = tree.nodes.find((node) => node.id === detailId) ?? null;
 
   const load = useCallback(async (force = false) => {
     if (!force && busy.current) return null;
@@ -71,7 +73,7 @@ export function LiveTree({
       }
       const next = await load(true);
       const updated = next?.tasks.find((item) => item.id === taskId);
-      if (updated?.status === "awaiting_approval") setApprovalId(taskId);
+      if (updated?.status === "awaiting_approval") setDetailId(taskId);
     } catch {
       setToast({
         tone: "danger",
@@ -84,9 +86,18 @@ export function LiveTree({
     }
   }
 
+  function closeDetail() {
+    const id = detailId;
+    setDetailId(null);
+    if (!id) return;
+    requestAnimationFrame(() => {
+      document.querySelector<HTMLElement>(`[data-node-focus="${CSS.escape(id)}"]`)?.focus();
+    });
+  }
+
   async function decide(approved: boolean, note: string) {
-    if (!approvalId) return;
-    const id = approvalId;
+    const id = detailNode?.taskId;
+    if (!id) return;
     const saved = (project: ProjectDTO | null) => {
       const current = project?.tasks.find((task) => task.id === id);
       return approved ? current?.status === "done" : current?.status === "pending";
@@ -100,20 +111,14 @@ export function LiveTree({
       });
       const body = (await response.json().catch(() => null)) as { error?: string } | null;
       const next = await load(true);
-      if (response.ok || saved(next)) {
-        setApprovalId(null);
-        return;
-      }
+      if (response.ok || saved(next)) return;
       setToast({
         tone: "danger",
         text: `${body?.error ?? "Could not save the decision"}. The gate is unchanged. Try again.`,
       });
     } catch {
       const next = await load(true).catch(() => null);
-      if (saved(next)) {
-        setApprovalId(null);
-        return;
-      }
+      if (saved(next)) return;
       setToast({
         tone: "danger",
         text: "Could not save the decision. The gate is unchanged. Try again.",
@@ -146,7 +151,7 @@ export function LiveTree({
       setRerunId(null);
       const next = await load(true);
       const updated = next?.tasks.find((item) => item.status === "awaiting_approval");
-      if (updated) setApprovalId(updated.id);
+      if (updated) setDetailId(updated.id);
     } catch {
       setToast({ tone: "danger", text: "Could not reach the server. The re-run was not confirmed." });
     } finally {
@@ -190,11 +195,17 @@ export function LiveTree({
       <p className="border-b border-[#dfe9e1] px-4 py-2 text-sm leading-normal text-[#5c6f61]">
         {remaining} of {DAILY_MODEL_RUNS} free agent runs left today.
       </p>
+      {detailNode ? (
+        <button type="button" aria-label="Close details" className="fixed inset-0 z-30 bg-[#101812]/15" onClick={closeDetail} />
+      ) : null}
       <CoordinationTree
         tree={tree}
         pendingId={pendingId}
+        selectedId={detailId}
+        onSelect={setDetailId}
+        onBackdrop={detailNode ? closeDetail : undefined}
         onRun={(id) => void run(id)}
-        onReview={setApprovalId}
+        onReview={setDetailId}
         onRerun={setRerunId}
       />
       <footer className="border-t border-[#dfe9e1] bg-white px-6 py-4">
@@ -222,11 +233,21 @@ export function LiveTree({
           </li>
         </ul>
       </footer>
-      {approvalTask ? (
-        <ApprovalModal task={approvalTask} tasks={data.tasks} onClose={() => setApprovalId(null)} onDecide={decide} />
+      {detailNode ? (
+        <TreeDetailRail
+          key={detailNode.id}
+          project={data}
+          node={detailNode}
+          authorName={authorName}
+          pendingId={pendingId}
+          onClose={closeDetail}
+          onRun={(id) => void run(id)}
+          onRerun={setRerunId}
+          onDecide={decide}
+        />
       ) : null}
       {rerunId ? (
-        <div className="fixed inset-0 z-40 flex items-end justify-center bg-[#101812]/30 p-4 sm:items-center" role="presentation">
+        <div className="fixed inset-0 z-[60] flex items-end justify-center bg-[#101812]/30 p-4 sm:items-center" role="presentation">
           <div
             role="dialog"
             aria-modal="true"

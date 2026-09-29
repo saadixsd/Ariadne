@@ -17,6 +17,7 @@ export type TreeNode = {
   elapsedSec?: number;
   note?: string;
   taskId?: string;
+  sourceTaskId?: string;
   taskStatus?: string;
   runnable?: boolean;
 };
@@ -122,6 +123,7 @@ export function workflowTree(project: ProjectDTO): TreeWorkflow {
     label: latest?.title ?? "No output yet",
     status: outputReady ? "done" : "locked",
     note: outputReady ? "artifact" : "no output yet",
+    sourceTaskId: latest?.id,
   });
 
   const edges: TreeEdge[] = [];

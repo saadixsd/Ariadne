@@ -101,27 +101,119 @@ function Excerpt({
   );
 }
 
+function LineageList({ steps }: { steps: LineageStep[] }) {
+  return (
+    <ol>
+      {steps.map((step, index) => {
+        const node = step.node;
+        const isFirst = index === 0;
+        const isLast = index === steps.length - 1;
+        const decision = node.kind === "decision";
+        const lineClass = isFirst
+          ? "absolute top-6 bottom-0 w-0.5 bg-thread"
+          : isLast
+            ? "absolute top-0 h-6 w-0.5 bg-thread"
+            : "absolute inset-y-0 w-0.5 bg-thread";
+        const meta = node.kind === "brief" ? "" : nodeMeta(node);
+        return (
+          <li key={node.id} data-lineage-node={node.kind} data-lineage-id={node.id}>
+            {index > 0 ? (
+              <div className="grid grid-cols-[1.75rem_minmax(0,1fr)] gap-3">
+                <div className="relative flex justify-center">
+                  <span aria-hidden className="absolute inset-y-0 w-0.5 bg-thread" />
+                </div>
+                <div className={step.handoffLabels.length > 0 ? "space-y-1 py-2" : "h-3"}>
+                  {step.handoffLabels.map((label, labelIndex) => (
+                    <p
+                      key={`${node.id}-${labelIndex}`}
+                      data-handoff-label
+                      className="font-mono text-[11px] leading-normal text-thread-bright"
+                    >
+                      {label}
+                    </p>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+            <div
+              className="grid grid-cols-[1.75rem_minmax(0,1fr)] gap-3"
+              style={{ animationDelay: `${index * 50}ms` }}
+            >
+              <div className="relative flex justify-center">
+                {steps.length > 1 ? <span aria-hidden className={lineClass} /> : null}
+                <span className="relative z-10 mt-3 grid h-6 w-6 place-items-center bg-raised">
+                  <Mark node={node} />
+                </span>
+              </div>
+              <article
+                className={`mb-1 px-3 py-3 ring-1 ${
+                  decision
+                    ? "bg-thread/10 ring-thread"
+                    : node.kind !== "brief" && node.selected
+                      ? "bg-panel ring-thread-bright"
+                      : "bg-panel ring-line"
+                }`}
+              >
+                {node.kind === "brief" ? (
+                  <p className="text-xs font-semibold tracking-[0.16em] text-thread-bright">BRIEF</p>
+                ) : decision ? (
+                  <p className="text-xs font-semibold tracking-[0.16em] text-gate-ink">DECISION</p>
+                ) : null}
+                <p className="font-semibold leading-tight">
+                  {node.kind === "brief" ? null : (
+                    <span className="mr-2 font-mono text-xs text-ink-dim">#{node.number}</span>
+                  )}
+                  {node.title}
+                </p>
+                {node.kind === "brief" ? null : (
+                  <p className="mt-1">
+                    <span className="bg-base px-1.5 py-0.5 font-mono text-[11px] text-thread-bright ring-1 ring-line">
+                      {node.badge}
+                    </span>
+                  </p>
+                )}
+                {meta ? <p className="mt-2 font-mono text-xs text-ink-dim">{meta}</p> : null}
+                <Excerpt
+                  body={node.body}
+                  empty={node.kind === "brief" ? "No brief yet." : "No output yet."}
+                  noun={node.kind === "brief" ? "brief" : "output"}
+                />
+              </article>
+            </div>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
 export function LineageRail({
   steps,
   onClose,
+  embedded = false,
 }: {
   steps: LineageStep[];
   onClose: () => void;
+  embedded?: boolean;
 }) {
   const closeRef = useRef<HTMLButtonElement>(null);
   const selected = [...steps].reverse().find((step) => step.node.kind !== "brief")?.node;
 
   useEffect(() => {
+    if (embedded) return;
     closeRef.current?.focus();
-  }, []);
+  }, [embedded]);
 
   useEffect(() => {
+    if (embedded) return;
     function onKey(event: KeyboardEvent) {
       if (event.key === "Escape") onClose();
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, [embedded, onClose]);
+
+  if (embedded) return <LineageList steps={steps} />;
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-ink/30" role="presentation" onMouseDown={onClose}>
@@ -158,87 +250,9 @@ export function LineageRail({
             The brief, then every task this one depends on, then this task. The thread is the path the work took.
           </p>
         </div>
-        <ol className="flex-1 overflow-y-auto px-5 py-4">
-          {steps.map((step, index) => {
-            const node = step.node;
-            const isFirst = index === 0;
-            const isLast = index === steps.length - 1;
-            const decision = node.kind === "decision";
-            const lineClass = isFirst
-              ? "absolute top-6 bottom-0 w-0.5 bg-thread"
-              : isLast
-                ? "absolute top-0 h-6 w-0.5 bg-thread"
-                : "absolute inset-y-0 w-0.5 bg-thread";
-            const meta = node.kind === "brief" ? "" : nodeMeta(node);
-            return (
-              <li key={node.id} data-lineage-node={node.kind} data-lineage-id={node.id}>
-                {index > 0 ? (
-                  <div className="grid grid-cols-[1.75rem_minmax(0,1fr)] gap-3">
-                    <div className="relative flex justify-center">
-                      <span aria-hidden className="absolute inset-y-0 w-0.5 bg-thread" />
-                    </div>
-                    <div className={step.handoffLabels.length > 0 ? "space-y-1 py-2" : "h-3"}>
-                      {step.handoffLabels.map((label, labelIndex) => (
-                        <p
-                          key={`${node.id}-${labelIndex}`}
-                          data-handoff-label
-                          className="font-mono text-[11px] leading-normal text-thread-bright"
-                        >
-                          {label}
-                        </p>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-                <div
-                  className="grid grid-cols-[1.75rem_minmax(0,1fr)] gap-3"
-                  style={{ animationDelay: `${index * 50}ms` }}
-                >
-                  <div className="relative flex justify-center">
-                    {steps.length > 1 ? <span aria-hidden className={lineClass} /> : null}
-                    <span className="relative z-10 mt-3 grid h-6 w-6 place-items-center bg-raised">
-                      <Mark node={node} />
-                    </span>
-                  </div>
-                  <article
-                    className={`mb-1 px-3 py-3 ring-1 ${
-                      decision
-                        ? "bg-thread/10 ring-thread"
-                        : node.kind !== "brief" && node.selected
-                          ? "bg-panel ring-thread-bright"
-                          : "bg-panel ring-line"
-                    }`}
-                  >
-                    {node.kind === "brief" ? (
-                      <p className="text-xs font-semibold tracking-[0.16em] text-thread-bright">BRIEF</p>
-                    ) : decision ? (
-                      <p className="text-xs font-semibold tracking-[0.16em] text-gate-ink">DECISION</p>
-                    ) : null}
-                    <p className="font-semibold leading-tight">
-                      {node.kind === "brief" ? null : (
-                        <span className="mr-2 font-mono text-xs text-ink-dim">#{node.number}</span>
-                      )}
-                      {node.title}
-                    </p>
-                    {node.kind === "brief" ? null : (
-                      <p className="mt-1">
-                        <span className="bg-base px-1.5 py-0.5 font-mono text-[11px] text-thread-bright ring-1 ring-line">
-                          {node.badge}
-                        </span>
-                      </p>
-                    )}
-                    {meta ? <p className="mt-2 font-mono text-xs text-ink-dim">{meta}</p> : null}
-                    <Excerpt
-                      body={node.body}
-                      empty={node.kind === "brief" ? "No brief yet." : "No output yet."}
-                      noun={node.kind === "brief" ? "brief" : "output"}
-                    />
-                  </article>
-                </div>
-              </li>
-            );
-          })}
-        </ol>
+        <div className="flex-1 overflow-y-auto px-5 py-4">
+          <LineageList steps={steps} />
+        </div>
       </aside>
     </div>
   );
