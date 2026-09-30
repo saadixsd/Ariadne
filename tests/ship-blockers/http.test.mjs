@@ -184,11 +184,12 @@ test("full HTTP flow: run -> gate -> note cap -> request changes -> history kept
   const approved = project.events.find((e) => e.type === "approved");
   assert.equal(approved.payload.approver, "You");
 
-  // The board (server-rendered) shows handoff cards built from the structured columns.
+  // The board (server-rendered) shows handoffs built from the structured columns. The Red
+  // Thread redesign replaced the Activity cards with a ledger that shows the latest entries;
+  // after the full flow the newest handoff is the approved gate handing over to Maker.
   const board = await call("GET", `/?project=${state.projectId}`, { cookie: c });
   assert.equal(board.status, 200);
-  assert.match(board.text, /Scout → Maker/, "handoff card rendered from fromTaskId/payload");
-  assert.match(board.text, /Maker → Scout/);
+  assert.match(board.text, /You → Maker · approved direction/, "ledger handoff rendered from fromTaskId/payload");
 
   // Runs are private.
   const stranger = await call("POST", "/api/auth/sign-up", { body: { email: `stranger-${run}@test.dev`, password: "password123" }, from: ip(11) });
