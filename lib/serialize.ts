@@ -1,5 +1,5 @@
 import { parseDepends } from "@/lib/depends";
-import type { ActivityEventDTO, AgentDTO, ProjectDTO, TaskDTO } from "@/lib/types";
+import type { ActivityEventDTO, AgentDTO, ProjectDTO, TaskDTO, TaskRunDTO } from "@/lib/types";
 
 const AGENT_RANK: Record<string, number> = { Scout: 0, Maker: 1, You: 2 };
 
@@ -35,6 +35,17 @@ type EventRecord = {
   type: string;
   message: string;
   taskId: string | null;
+  fromTaskId?: string | null;
+  toTaskId?: string | null;
+  runId?: string | null;
+  payload?: string | null;
+  createdAt: Date;
+};
+
+type TaskRunRecord = Omit<TaskRunDTO, "startedAt" | "completedAt" | "createdAt"> & {
+  projectId: string;
+  startedAt: Date | null;
+  completedAt: Date | null;
   createdAt: Date;
 };
 
@@ -96,7 +107,41 @@ export function serializeEvent(event: EventRecord): ActivityEventDTO {
     type: event.type,
     message: event.message,
     taskId: event.taskId,
+    fromTaskId: event.fromTaskId ?? null,
+    toTaskId: event.toTaskId ?? null,
+    runId: event.runId ?? null,
+    payload: parsePayload(event.payload),
     createdAt: iso(event.createdAt) ?? new Date(0).toISOString(),
+  };
+}
+
+function parsePayload(value: string | null | undefined): Record<string, unknown> | null {
+  if (!value) return null;
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function serializeTaskRun(run: TaskRunRecord): TaskRunDTO {
+  return {
+    id: run.id,
+    taskId: run.taskId,
+    attempt: run.attempt,
+    outcome: run.outcome,
+    provider: run.provider,
+    model: run.model,
+    systemPrompt: run.systemPrompt,
+    prompt: run.prompt,
+    output: run.output,
+    error: run.error,
+    latencyMs: run.latencyMs,
+    tries: run.tries,
+    startedAt: iso(run.startedAt),
+    completedAt: iso(run.completedAt),
+    createdAt: iso(run.createdAt) ?? new Date(0).toISOString(),
   };
 }
 

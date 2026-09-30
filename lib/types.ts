@@ -30,6 +30,29 @@ export type ActivityEventDTO = {
   type: string;
   message: string;
   taskId: string | null;
+  /** Structured handoff/approval data (null on events written before these columns existed). */
+  fromTaskId: string | null;
+  toTaskId: string | null;
+  runId: string | null;
+  payload: Record<string, unknown> | null;
+  createdAt: string;
+};
+
+export type TaskRunDTO = {
+  id: string;
+  taskId: string;
+  attempt: number;
+  outcome: string;
+  provider: string | null;
+  model: string | null;
+  systemPrompt: string | null;
+  prompt: string | null;
+  output: string | null;
+  error: string | null;
+  latencyMs: number | null;
+  tries: number;
+  startedAt: string | null;
+  completedAt: string | null;
   createdAt: string;
 };
 

@@ -107,8 +107,24 @@ class NodeSqliteConnection implements SqlDriverAdapter {
     this.db.exec(script);
   }
 
+  // Prisma wraps even single-statement writes in a transaction. This adapter has
+  // one connection, so concurrent requests in `next dev` used to fail with
+  // "cannot start a transaction within a transaction". Serialize them instead.
+  private transactionQueue: Promise<void> = Promise.resolve();
+
   async startTransaction(): Promise<Transaction> {
-    this.db.exec("BEGIN");
+    let release: () => void = () => undefined;
+    const previous = this.transactionQueue;
+    this.transactionQueue = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await previous;
+    try {
+      this.db.exec("BEGIN");
+    } catch (error) {
+      release();
+      throw error;
+    }
     const queryRaw = this.queryRaw.bind(this);
     const executeRaw = this.executeRaw.bind(this);
     return {
@@ -118,10 +134,18 @@ class NodeSqliteConnection implements SqlDriverAdapter {
       queryRaw,
       executeRaw,
       commit: async () => {
-        this.db.exec("COMMIT");
+        try {
+          this.db.exec("COMMIT");
+        } finally {
+          release();
+        }
       },
       rollback: async () => {
-        this.db.exec("ROLLBACK");
+        try {
+          this.db.exec("ROLLBACK");
+        } finally {
+          release();
+        }
       },
     };
   }
