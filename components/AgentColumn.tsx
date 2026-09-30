@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useClocks } from "@/components/use-now";
 import { Monogram } from "@/components/ThreadBits";
 import { providerLabel, taskNumber } from "@/lib/task-rules";
+import { delphicLine } from "@/lib/philosophy";
 import { agentTone, ledgerEntries, threadState } from "@/lib/thread";
 import type { AgentDTO, ProjectDTO } from "@/lib/types";
 
@@ -166,7 +167,12 @@ export function AgentColumn({
           ) : null}
         </div>
         {entries.length === 0 ? (
-          <p className="mt-2 text-xs leading-snug text-ink-dim">Nothing yet. Starts, handoffs and knots are written here after you press Run.</p>
+          <>
+            <p className="mt-2 text-xs leading-snug text-ink-dim">Nothing yet. Starts, handoffs and knots are written here after you press Run.</p>
+            <p className="mt-3 font-serif text-[14px] text-ink-faint italic">
+              {delphicLine(project.id)} <span className="font-sans text-[10.5px] not-italic">— Delphi</span>
+            </p>
+          </>
         ) : (
           <ol className={`mt-2.5 grid gap-[9px] ${fullLog ? "max-h-72 overflow-y-auto pr-1" : ""}`} role="log" aria-live="polite">
             {shown.map((entry) => (

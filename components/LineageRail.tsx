@@ -82,7 +82,7 @@ function Excerpt({
     <div className="mt-2">
       {open ? (
         <div className="max-h-64 overflow-auto">
-          <OutputView output={body} />
+          <OutputView output={body} foldable={false} />
         </div>
       ) : (
         <p className="font-mono text-xs leading-normal text-ink-dim">{excerptText(body)}</p>
@@ -148,7 +148,7 @@ function LineageList({ steps }: { steps: LineageStep[] }) {
               <article
                 className={`mb-1 rounded-xl px-3 py-3 ring-1 ${
                   decision
-                    ? "bg-thread/10 ring-thread"
+                    ? "bg-gate-bg/50 ring-gate-line"
                     : node.kind !== "brief" && node.selected
                       ? "bg-panel ring-thread-bright"
                       : "bg-panel ring-line"
@@ -173,6 +173,19 @@ function LineageList({ steps }: { steps: LineageStep[] }) {
                   </p>
                 )}
                 {meta ? <p className="mt-2 font-mono text-xs text-ink-dim">{meta}</p> : null}
+                {node.kind !== "brief" && node.notes.length > 0 ? (
+                  <ul className="mt-2 grid gap-1.5">
+                    {node.notes.map((item) => (
+                      <li key={`${item.at}-${item.note}`} className="rounded-lg border-l-2 border-gate bg-gate-bg/60 px-2.5 py-1.5 text-[12.5px] leading-snug">
+                        <span className="block font-mono text-[10.5px] tracking-[0.06em] text-gate-ink uppercase">
+                          Your note{item.gateTitle ? ` · at ${item.gateTitle}` : ""}
+                          {timeLabel(item.at) ? ` · ${timeLabel(item.at)}` : ""}
+                        </span>
+                        “{item.note}”
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
                 <Excerpt
                   body={node.body}
                   empty={node.kind === "brief" ? "No brief yet." : "No output yet."}

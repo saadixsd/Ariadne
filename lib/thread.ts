@@ -4,6 +4,7 @@
 */
 import { directDependencies } from "@/lib/depends";
 import { handoffFromEvent, previewChips } from "@/lib/handoff-preview";
+import { handName } from "@/lib/hands";
 import { orderedLineageTasks } from "@/lib/lineage";
 import { displayModel, hideModelIds } from "@/lib/model-label";
 import { composeUserPrompt, packageDependencyOutputs, type HandoffInput } from "@/lib/prompt";
@@ -238,19 +239,17 @@ export function carriedInto(task: TaskDTO, project: ProjectDTO): Carried {
 
   const sections: PacketSection[] = [];
   let color = 0;
-  if (!human) {
-    sections.push({
-      key: "brief",
-      kind: "brief",
-      label: "Shared brief",
-      legend: "brief",
-      text: project.brief,
-      chars: project.brief.length,
-      color: SECTION_COLORS[color++],
-    });
-  } else {
-    color = 1;
-  }
+  // The door: a hand's prompt starts with the brief; at a knot you judge against it
+  // too, so it is shown there as well (the packaged gate output itself is unchanged).
+  sections.push({
+    key: "brief",
+    kind: "brief",
+    label: human ? "The door · your brief" : "Shared brief",
+    legend: "brief",
+    text: project.brief,
+    chars: project.brief.length,
+    color: SECTION_COLORS[color++],
+  });
   shown.forEach((item, index) => {
     const text = handoffs[index].output;
     sections.push({
@@ -319,7 +318,7 @@ export function inputChars(carried: Carried): number {
 
 export type BeadText = { lead: string; label: string };
 
-/** "Scout handed Maker" + "brief + 5 angles · 1.4k chars". */
+/** "Odysseus handed Daedalus" + "brief + 5 angles · 1.4k chars". */
 export function beadText(carried: Carried, project: ProjectDTO): BeadText {
   const agents = project.agents;
   const to = carried.human ? "You" : (carried.targetAgent?.name ?? "the next step");
@@ -542,7 +541,7 @@ export function ledgerEntries(project: ProjectDTO): LedgerEntry[] {
       });
       continue;
     }
-    const who = agentOf(target, agents)?.name ?? payloadText(event, "agent") ?? "An agent";
+    const who = agentOf(target, agents)?.name ?? handName(payloadText(event, "agent") ?? "An agent");
     let text = hideModelIds(event.message);
     let tone: LedgerEntry["tone"] = "plain";
     if (event.type === "approval_requested") {
@@ -562,7 +561,8 @@ export function ledgerEntries(project: ProjectDTO): LedgerEntry[] {
       text = title ? `Frayed: ${title}` : text;
       tone = "fail";
     } else if (event.type === "note" && event.payload?.decision === "changes_requested") {
-      text = `${payloadText(event, "approver") ?? "You"} asked for changes on ${title}`;
+      const note = payloadText(event, "note");
+      text = `${payloadText(event, "approver") ?? "You"} asked for changes on ${title}${note ? `: “${note.length > 140 ? `${note.slice(0, 139)}…` : note}”` : ""}`;
     } else if (event.type === "note" && event.payload?.kind === "rerun_cleared") {
       text = `Rerun cleared what came after ${title}`;
     }

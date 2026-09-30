@@ -3,19 +3,27 @@ import { errorResponse } from "@/lib/errors";
 import { assertMaxLength } from "@/lib/input-caps";
 import { MAX_BRIEF_CHARS, MAX_PROJECT_NAME_CHARS } from "@/lib/limits";
 import { prisma } from "@/lib/prisma";
-import { getProject } from "@/lib/project";
+import { getProject, loadCheckedProject } from "@/lib/project";
+import { etagFor, projectVersion } from "@/lib/project-version";
 
 export const runtime = "nodejs";
 
 type Context = { params: Promise<{ id: string }> };
 
-export async function GET(_request: Request, context: Context) {
+// Polled by the Board and Tree. The client echoes the ETag back as If-None-Match;
+// while nothing changed the answer is a body-less 304 after two small reads.
+export async function GET(request: Request, context: Context) {
   try {
     const user = await requireUser();
     const { id } = await context.params;
-    const project = await getProject(id, user.id);
+    const version = await projectVersion(id, user.id);
+    if (!version) return Response.json({ error: "Project not found" }, { status: 404 });
+    const etag = etagFor(version);
+    const headers = { ETag: etag, "Cache-Control": "private, no-cache" };
+    if (request.headers.get("if-none-match") === etag) return new Response(null, { status: 304, headers });
+    const project = await loadCheckedProject(id, user.id);
     if (!project) return Response.json({ error: "Project not found" }, { status: 404 });
-    return Response.json(project);
+    return Response.json(project, { headers });
   } catch (error) {
     return errorResponse(error);
   }

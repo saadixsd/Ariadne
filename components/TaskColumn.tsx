@@ -4,6 +4,7 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { AddTaskForm, type NewTaskInput } from "@/components/AddTaskForm";
 import { OutputView } from "@/components/OutputView";
 import { Monogram } from "@/components/ThreadBits";
+import { useFresh } from "@/components/use-fresh";
 import { useClocks, useNow } from "@/components/use-now";
 import { hideModelIds } from "@/lib/model-label";
 import { canRunTask, dependenciesMet, taskNumber } from "@/lib/task-rules";
@@ -42,7 +43,7 @@ function Ticking({ from, prefix, className }: { from: string | null; prefix: str
 }
 
 type Eye = { id: string; x: number; y: number; state: ThreadState };
-type Segment = { id: string; d: string; kind: "spun" | "spinning" | "frayed" | "unspun" };
+type Segment = { id: string; target: string; d: string; kind: "spun" | "spinning" | "frayed" | "unspun" };
 
 function weave(a: { x: number; y: number }, b: { x: number; y: number }) {
   const my = (a.y + b.y) / 2;
@@ -103,6 +104,7 @@ export function TaskColumn({
   lineageTaskId,
   onOpenLineage,
   onOpenHandoff,
+  onOpenReader,
 }: {
   project: ProjectDTO;
   expandedId: string | null;
@@ -119,6 +121,7 @@ export function TaskColumn({
   lineageTaskId: string | null;
   onOpenLineage: (id: string) => void;
   onOpenHandoff: (taskId: string) => void;
+  onOpenReader: (taskId: string) => void;
 }) {
   const { clock } = useClocks();
   const { tasks, agents, events } = project;
@@ -127,6 +130,8 @@ export function TaskColumn({
   const [peek, setPeek] = useState<Peek | null>(null);
   const states = tasks.map((task) => threadState(task, tasks, pendingId));
   const stateKey = states.join(",");
+  // Only a step spun while you watch draws its thread in; the rest are already there.
+  const fresh = useFresh(tasks.filter((_, index) => states[index] === "spun" || states[index] === "knot").map((task) => task.id));
   const hintTaskId = showDependencyHint
     ? (tasks.find((task) => task.status === "pending" && !dependenciesMet(task, tasks))?.id ?? null)
     : null;
@@ -165,6 +170,7 @@ export function TaskColumn({
     const first = eyes[0];
     segments.push({
       id: `entry-${first.id}`,
+      target: first.id,
       d: weave({ x: first.x, y: -6 }, first),
       kind: first.state === "ready" || first.state === "unspun" ? "unspun" : segmentKind(first.state),
     });
@@ -172,7 +178,7 @@ export function TaskColumn({
       const a = eyes[index];
       const b = eyes[index + 1];
       const kind = a.state === "spun" ? segmentKind(b.state) : "unspun";
-      segments.push({ id: `${a.id}-${b.id}`, d: weave(a, b), kind });
+      segments.push({ id: `${a.id}-${b.id}`, target: b.id, d: weave(a, b), kind });
     }
   }
   const knot = eyes.find((eye) => eye.state === "knot");
@@ -200,7 +206,9 @@ export function TaskColumn({
                 fill="none"
                 strokeLinecap="round"
                 pathLength={segment.kind === "spun" ? 1 : undefined}
-                className={segment.kind === "spun" ? "thread-draw" : segment.kind === "spinning" ? "thread-spin" : undefined}
+                className={
+                  segment.kind === "spun" ? (fresh(segment.target) ? "thread-draw" : undefined) : segment.kind === "spinning" ? "thread-spin" : undefined
+                }
                 stroke={segment.kind === "unspun" ? GRAPHITE : segment.kind === "frayed" ? FRAY : RED}
                 strokeWidth={segment.kind === "unspun" ? 1.6 : 2.4}
                 strokeDasharray={segment.kind === "unspun" ? "2 5" : segment.kind === "frayed" ? "5 4 2 6" : undefined}
@@ -261,7 +269,7 @@ export function TaskColumn({
                   <article
                     data-step={task.id}
                     data-state={state}
-                    className={`group/step relative ml-[78px] grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-1 rounded-[14px] border py-[13px] pr-4 pl-[18px] transition-[transform,box-shadow,border-color] duration-150 ${cardTone} ${
+                    className={`group/step relative ml-[78px] grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-1 rounded-[14px] border py-[13px] pr-4 pl-[18px] transition-transform duration-150 ${cardTone} ${
                       state === "unspun" ? "" : "shadow-[0_1px_0_rgba(31,26,20,.04),0_6px_18px_-8px_rgba(31,26,20,.18)] hover:-translate-y-px hover:border-line-strong hover:shadow-[0_1px_0_rgba(31,26,20,.04),0_14px_26px_-12px_rgba(31,26,20,.28)] motion-reduce:hover:translate-y-0"
                     } ${open ? "ring-2 ring-thread/25" : ""}`}
                   >
@@ -435,8 +443,8 @@ export function TaskColumn({
                           </div>
                         ) : null}
                         {task.output && !busy ? (
-                          <div className="max-h-96 overflow-auto rounded-xl border border-line bg-panel px-3.5 py-3">
-                            <OutputView output={task.output} />
+                          <div className="rounded-xl border border-line bg-panel px-3.5 py-3">
+                            <OutputView output={task.output} onCompare={() => onOpenReader(task.id)} />
                           </div>
                         ) : null}
                         {!task.output && !busy && task.status !== "failed" ? (
@@ -462,7 +470,7 @@ export function TaskColumn({
                         onBlur={() => setPeek(null)}
                         data-bead={next.id}
                         aria-label={`${bead.lead}: ${bead.label}. Open the full handoff.`}
-                        className={`-ml-5 inline-flex max-w-full items-center gap-2 rounded-full border py-[3px] pr-2.5 pl-2 text-xs transition-[box-shadow,border-color] ${
+                        className={`-ml-5 inline-flex max-w-full items-center gap-2 rounded-full border py-[3px] pr-2.5 pl-2 text-xs ${
                           beadLive
                             ? "border-thread-soft bg-raised text-ink-dim hover:border-thread hover:shadow-[0_6px_18px_-10px_rgba(179,48,42,.7)]"
                             : "border-dashed border-line-strong bg-transparent text-ink-faint hover:border-ink-faint"

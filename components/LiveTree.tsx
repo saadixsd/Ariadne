@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import { CoordinationTree } from "@/components/CoordinationTree";
 import { AccountButton, TopBar } from "@/components/TopBar";
 import { TreeDetailRail } from "@/components/TreeDetailRail";
+import { fetchProject, useProjectPoll } from "@/components/project-poll";
 import { acceptPolledProject } from "@/lib/board-project";
+import { isSpinning } from "@/lib/poll-schedule";
 import { workflowTree } from "@/lib/live-tree";
 import { hideModelIds } from "@/lib/model-label";
 import { canRunTask, cascadeFrom, dependenciesMet, taskNumber } from "@/lib/task-rules";
@@ -115,16 +117,24 @@ export function LiveTree({
   const tree = useMemo(() => workflowTree(data), [data]);
   const detailNode = tree.nodes.find((node) => node.id === detailId) ?? null;
 
-  const load = useCallback(async (force = false) => {
-    if (!force && busy.current) return null;
+  const onPolled = useCallback((project: ProjectDTO, requestedId: string) => {
+    if (busy.current) return;
+    if (!acceptPolledProject(selectedIdRef.current, requestedId) || project.id !== requestedId) return;
+    setData(project);
+  }, []);
+  // Same ladder as the Board: 2s while spinning, backing off to 60s idle, paused when hidden, 304 if unchanged.
+  const poll = useProjectPoll({ projectId: data.id, spinning: isSpinning(data.tasks, pendingId), onChange: onPolled });
+
+  async function load() {
     const projectId = selectedIdRef.current;
-    const response = await fetch(`/api/projects/${projectId}`);
-    if (!acceptPolledProject(selectedIdRef.current, projectId) || !response.ok) return null;
-    const project = (await response.json()) as ProjectDTO;
+    poll.kick();
+    const result = await fetchProject(projectId);
+    if (!acceptPolledProject(selectedIdRef.current, projectId) || result.kind !== "changed") return null;
+    const project = result.project;
     if (!acceptPolledProject(selectedIdRef.current, project.id)) return null;
     setData(project);
     return project;
-  }, []);
+  }
 
   useEffect(() => {
     if (!menu) return;
@@ -141,13 +151,6 @@ export function LiveTree({
       document.removeEventListener("keydown", onKey);
     };
   }, [menu]);
-
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      void load();
-    }, 2000);
-    return () => window.clearInterval(timer);
-  }, [load]);
 
   async function run(taskId: string) {
     const task = data.tasks.find((item) => item.id === taskId);
@@ -168,7 +171,7 @@ export function LiveTree({
       } else if (data.agents.find((agent) => agent.id === task?.agentId)?.provider !== "human") {
         setRemaining((count) => Math.max(0, count - 1));
       }
-      const next = await load(true);
+      const next = await load();
       const updated = next?.tasks.find((item) => item.id === taskId);
       if (updated?.status === "awaiting_approval") setDetailId(taskId);
     } catch {
@@ -176,7 +179,7 @@ export function LiveTree({
         tone: "danger",
         text: "Could not reach the server. The run was not confirmed. Check the dev server before pressing Run again.",
       });
-      await load(true);
+      await load();
     } finally {
       busy.current = false;
       setPendingId(null);
@@ -207,14 +210,14 @@ export function LiveTree({
         body: JSON.stringify({ approved, note }),
       });
       const body = (await response.json().catch(() => null)) as { error?: string } | null;
-      const next = await load(true);
+      const next = await load();
       if (response.ok || saved(next)) return;
       setToast({
         tone: "danger",
         text: `${body?.error ?? "Could not save the decision"}. The gate is unchanged. Try again.`,
       });
     } catch {
-      const next = await load(true).catch(() => null);
+      const next = await load().catch(() => null);
       if (saved(next)) return;
       setToast({
         tone: "danger",
@@ -238,7 +241,7 @@ export function LiveTree({
           tone: "danger",
           text: `${hideModelIds(body.error ?? "Could not re-run")}. Refresh the board before trying again.`,
         });
-        await load(true);
+        await load();
         return;
       }
       const rerunTask = data.tasks.find((item) => item.id === rerunId);
@@ -246,7 +249,7 @@ export function LiveTree({
         setRemaining((count) => Math.max(0, count - 1));
       }
       setRerunId(null);
-      const next = await load(true);
+      const next = await load();
       const updated = next?.tasks.find((item) => item.status === "awaiting_approval");
       if (updated) setDetailId(updated.id);
     } catch {
@@ -294,7 +297,7 @@ export function LiveTree({
           <AccountButton initial={accountInitial} label="Account menu" expanded={menu} onClick={() => setMenu((value) => !value)} />
           {menu ? (
             <div role="menu" className="absolute right-0 z-40 mt-2 w-52 rounded-xl border border-line bg-raised p-1 shadow-[0_18px_40px_-16px_rgba(31,26,20,.35)]">
-              <a role="menuitem" href={`/?project=${encodeURIComponent(data.id)}&settings=1`} className="block rounded-lg px-3 py-2 text-sm hover:bg-panel">
+              <a role="menuitem" href="/settings" className="block rounded-lg px-3 py-2 text-sm hover:bg-panel">
                 Settings
               </a>
               <button

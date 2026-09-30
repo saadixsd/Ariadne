@@ -1,7 +1,7 @@
 import { BrandMark } from "@/components/BrandMark";
 import { Dashboard } from "@/components/Dashboard";
 import { ProjectIntro } from "@/components/ProjectIntro";
-import { accountDisplay, isDemoAccount } from "@/lib/account";
+import { accountDisplay } from "@/lib/account";
 import { currentUser } from "@/lib/auth";
 import { pickBoardProject } from "@/lib/board-project";
 import { needsProjectIntro } from "@/lib/demo";
@@ -16,12 +16,12 @@ export const dynamic = "force-dynamic";
 export default async function Home({
   searchParams,
 }: {
-  searchParams: Promise<{ project?: string; settings?: string }>;
+  searchParams: Promise<{ project?: string }>;
 }) {
   const user = await currentUser();
   if (!user) redirect("/sign-in");
   if (!user.emailVerified) redirect("/verify");
-  const { project: requested, settings } = await searchParams;
+  const { project: requested } = await searchParams;
   if (await needsProjectIntro(user.id)) return <ProjectIntro />;
   const prisma = await getPrisma();
   const projects = await prisma.project.findMany({
@@ -65,12 +65,7 @@ export default async function Home({
       missingSetup={missingSetup()}
       email={user.email}
       accountInitial={account.initial}
-      accountName={account.name}
-      accountFirstName={account.firstName}
-      accountLastName={account.lastName}
       runsLeft={runsLeft}
-      demoAccount={isDemoAccount(projects.map((project) => project.template))}
-      openSettings={settings === "1" || settings === "true"}
     />
   );
 }

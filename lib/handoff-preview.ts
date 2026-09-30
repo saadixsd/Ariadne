@@ -1,3 +1,4 @@
+import { handName } from "@/lib/hands";
 import type { ActivityEventDTO, AgentDTO, TaskDTO } from "@/lib/types";
 
 export function previewChips(output: string, limit = 3): string[] {
@@ -50,5 +51,5 @@ export function handoffFromEvent(
   const to = text(payload.toAgent) ?? agentName(target);
   const title = text(payload.fromTitle) ?? source?.title ?? null;
   if (!from || !to || !title) return null;
-  return { fromTaskId: event.fromTaskId, toTaskId: toTaskId ?? null, from, title, to };
+  return { fromTaskId: event.fromTaskId, toTaskId: toTaskId ?? null, from: handName(from), title, to: handName(to) };
 }

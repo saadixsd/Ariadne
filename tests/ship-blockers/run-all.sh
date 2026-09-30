@@ -30,7 +30,7 @@ export CI=1 WRANGLER_SEND_METRICS=false
   npx wrangler d1 migrations apply ariadne --local --persist-to "$STATE"
   npx wrangler d1 execute ariadne --local --persist-to "$STATE" --command "SELECT name FROM d1_migrations ORDER BY id"
 } > "$OUT/wrangler-local-migrations.txt" 2>&1
-grep -E "0001|0002" "$OUT/wrangler-local-migrations.txt" | tail -4
+grep -E "000[0-9]_" "$OUT/wrangler-local-migrations.txt" | tail -6
 rm -rf "$STATE"
 
 echo "== dev server HTTP tests"

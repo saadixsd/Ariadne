@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Monogram } from "@/components/ThreadBits";
+import { useFresh } from "@/components/use-fresh";
 import { useClocks, useNow } from "@/components/use-now";
 import { taskNumber } from "@/lib/task-rules";
 import {
@@ -20,16 +21,14 @@ import {
   threadState,
   type ThreadState,
 } from "@/lib/thread";
-import { pointAt, polylineLength, rectSpiral, roundedPath, slicePolyline } from "@/lib/tree-layout";
+import { ancestorsOf, layoutDag, placeDag, type DagLayout } from "@/lib/dag-layout";
 import type { ProjectDTO, TaskDTO } from "@/lib/types";
 
-const H = 780;
-// Space kept clear under the spiral for the floating legend chip.
-const LEGEND_ROOM = 40;
+// Space kept clear under the graph for the floating legend chip.
+const LEGEND_ROOM = 56;
 const RED = "var(--color-thread)";
 const GRAPHITE = "var(--color-thread-dim)";
-const MAX_SPIRAL_STEPS = 9;
-const MIN_SPIRAL_WIDTH = 720;
+const MIN_GRAPH_WIDTH = 720;
 
 type Segment = { id: string; d: string; kind: "spun" | "spinning" | "frayed" | "unspun" };
 
@@ -48,13 +47,6 @@ function segmentKind(target: ThreadState | "centre", woven: boolean): Segment["k
   if (target === "spinning") return "spinning";
   if (target === "frayed") return "frayed";
   return "unspun";
-}
-
-function arrow(dx: number, dy: number) {
-  if (dx > 0) return "→";
-  if (dx < 0) return "←";
-  if (dy > 0) return "↓";
-  return "↑";
 }
 
 function waitingSince(task: TaskDTO, project: ProjectDTO) {
@@ -115,7 +107,7 @@ function StepCard({
       onBlur={() => onHover(null)}
       aria-label={`Step ${index + 1}, ${task.title}, ${tone.name}, ${stateLabel(state)}. Open details.`}
       aria-pressed={selected}
-      className={`block min-w-[190px] max-w-[250px] rounded-xl border px-3 pt-[9px] pb-2.5 text-left transition-[transform,box-shadow,border-color] duration-150 hover:-translate-y-0.5 hover:border-line-strong hover:shadow-[0_1px_0_rgba(31,26,20,.04),0_16px_28px_-12px_rgba(31,26,20,.3)] motion-reduce:hover:translate-y-0 ${tones[state]} ${
+      className={`block min-w-[190px] max-w-[250px] rounded-xl border px-3 pt-[9px] pb-2.5 text-left transition-transform duration-150 hover:-translate-y-0.5 hover:border-line-strong hover:shadow-[0_1px_0_rgba(31,26,20,.04),0_16px_28px_-12px_rgba(31,26,20,.3)] motion-reduce:hover:translate-y-0 ${tones[state]} ${
         selected && state !== "knot" ? "outline-2 outline-offset-[3px] outline-thread" : ""
       }`}
     >
@@ -242,8 +234,8 @@ function HoverCard({ task, index, project }: { task: TaskDTO; index: number; pro
 function Legend() {
   return (
     <div className="pointer-events-none absolute bottom-[18px] left-7 z-10 flex flex-wrap items-center gap-3.5 rounded-full border border-line bg-raised/85 px-3.5 py-1.5 text-xs text-ink-dim backdrop-blur-sm">
-      <em className="font-serif text-[15px] text-ink">The labyrinth</em>
-      <span className="hidden text-ink-faint xl:inline">brief at the door, deliverable at the centre</span>
+      <em className="font-serif text-[15px] text-ink">The thread</em>
+      <span className="hidden text-ink-faint xl:inline">from the door to the deliverable, drawn from what feeds what</span>
       <span className="inline-flex items-center gap-1.5">
         <svg viewBox="0 0 26 10" className="h-2.5 w-[26px]" aria-hidden>
           <path d="M1 5 H25" stroke={RED} strokeWidth="3" />
@@ -272,9 +264,10 @@ function Legend() {
   );
 }
 
-/** Below ~720px or past nine steps the spiral gets cramped; unroll it into a vertical thread. */
+/** Below ~720px the graph gets cramped; unroll it into a vertical thread in dependency order. */
 function ThreadList({
   project,
+  layout,
   states,
   selectedId,
   sink,
@@ -282,6 +275,7 @@ function ThreadList({
   onSelect,
 }: {
   project: ProjectDTO;
+  layout: DagLayout;
   states: ThreadState[];
   selectedId: string | null;
   sink: TaskDTO | undefined;
@@ -299,8 +293,12 @@ function ThreadList({
           <DoorCard project={project} selected={selectedId === "root"} onSelect={onSelect} />
         </div>
       </li>
-      {project.tasks.map((task, index) => {
+      {layout.order.map((id) => {
+        const index = project.tasks.findIndex((item) => item.id === id);
+        const task = project.tasks[index];
+        if (!task) return null;
         const state = states[index];
+        const fedBy = (layout.parents.get(id) ?? []).map((parent) => taskNumber(parent, project.tasks));
         const line = state === "unspun" || state === "ready" ? "border-l-2 border-dashed border-thread-dim" : state === "frayed" ? "border-l-[3px] border-dashed border-danger" : "border-l-[3px] border-thread";
         return (
           <li key={task.id} className="grid grid-cols-[28px_minmax(0,1fr)] gap-3">
@@ -314,6 +312,9 @@ function ThreadList({
             </span>
             <div className="pb-5">
               <StepCard task={task} index={index} state={state} project={project} selected={selectedId === task.id} onSelect={onSelect} onHover={setHover} />
+              <p className="mt-1 font-mono text-[11px] text-ink-faint">
+                {fedBy.length > 0 ? `fed by ${fedBy.map((n) => `step ${n}`).join(" + ")}` : "fed by the door"}
+              </p>
             </div>
           </li>
         );
@@ -326,6 +327,23 @@ function ThreadList({
       </li>
     </ol>
   );
+}
+
+const COL_W = 300;
+const ROW_H = 132;
+const PAD_X = 150;
+const PAD_Y = 70;
+const CARD_HALF = 118;
+
+function edgePath(a: { x: number; y: number }, b: { x: number; y: number }) {
+  const bend = Math.max(40, (b.x - a.x) * 0.5);
+  return `M${a.x} ${a.y} C ${a.x + bend} ${a.y}, ${b.x - bend} ${b.y}, ${b.x} ${b.y}`;
+}
+
+function edgeKind(from: ThreadState | "door", to: ThreadState | "centre", woven: boolean): Segment["kind"] {
+  const fed = from === "door" || from === "spun";
+  if (!fed) return "unspun";
+  return segmentKind(to, woven);
 }
 
 export function CoordinationTree({
@@ -345,8 +363,16 @@ export function CoordinationTree({
   const [hover, setHover] = useState<string | null>(null);
   const tasks = project.tasks;
   const states = tasks.map((task) => threadState(task, tasks, pendingId));
-  const sink = [...tasks].reverse().find((task) => !tasks.some((other) => other.dependsOn.includes(task.id))) ?? tasks.at(-1);
-  const woven = !!sink && sink.status === "done" && !!sink.output;
+  const stateOf = new Map(tasks.map((task, index) => [task.id, states[index]]));
+  const indexOf = new Map(tasks.map((task, index) => [task.id, index]));
+  const layout = useMemo(() => layoutDag(tasks), [tasks]);
+  const sinks = layout.sinks.map((id) => tasks[indexOf.get(id) ?? 0]).filter(Boolean);
+  const sink = [...sinks].sort((a, b) => (indexOf.get(b.id) ?? 0) - (indexOf.get(a.id) ?? 0))[0] ?? tasks.at(-1);
+  const woven = sinks.length > 0 && sinks.every((item) => item.status === "done" && !!item.output);
+  const fresh = useFresh([
+    ...tasks.filter((_, index) => states[index] === "spun" || states[index] === "knot").map((task) => task.id),
+    ...(woven ? ["output"] : []),
+  ]);
 
   useEffect(() => {
     const element = box.current;
@@ -359,116 +385,109 @@ export function CoordinationTree({
     return () => observer.disconnect();
   }, []);
 
-  const spiral = size.width >= MIN_SPIRAL_WIDTH && tasks.length > 0 && tasks.length <= MAX_SPIRAL_STEPS;
-  const W = Math.round(Math.min(1500, Math.max(980, (H * size.width) / Math.max(1, size.height))));
-  const fit = size.width && size.height ? Math.min(size.width / W, (size.height - 8) / H) : 1;
+  const graph = size.width >= MIN_GRAPH_WIDTH && tasks.length > 0;
+  const placed = placeDag(layout, { colW: COL_W, rowH: ROW_H, padX: PAD_X, padY: PAD_Y });
+  const W = Math.max(placed.width, 600);
+  const H = Math.max(placed.height, 360) + LEGEND_ROOM;
+  const fit = size.width && size.height ? Math.min(1, size.width / W, (size.height - 8) / H) : 1;
   const scale = fit * zoom;
+  // Lineage: while a step is hovered or selected, what fed into it stays lit and the rest recedes.
+  const focusId = hover ?? (selectedId && indexOf.has(selectedId) ? selectedId : null);
+  const lineage = focusId ? ancestorsOf(focusId, layout) : null;
+  const lit = (from: string, to: string) =>
+    !lineage || !focusId ? true : (to === focusId || lineage.has(to)) && (from === "root" || lineage.has(from));
 
   let content = null;
-  if (spiral && size.width > 0) {
-    const { points, centre } = rectSpiral(W, H - LEGEND_ROOM, {
-      mx: 150,
-      my: 76,
-      gx: 250,
-      gy: 172,
-      minX: 230,
-      minY: 150,
-      centre: { halfW: 125, halfH: 78 },
-    });
-    const walls = rectSpiral(W, H - LEGEND_ROOM, {
-      mx: 150 - 125,
-      my: 76 - 86,
-      gx: 250,
-      gy: 172,
-      minX: 230,
-      minY: 150,
-      centre: { halfW: 125, halfH: 78 },
-    }).points;
-    const total = polylineLength(points);
-    const stops = [0, ...tasks.map((_, index) => (total * (index + 1)) / (tasks.length + 1)), total];
-    const place = stops.map((s) => pointAt(points, s));
-    const segments: Segment[] = [];
-    for (let index = 0; index < stops.length - 1; index += 1) {
-      const target: ThreadState | "centre" = index < tasks.length ? states[index] : "centre";
-      const previousSpun = index === 0 || states[index - 1] === "spun";
-      const kind = previousSpun ? segmentKind(target, woven) : "unspun";
-      segments.push({ id: `seg-${index}`, d: roundedPath(slicePolyline(points, stops[index], stops[index + 1]), 40), kind });
+  if (graph && size.width > 0) {
+    const yOffset = (H - LEGEND_ROOM - placed.height) / 2;
+    const at = (point: { x: number; y: number }) => ({ x: point.x + (W - placed.width) / 2, y: point.y + yOffset });
+    const door = at(placed.door);
+    const centre = at(placed.centre);
+    const pos = new Map([...placed.nodes].map(([id, point]) => [id, at(point)]));
+    const out = (point: { x: number; y: number }) => ({ x: point.x + CARD_HALF, y: point.y });
+    const into = (point: { x: number; y: number }) => ({ x: point.x - CARD_HALF - 6, y: point.y });
+    type Drawn = Segment & { from: string; to: string; mid: { x: number; y: number } };
+    const drawn: Drawn[] = [];
+    const push = (from: string, to: string, a: { x: number; y: number }, b: { x: number; y: number }, kind: Segment["kind"]) =>
+      drawn.push({ id: `${from}->${to}`, from, to, d: edgePath(a, b), kind, mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 } });
+    for (const id of layout.sources) {
+      const point = pos.get(id);
+      if (point) push("root", id, { x: door.x + 125, y: door.y }, into(point), edgeKind("door", stateOf.get(id) ?? "unspun", woven));
     }
-    const firstUnspun = segments.findIndex((segment) => segment.kind === "unspun");
-    const beads = segments.flatMap((segment, index) => {
-      if (index === 0 || index >= tasks.length) return [];
-      const task = tasks[index];
-      const carried = carriedInto(task, project);
-      const mid = pointAt(points, (stops[index] + stops[index + 1]) / 2);
-      if (segment.kind === "unspun" && index !== firstUnspun) return [];
-      const list = carried.handed ? carried.arrived : carried.sources;
-      const what =
-        list.length === 1
-          ? carriedNoun(list[0], project.agents)
-          : list.length === 0
-            ? "brief"
-            : `${list.length} inputs${carried.handed ? ` · ${charsLabel(inputChars(carried)).replace(" chars", "")}` : ""}`;
-      return [{ id: task.id, x: mid.x, y: mid.y, text: `${what} ${arrow(mid.dx, mid.dy)}`, live: carried.handed }];
-    });
-    const knotIndex = states.indexOf("knot");
-    const hoverIndex = hover ? tasks.findIndex((task) => task.id === hover) : -1;
-    const hoverPlace = hoverIndex >= 0 ? place[hoverIndex + 1] : null;
+    for (const edge of layout.edges) {
+      const a = pos.get(edge.from);
+      const b = pos.get(edge.to);
+      if (a && b) push(edge.from, edge.to, out(a), into(b), edgeKind(stateOf.get(edge.from) ?? "unspun", stateOf.get(edge.to) ?? "unspun", woven));
+    }
+    for (const id of layout.sinks) {
+      const point = pos.get(id);
+      if (point) push(id, "output", out(point), { x: centre.x - 60, y: centre.y - 18 }, edgeKind(stateOf.get(id) ?? "unspun", "centre", woven));
+    }
+    const knots = tasks.filter((_, index) => states[index] === "knot").map((task) => pos.get(task.id)).filter((point) => !!point);
+    const hoverIndex = hover ? (indexOf.get(hover) ?? -1) : -1;
+    const hoverPlace = hover ? pos.get(hover) : undefined;
 
     content = (
       <div className="h-full overflow-auto" data-tree-scroll>
         <div className="relative mx-auto" style={{ width: W * scale, height: H * scale }}>
           <div className="absolute top-0 left-0 origin-top-left" style={{ width: W, height: H, transform: `scale(${scale})` }}>
             <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} className="absolute inset-0 overflow-visible" aria-hidden>
-              <rect x={24} y={-26} width={W - 48} height={H + 4} rx={60} fill="none" stroke="#e6dccb" strokeWidth={6} strokeOpacity={0.5} />
-              <path d={roundedPath(walls, 40)} fill="none" stroke="#d8cab3" strokeWidth={1.5} strokeLinecap="round" />
-              {segments.map((segment) => (
+              {drawn.map((segment) => (
                 <path
                   key={`${segment.id}-${segment.kind}`}
                   d={segment.d}
                   fill="none"
                   strokeLinecap="round"
                   pathLength={segment.kind === "spun" ? 1 : undefined}
-                  className={segment.kind === "spun" ? "thread-draw" : segment.kind === "spinning" ? "thread-spin" : undefined}
+                  className={`tree-edge ${segment.kind === "spun" ? (fresh(segment.to) ? "thread-draw" : "") : segment.kind === "spinning" ? "thread-spin" : ""} ${
+                    lit(segment.from, segment.to) ? "" : "tree-edge-faded"
+                  }`}
                   stroke={segment.kind === "unspun" ? GRAPHITE : segment.kind === "frayed" ? "var(--color-danger)" : RED}
                   strokeWidth={segment.kind === "unspun" ? 2 : 3}
-                  strokeDasharray={segment.kind === "unspun" ? "2 6" : segment.kind === "frayed" ? "6 5 2 7" : undefined}
+                  strokeDasharray={segment.kind === "unspun" ? "2 6" : segment.kind === "frayed" ? "6 5 2 7" : segment.kind === "spinning" ? "6 4" : undefined}
                 />
               ))}
-              {knotIndex >= 0 ? (
-                <circle cx={place[knotIndex + 1].x} cy={place[knotIndex + 1].y} r={9} fill="var(--color-gate)" stroke="var(--color-raised)" strokeWidth={2} />
-              ) : null}
+              {knots.map((point) => (
+                <circle key={`${point.x}-${point.y}`} cx={point.x - CARD_HALF - 6} cy={point.y} r={8} fill="var(--color-gate)" stroke="var(--color-raised)" strokeWidth={2} />
+              ))}
             </svg>
-            {beads.map((bead) => (
-              <span
-                key={bead.id}
-                className={`absolute z-[2] -translate-x-1/2 -translate-y-1/2 rounded-full border px-2 py-0.5 font-mono text-[11.5px] whitespace-nowrap ${
-                  bead.live ? "border-thread-soft bg-raised text-thread" : "border-dashed border-line-strong bg-canvas text-ink-faint"
-                }`}
-                style={{ left: bead.x, top: bead.y }}
-              >
-                {bead.text}
-              </span>
-            ))}
-            <div className="absolute z-[3] -translate-x-1/2 -translate-y-1/2" style={{ left: place[0].x, top: place[0].y }}>
+            {drawn
+              .filter((segment) => segment.from !== "root" && segment.to !== "output" && segment.kind !== "unspun")
+              .map((segment) => {
+                const source = tasks[indexOf.get(segment.from) ?? -1];
+                if (!source) return null;
+                return (
+                  <span
+                    key={`bead-${segment.id}`}
+                    className={`tree-edge absolute z-[2] -translate-x-1/2 -translate-y-1/2 rounded-full border border-thread-soft bg-raised px-2 py-0.5 font-mono text-[11px] whitespace-nowrap text-thread ${
+                      lit(segment.from, segment.to) ? "" : "tree-edge-faded"
+                    }`}
+                    style={{ left: segment.mid.x, top: segment.mid.y }}
+                  >
+                    {carriedNoun(source, project.agents)} →
+                  </span>
+                );
+              })}
+            <div className="absolute z-[3] -translate-x-1/2 -translate-y-1/2" style={{ left: door.x, top: door.y }}>
               <DoorCard project={project} selected={selectedId === "root"} onSelect={onSelect} />
             </div>
-            {tasks.map((task, index) => (
-              <div
-                key={task.id}
-                className="absolute z-[3] -translate-x-1/2 -translate-y-1/2"
-                style={{ left: place[index + 1].x, top: place[index + 1].y }}
-              >
-                <StepCard
-                  task={task}
-                  index={index}
-                  state={states[index]}
-                  project={project}
-                  selected={selectedId === task.id}
-                  onSelect={onSelect}
-                  onHover={setHover}
-                />
-              </div>
-            ))}
+            {tasks.map((task, index) => {
+              const point = pos.get(task.id);
+              if (!point) return null;
+              return (
+                <div key={task.id} className="absolute z-[3] -translate-x-1/2 -translate-y-1/2" style={{ left: point.x, top: point.y }}>
+                  <StepCard
+                    task={task}
+                    index={index}
+                    state={states[index]}
+                    project={project}
+                    selected={selectedId === task.id}
+                    onSelect={onSelect}
+                    onHover={setHover}
+                  />
+                </div>
+              );
+            })}
             <div className="absolute z-[2] -translate-x-1/2 -translate-y-1/2" style={{ left: centre.x, top: centre.y }}>
               <CentreCard project={project} sink={sink} woven={woven} selected={selectedId === "output"} onSelect={onSelect} />
             </div>
@@ -477,8 +496,8 @@ export function CoordinationTree({
                 className="pointer-events-none absolute z-[6]"
                 style={{
                   left: Math.min(W - 160, Math.max(160, hoverPlace.x)),
-                  top: hoverPlace.y > H - 190 ? hoverPlace.y - 50 : hoverPlace.y + 48,
-                  transform: `translate(-50%, ${hoverPlace.y > H - 190 ? "-100%" : "0"})`,
+                  top: hoverPlace.y > H - 220 ? hoverPlace.y - 56 : hoverPlace.y + 54,
+                  transform: `translate(-50%, ${hoverPlace.y > H - 220 ? "-100%" : "0"})`,
                 }}
               >
                 <HoverCard task={tasks[hoverIndex]} index={hoverIndex} project={project} />
@@ -491,16 +510,16 @@ export function CoordinationTree({
   } else if (size.width > 0) {
     content = (
       <div className="h-full overflow-auto" data-tree-scroll>
-        <ThreadList project={project} states={states} selectedId={selectedId} sink={sink} woven={woven} onSelect={onSelect} />
+        <ThreadList project={project} layout={layout} states={states} selectedId={selectedId} sink={sink} woven={woven} onSelect={onSelect} />
       </div>
     );
   }
 
   return (
-    <section ref={box} aria-label="The labyrinth: every step from the brief to the deliverable" className="relative h-full min-h-0 overflow-hidden">
+    <section ref={box} aria-label="The thread: every step from the brief to the deliverable, drawn from what feeds what" className="relative h-full min-h-0 overflow-hidden">
       {content}
-      {spiral ? <Legend /> : null}
-      {spiral ? (
+      {graph ? <Legend /> : null}
+      {graph ? (
         <div className="absolute right-[18px] bottom-[18px] z-10 flex flex-col overflow-hidden rounded-[10px] border border-line bg-raised">
           <button type="button" aria-label="Zoom in" onClick={() => setZoom((value) => Math.min(1.8, value + 0.15))} className="h-[30px] w-8 rounded-none border-b border-line text-ink-dim hover:bg-panel">
             ＋

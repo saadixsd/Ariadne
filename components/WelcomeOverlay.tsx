@@ -39,14 +39,14 @@ export function WelcomeOverlay({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-xs font-semibold tracking-[0.16em] text-thread">Onboarding</p>
-          <h2 className="mt-1 font-serif text-[26px] font-normal leading-tight">You&apos;re the conductor now.</h2>
+          <h2 className="mt-1 font-serif text-[26px] font-normal leading-tight">You hold the thread.</h2>
         </div>
         <button type="button" onClick={() => writeFlag(DISMISS_KEY, true)} className="shrink-0 text-sm text-ink-dim hover:text-ink">
           Dismiss
         </button>
       </div>
       <p className="mt-2 text-sm leading-normal text-ink-dim">
-        Scout (Claude) and Maker (GPT) share one workspace. You assign, they hand off, you approve.
+        Odysseus (Claude) researches and reviews. Daedalus (GPT) drafts and builds. You hold the thread: they hand off, you tie off.
       </p>
       <p className="mt-3 font-mono text-xs text-thread-bright">
         {progress} of {STEPS.length}
@@ -73,12 +73,12 @@ export function WelcomeOverlay({
         onClick={onRunDemo}
         className="mt-4 bg-thread px-3 py-2 text-sm font-medium text-raised hover:bg-thread-bright"
       >
-        {canHighlightRun ? "Run the demo" : "Review the workflow"}
+        {canHighlightRun ? "Show me the first step" : "Review the workflow"}
       </button>
       <p className="mt-2 text-xs leading-normal text-ink-dim">
         {canHighlightRun
           ? "This scrolls to task 1 and highlights Run. It does not call Claude or GPT. Press Run on the task when you want that."
-          : "Task 1 already has a result or a failure. Read it here. Reset demo clears the board without calling a model."}
+          : "Step 1 already has a result or a failure. Read it on its card, or press Rerun when you want another attempt."}
       </p>
     </aside>
   );

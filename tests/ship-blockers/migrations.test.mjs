@@ -12,7 +12,7 @@ import { DatabaseSync } from "node:sqlite";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const dir = mkdtempSync(path.join(tmpdir(), "ariadne-mig-"));
 const sql = (file) => readFileSync(path.join(root, file), "utf8");
-const MIGRATIONS = ["migrations/0001_baseline.sql", "migrations/0002_ship_blockers.sql"];
+const MIGRATIONS = ["migrations/0001_baseline.sql", "migrations/0002_ship_blockers.sql", "migrations/0003_phase2.sql"];
 
 function schemaDiff(dbFile) {
   const result = spawnSync(
@@ -70,7 +70,14 @@ test("production-like D1 (old d1.sql + manual name columns): migrations apply, n
   // Re-applying is harmless (0001 is IF NOT EXISTS; backfill only touches NULLs).
   conn.exec(sql(MIGRATIONS[0]));
   const users = conn.prepare(`SELECT count(*) AS n FROM "User"`).get();
+  const hands = Object.fromEntries(conn.prepare(`SELECT id, name, role, model FROM "Agent"`).all().map((r) => [r.id, r]));
   conn.close();
+  // 0003 renames the hands in place and leaves roles and models alone.
+  assert.equal(hands.scout.name, "Odysseus");
+  assert.equal(hands.maker.name, "Daedalus");
+  assert.equal(hands.you.name, "You");
+  assert.equal(hands.scout.role, "r");
+  assert.equal(hands.scout.model, "m");
 
   assert.equal(schemaDiff(file), "", "no drift after migrating a prod-like DB");
   assert.equal(users.n, 1, "data preserved");

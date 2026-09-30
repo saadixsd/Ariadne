@@ -7,6 +7,7 @@ import { syncAgentStatus } from "@/lib/agent-status";
 import { appendChangeNote, latestChangeNote } from "@/lib/change-notes";
 import { dependentTasks, directDependencies, transitiveDependencies, unmetDependencyIds } from "@/lib/depends";
 import { safeErrorMessage, TaskRunError } from "@/lib/errors";
+import { handName } from "@/lib/hands";
 import { assertMaxLength } from "@/lib/input-caps";
 import { MAX_NOTE_CHARS } from "@/lib/limits";
 import { prisma } from "@/lib/prisma";
@@ -42,7 +43,7 @@ async function emit(
 
 function toHandoff(task: TaskWithAgent): HandoffInput {
   return {
-    agentName: task.agent.name,
+    agentName: handName(task.agent.name),
     taskTitle: task.title,
     output: task.output ?? "",
   };
@@ -209,9 +210,9 @@ export async function runTask(taskId: string, userId: string) {
   await emit(
     task.projectId,
     "started",
-    `${task.agent.name} started "${task.title}"`,
+    `${handName(task.agent.name)} started "${task.title}"`,
     task.id,
-    { runId, payload: { agent: task.agent.name } },
+    { runId, payload: { agent: handName(task.agent.name) } },
   );
 
   const sourceTasks =
@@ -224,15 +225,15 @@ export async function runTask(taskId: string, userId: string) {
     await emit(
       task.projectId,
       "handoff",
-      `Handoff: ${source.agent.name} handed "${source.title}" to ${task.agent.name}`,
+      `Handoff: ${handName(source.agent.name)} handed "${source.title}" to ${handName(task.agent.name)}`,
       task.id,
       {
         fromTaskId: source.id,
         toTaskId: task.id,
         runId,
         payload: {
-          fromAgent: source.agent.name,
-          toAgent: task.agent.name,
+          fromAgent: handName(source.agent.name),
+          toAgent: handName(task.agent.name),
           fromTitle: source.title,
           toTitle: task.title,
         },
@@ -272,7 +273,7 @@ export async function runTask(taskId: string, userId: string) {
   }
 
   const model = modelForProvider(task.agent.provider);
-  const system = composeSystemPrompt(task.agent);
+  const system = composeSystemPrompt({ name: handName(task.agent.name), role: task.agent.role });
   const user = composeUserPrompt({
     brief: task.project.brief,
     instructions: task.instructions,
@@ -312,7 +313,7 @@ export async function runTask(taskId: string, userId: string) {
     });
     const owned = await commitIfOwned(claim, { status: "failed", model: null });
     if (owned) {
-      await emit(task.projectId, "failed", `${task.agent.name} failed "${task.title}": ${message}`, task.id, {
+      await emit(task.projectId, "failed", `${handName(task.agent.name)} failed "${task.title}": ${message}`, task.id, {
         runId,
         payload: { error: message },
       });
@@ -356,10 +357,10 @@ export async function runTask(taskId: string, userId: string) {
     task.projectId,
     status === "done" ? "completed" : "approval_requested",
     status === "done"
-      ? `${task.agent.name} completed "${task.title}"`
+      ? `${handName(task.agent.name)} completed "${task.title}"`
       : `Waiting on YOU to approve "${task.title}"`,
     task.id,
-    { runId, payload: status === "done" ? { agent: task.agent.name } : { gate: false } },
+    { runId, payload: status === "done" ? { agent: handName(task.agent.name) } : { gate: false } },
   );
   await syncAgentStatus(task.agentId);
   if (status === "done") await openReadyHumanGates(task.projectId, userId);

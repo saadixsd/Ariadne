@@ -1,27 +1,130 @@
-import ReactMarkdown from "react-markdown";
-import { extractHtmlDocument } from "@/lib/html-preview";
+"use client";
 
-export function OutputView({ output }: { output: string }) {
+import { memo, useState, type ComponentProps } from "react";
+import ReactMarkdown, { defaultUrlTransform, type Components } from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { extractHtmlDocument } from "@/lib/html-preview";
+import { foldPlan } from "@/lib/text-fold";
+
+/*
+  Agent output, typeset. Markdown (GFM: headings, lists, code, tables, links) is
+  rendered by react-markdown WITHOUT raw HTML, so model text can never inject markup
+  or scripts. Links keep only http(s)/mailto targets and open in a new tab without
+  a referrer; images are shown as links instead of being fetched.
+*/
+
+function safeUrl(url: string): string {
+  const cleaned = defaultUrlTransform(url);
+  return /^(https?:|mailto:|#)/i.test(cleaned) ? cleaned : "";
+}
+
+const components: Components = {
+  a: ({ href, children }) =>
+    href ? (
+      <a href={href} target="_blank" rel="noopener noreferrer nofollow">
+        {children}
+      </a>
+    ) : (
+      <span>{children}</span>
+    ),
+  img: ({ src, alt }) =>
+    typeof src === "string" && src ? (
+      <a href={src} target="_blank" rel="noopener noreferrer nofollow">
+        [image{alt ? `: ${alt}` : ""}]
+      </a>
+    ) : null,
+  table: (props: ComponentProps<"table">) => (
+    <div className="md-table">
+      <table {...props} />
+    </div>
+  ),
+};
+
+export const Markdown = memo(function Markdown({ text }: { text: string }) {
+  return (
+    <div className="markdown">
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components} urlTransform={safeUrl} skipHtml>
+        {text}
+      </ReactMarkdown>
+    </div>
+  );
+});
+
+export function CopyButton({ text, label = "Copy" }: { text: string; label?: string }) {
+  const [state, setState] = useState<"idle" | "copied" | "failed">("idle");
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        void navigator.clipboard
+          .writeText(text)
+          .then(() => setState("copied"))
+          .catch(() => setState("failed"))
+          .finally(() => window.setTimeout(() => setState("idle"), 1800));
+      }}
+      className="rt-btn rt-btn-ghost h-7 px-2 text-xs"
+      aria-live="polite"
+    >
+      {state === "copied" ? "Copied" : state === "failed" ? "Select and copy" : label}
+    </button>
+  );
+}
+
+/**
+ * The output of one step: typeset, a comfortable measure, long text folded behind
+ * "Read more", a copy button, and (optionally) a way to open it beside its inputs.
+ */
+export const OutputView = memo(function OutputView({
+  output,
+  onCompare,
+  foldable = true,
+}: {
+  output: string;
+  onCompare?: () => void;
+  foldable?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
   const html = extractHtmlDocument(output);
+  const plan = foldPlan(output);
+  const folded = foldable && plan.fold && !open;
+
+  const tools = (
+    <div className="flex flex-wrap items-center justify-end gap-1">
+      {onCompare ? (
+        <button type="button" onClick={onCompare} className="rt-btn rt-btn-ghost h-7 px-2 text-xs">
+          Beside its inputs
+        </button>
+      ) : null}
+      <CopyButton text={output} />
+    </div>
+  );
+
   if (html) {
     return (
       <div className="space-y-3">
-        <iframe
-          title="Landing page preview"
-          sandbox=""
-          srcDoc={html}
-          className="h-80 w-full border border-line bg-white"
-        />
-        <pre className="max-h-48 overflow-auto bg-canvas p-3 font-mono text-xs leading-normal text-ink ring-1 ring-line">
-          {html}
-        </pre>
+        {tools}
+        <iframe title="Page preview" sandbox="" srcDoc={html} className="h-80 w-full rounded-lg border border-line bg-white" />
+        <pre className="max-h-48 overflow-auto rounded-lg bg-canvas p-3 font-mono text-xs leading-normal text-ink ring-1 ring-line">{html}</pre>
       </div>
     );
   }
 
   return (
-    <div className="markdown font-mono text-sm leading-normal text-ink">
-      <ReactMarkdown>{output}</ReactMarkdown>
+    <div>
+      {tools}
+      <div className={folded ? "fold-fade max-h-[19rem] overflow-hidden" : undefined}>
+        <Markdown text={output} />
+      </div>
+      {foldable && plan.fold ? (
+        <button
+          type="button"
+          aria-expanded={open}
+          onClick={() => setOpen((value) => !value)}
+          className="mt-1 text-xs font-[560] text-thread hover:text-thread-bright"
+        >
+          {open ? "Fold it back" : `Read more · ${plan.label}`}
+        </button>
+      ) : null}
     </div>
   );
-}
+});

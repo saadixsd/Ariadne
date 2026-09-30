@@ -25,6 +25,16 @@ export async function getProject(id: string, userId: string): Promise<ProjectDTO
   return serializeProject(project);
 }
 
+/**
+ * Full project load for callers that have just checked ownership and run stuck-run
+ * recovery themselves (the polled GET, via projectVersion). Saves the ownership
+ * probe and the reclaim scan that getProject would repeat.
+ */
+export async function loadCheckedProject(id: string, userId: string): Promise<ProjectDTO | null> {
+  const project = await prisma.project.findFirst({ where: { id, userId }, include: projectInclude });
+  return project ? serializeProject(project) : null;
+}
+
 export async function getEvents(projectId: string, userId: string): Promise<ActivityEventDTO[] | null> {
   const project = await prisma.project.findFirst({
     where: { id: projectId, userId },

@@ -312,15 +312,19 @@ describe("5. structured events", () => {
     assert.equal(hand.toTaskId, p.draft.id);
     const draftRun = (await runsFor(p.draft.id))[0];
     assert.equal(hand.runId, draftRun.id);
-    assert.equal(hand.payload?.fromAgent, "Scout");
-    assert.equal(hand.message, 'Handoff: Scout handed "Research the brief" to Maker', "human-readable message still written");
+    assert.equal(hand.payload?.fromAgent, "Odysseus");
+    assert.equal(hand.message, 'Handoff: Odysseus handed "Research the brief" to Daedalus', "human-readable message still written");
 
     // Prove the parser ignores the message: garble it and keep the columns.
     const parsed = handoff.handoffFromEvent({ ...hand, message: "garbled" } as typeof hand, dto.tasks, dto.agents);
-    assert.deepEqual(parsed, { fromTaskId: p.research.id, toTaskId: p.draft.id, from: "Scout", title: "Research the brief", to: "Maker" });
+    assert.deepEqual(parsed, { fromTaskId: p.research.id, toTaskId: p.draft.id, from: "Odysseus", title: "Research the brief", to: "Daedalus" });
     // Columns without payload (e.g. partially backfilled) fall back to task/agent rows.
     const bare = handoff.handoffFromEvent({ ...hand, payload: null }, dto.tasks, dto.agents);
-    assert.equal(bare?.from, "Scout");
+    assert.equal(bare?.from, "Odysseus");
+    // Payloads written before the rename still read as the new names.
+    const legacy = handoff.handoffFromEvent({ ...hand, payload: { fromAgent: "Scout", toAgent: "Maker", fromTitle: "Research the brief" } }, dto.tasks, dto.agents);
+    assert.equal(legacy?.from, "Odysseus");
+    assert.equal(legacy?.to, "Daedalus");
     // Old unstructured event -> null (UI shows plain message as before).
     assert.equal(handoff.handoffFromEvent({ ...hand, fromTaskId: null, payload: null }, dto.tasks, dto.agents), null);
   });

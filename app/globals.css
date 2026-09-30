@@ -119,7 +119,8 @@ a[href] {
   border: 1px solid var(--color-line-strong);
   background: var(--color-raised);
   color: var(--color-ink);
-  transition: transform 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
+  /* motion budget: transform/opacity only; colours and shadows change instantly */
+  transition: transform 150ms ease;
 }
 .rt-btn:not(:disabled):hover {
   box-shadow: 0 1px 0 rgba(31, 26, 20, 0.04), 0 6px 18px -8px rgba(31, 26, 20, 0.18);
@@ -184,9 +185,8 @@ a[href] {
   animation: fade-up 320ms ease both;
 }
 
-.account-scrim,
-.account-panel {
-  transition: opacity 180ms ease, transform 180ms ease;
+.account-scrim {
+  transition: opacity 180ms ease;
 }
 
 .pulse-status,
@@ -201,13 +201,39 @@ a[href] {
   animation: thread-draw 600ms ease-out forwards;
 }
 
+/* spinning: the dashed segment breathes (opacity only, composited) */
 .thread-spin {
-  stroke-dasharray: 6 4;
-  animation: shimmer 1s linear infinite;
+  animation: status-pulse 1.4s ease-in-out infinite;
 }
 
+/* the knot: a gold halo fades in and out on a pseudo-element, so only opacity animates */
 .knot-breathe {
-  animation: knot-breathe 2.4s ease-in-out infinite;
+  position: relative;
+}
+.knot-breathe::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  box-shadow: 0 0 0 6px rgba(201, 138, 18, 0.22);
+  opacity: 0;
+  pointer-events: none;
+  animation: knot-halo 2.4s ease-in-out infinite;
+  will-change: opacity;
+}
+
+/* Tree lineage focus: what fed the hovered step stays lit, the rest recedes */
+.tree-edge {
+  transition: opacity 160ms ease;
+}
+.tree-edge-faded {
+  opacity: 0.22;
+}
+
+/* long outputs: the fold fades the last lines (opacity mask, no height animation) */
+.fold-fade {
+  -webkit-mask-image: linear-gradient(180deg, #000 70%, transparent);
+  mask-image: linear-gradient(180deg, #000 70%, transparent);
 }
 
 .spindle {
@@ -243,11 +269,6 @@ a[href] {
   }
 }
 
-@keyframes shimmer {
-  to {
-    stroke-dashoffset: -40;
-  }
-}
 
 @keyframes spin {
   to {
@@ -255,13 +276,13 @@ a[href] {
   }
 }
 
-@keyframes knot-breathe {
+@keyframes knot-halo {
   0%,
   100% {
-    box-shadow: 0 0 0 0 rgba(201, 138, 18, 0.35), 0 6px 18px -8px rgba(31, 26, 20, 0.18);
+    opacity: 0;
   }
   50% {
-    box-shadow: 0 0 0 6px rgba(201, 138, 18, 0), 0 6px 18px -8px rgba(31, 26, 20, 0.18);
+    opacity: 1;
   }
 }
 
@@ -270,7 +291,7 @@ a[href] {
   .pulse-status,
   .pulse-run,
   .thread-spin,
-  .knot-breathe,
+  .knot-breathe::after,
   .spindle,
   .animate-pulse {
     animation: none !important;
@@ -283,8 +304,8 @@ a[href] {
   }
 
   .account-scrim,
-  .account-panel,
-  .rt-btn {
+  .rt-btn,
+  .tree-edge {
     transition: none;
   }
 
@@ -293,33 +314,52 @@ a[href] {
   }
 }
 
+/* Typeset agent output: a reading measure of ~68 characters, serif headings, quiet rules. */
+.markdown {
+  max-width: 68ch;
+  font-size: 14px;
+  line-height: 1.62;
+  color: var(--color-ink);
+  overflow-wrap: anywhere;
+}
+
 .markdown > :first-child {
   margin-top: 0;
 }
 
+.markdown > :last-child {
+  margin-bottom: 0;
+}
+
 .markdown h1,
 .markdown h2,
-.markdown h3 {
+.markdown h3,
+.markdown h4 {
   font-family: var(--font-serif);
   font-weight: 400;
   line-height: 1.15;
-  margin: 0.75rem 0 0.25rem;
+  letter-spacing: -0.005em;
+  margin: 1.1em 0 0.35em;
 }
 
 .markdown h1 {
-  font-size: 1.6rem;
+  font-size: 1.7rem;
 }
 
 .markdown h2 {
-  font-size: 1.3rem;
+  font-size: 1.4rem;
 }
 
 .markdown h3 {
-  font-size: 1.1rem;
+  font-size: 1.18rem;
+}
+
+.markdown h4 {
+  font-size: 1.05rem;
 }
 
 .markdown p {
-  margin: 0.4rem 0;
+  margin: 0.55em 0;
 }
 
 .markdown strong {
@@ -328,8 +368,12 @@ a[href] {
 
 .markdown ul,
 .markdown ol {
-  margin: 0.4rem 0;
-  padding-left: 1.2rem;
+  margin: 0.55em 0;
+  padding-left: 1.35rem;
+}
+
+.markdown li {
+  margin: 0.2em 0;
 }
 
 .markdown ul {
@@ -344,22 +388,78 @@ a[href] {
   color: var(--color-thread);
 }
 
+.markdown a {
+  color: var(--color-thread);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.markdown blockquote {
+  margin: 0.7em 0;
+  padding-left: 0.9rem;
+  border-left: 2px solid var(--color-line-strong);
+  color: var(--color-ink-dim);
+  font-family: var(--font-serif);
+  font-size: 1.06em;
+  font-style: italic;
+}
+
+.markdown hr {
+  margin: 1.2em 0;
+  border: 0;
+  border-top: 1px solid var(--color-line);
+}
+
 .markdown pre {
   overflow: auto;
+  margin: 0.7em 0;
   background: var(--color-canvas);
   color: var(--color-ink);
-  padding: 0.75rem;
-  font-size: 0.75rem;
+  padding: 0.75rem 0.9rem;
+  font-size: 12px;
+  line-height: 1.55;
   border-radius: 10px;
+  border: 1px solid var(--color-line);
+  max-width: 100%;
 }
 
 .markdown code {
   font-family: var(--font-mono), ui-monospace, monospace;
-  font-size: 0.85em;
+  font-size: 0.86em;
 }
 
-.markdown p code {
+.markdown :not(pre) > code {
   background: var(--color-tint);
   padding: 0.1rem 0.3rem;
   border-radius: 5px;
+}
+
+.markdown .md-table {
+  margin: 0.8em 0;
+  overflow-x: auto;
+}
+
+.markdown table {
+  border-collapse: collapse;
+  font-size: 13px;
+  font-feature-settings: "tnum";
+}
+
+.markdown th,
+.markdown td {
+  border-bottom: 1px solid var(--color-line);
+  padding: 0.35rem 0.7rem 0.35rem 0;
+  text-align: left;
+  vertical-align: top;
+}
+
+.markdown th {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-ink-faint);
+  border-bottom-color: var(--color-line-strong);
 }

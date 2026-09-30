@@ -1,5 +1,5 @@
 async function main() {
-  console.log("Database is ready. Sign up in the app to create your example projects.");
+  console.log("Database is ready. Sign up in the app and name your first project.");
 }
 
 main().catch((error) => {

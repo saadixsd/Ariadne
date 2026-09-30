@@ -94,6 +94,8 @@ model Task {
   completedAt      DateTime?
   createdAt        DateTime  @default(now())
   runs             TaskRun[]
+
+  @@index([projectId])
 }
 
 /// Immutable run history. One row per logical run attempt (model call, human
@@ -137,9 +139,11 @@ model ActivityEvent {
   fromTaskId String?
   toTaskId   String?
   runId      String?
-  /// JSON object as text (SQLite/D1), e.g. {"fromAgent":"Scout","toAgent":"Maker"}.
+  /// JSON object as text (SQLite/D1), e.g. {"fromAgent":"Odysseus","toAgent":"Daedalus"}.
   payload    String?
   createdAt  DateTime @default(now())
+
+  @@index([projectId, createdAt])
 }
 
 /// Fixed-window IP rate limit counters for auth endpoints. key = "<action>:<ip>:<windowStart>".

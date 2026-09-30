@@ -12,7 +12,7 @@
     "db:push": "prisma db push",
     "db:seed": "prisma db seed",
     "db:setup": "prisma db push && prisma db seed",
-    "test": "tsx --conditions=react-server --test tests/ship-blockers/lib.test.ts && node --test tests/ship-blockers/migrations.test.mjs",
+    "test": "tsx --conditions=react-server --test tests/ship-blockers/lib.test.ts && tsx --test tests/phase2/units.test.ts && node --test tests/ship-blockers/migrations.test.mjs",
     "test:all": "bash tests/ship-blockers/run-all.sh",
     "postinstall": "node scripts/workers-ci-build.mjs"
   },
@@ -33,6 +33,7 @@
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
     "server-only": "^0.0.1"
   },
   "devDependencies": {

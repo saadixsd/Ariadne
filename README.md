@@ -2,7 +2,7 @@
 
 Ariadne coordinates the AI workforce teams already use. Coordination is the product. The dashboard is only the visibility surface.
 
-This is the phase 1 prototype: Scout (Claude) and Maker (GPT) share one project brief, hand work to each other, and stop for a human approval before a landing page is built.
+This is the phase 1 prototype: Odysseus (Claude, researches and reviews) and Daedalus (GPT, drafts and builds) share one project brief, hand work to each other, and stop at a knot for your approval before anything moves on.
 
 - Thesis: [docs/muse/01_VISION.md](docs/muse/01_VISION.md)
 - Project log: [docs/PROJECT_LOG.md](docs/PROJECT_LOG.md)

@@ -19,7 +19,7 @@ const run = Date.now().toString(36);
 const subnet = Math.floor(Math.random() * 250) + 1;
 const ip = (n) => `198.51.${subnet}.${n}`;
 
-async function call(method, url, { body, cookie, from = ip(200) } = {}) {
+async function call(method, url, { body, cookie, from = ip(200), headers = {} } = {}) {
   const response = await fetch(`${BASE}${url}`, {
     method,
     redirect: "manual",
@@ -27,6 +27,7 @@ async function call(method, url, { body, cookie, from = ip(200) } = {}) {
       "content-type": "application/json",
       "cf-connecting-ip": from,
       ...(cookie ? { cookie } : {}),
+      ...headers,
     },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
@@ -136,7 +137,7 @@ test("8. over-long brief / title / instructions / note rejected server-side with
   res = await call("POST", `/api/projects`, { cookie: c, body: { name: "X", brief: "b".repeat(5001) } });
   assert.equal(res.status, 400);
   assert.match(res.json.error, /^Brief is too long/);
-  const agentId = state.agents.find((a) => a.name === "Scout").id;
+  const agentId = state.agents.find((a) => a.name === "Odysseus").id;
   res = await call("POST", `/api/projects/${pid}/tasks`, { cookie: c, body: { title: "t".repeat(201), agentId, instructions: "do it" } });
   assert.equal(res.status, 400);
   assert.equal(res.json.error, "Title is too long (201 characters). The limit is 200.");
@@ -180,20 +181,56 @@ test("full HTTP flow: run -> gate -> note cap -> request changes -> history kept
   assert.equal(draftRuns.output, draftRuns.runs[1].output, "latest shown");
   const handoff = project.events.find((e) => e.type === "handoff" && e.taskId === draft.id);
   assert.equal(handoff.fromTaskId, research.id);
-  assert.ok(handoff.runId && handoff.payload?.fromAgent === "Scout");
+  assert.ok(handoff.runId && handoff.payload?.fromAgent === "Odysseus");
   const approved = project.events.find((e) => e.type === "approved");
   assert.equal(approved.payload.approver, "You");
 
   // The board (server-rendered) shows handoffs built from the structured columns. The Red
   // Thread redesign replaced the Activity cards with a ledger that shows the latest entries;
-  // after the full flow the newest handoff is the approved gate handing over to Maker.
+  // after the full flow the newest handoff is the approved gate handing over to Daedalus.
   const board = await call("GET", `/?project=${state.projectId}`, { cookie: c });
   assert.equal(board.status, 200);
-  assert.match(board.text, /You → Maker · approved direction/, "ledger handoff rendered from fromTaskId/payload");
+  assert.match(board.text, /You → Daedalus · approved direction/, "ledger handoff rendered from fromTaskId/payload");
 
   // Runs are private.
   const stranger = await call("POST", "/api/auth/sign-up", { body: { email: `stranger-${run}@test.dev`, password: "password123" }, from: ip(11) });
   assert.equal((await call("GET", `/api/tasks/${draft.id}/runs`, { cookie: stranger.cookie })).status, 404);
+});
+
+test("P2. the project poll answers 304 while nothing changed, 200 when something did; reset is gone", async () => {
+  const c = state.cookie;
+  const first = await call("GET", `/api/projects/${state.projectId}`, { cookie: c });
+  assert.equal(first.status, 200);
+  const etag = first.headers.get("etag");
+  assert.match(etag ?? "", /^W\/"p-[0-9a-f]{16}"$/);
+  const again = await call("GET", `/api/projects/${state.projectId}`, { cookie: c, headers: { "if-none-match": etag } });
+  assert.equal(again.status, 304, "unchanged -> 304");
+  assert.equal(again.text, "", "no body on 304");
+  // A brief edit changes the fingerprint.
+  const patched = await call("PATCH", `/api/projects/${state.projectId}`, { cookie: c, body: { brief: `${first.json.brief} (edited)` } });
+  assert.equal(patched.status, 200);
+  const changed = await call("GET", `/api/projects/${state.projectId}`, { cookie: c, headers: { "if-none-match": etag } });
+  assert.equal(changed.status, 200);
+  assert.notEqual(changed.headers.get("etag"), etag);
+  // Someone else's ETag guess still gets 404, not 304.
+  const stranger = await call("POST", "/api/auth/sign-up", { body: { email: `etag-${run}@test.dev`, password: "password123" }, from: ip(12) });
+  assert.equal((await call("GET", `/api/projects/${state.projectId}`, { cookie: stranger.cookie, headers: { "if-none-match": etag } })).status, 404);
+  // The demo reset endpoint no longer exists.
+  assert.equal((await call("POST", `/api/projects/${state.projectId}/reset`, { cookie: c })).status, 404);
+});
+
+test("P2b. the conditional poll still recovers a stuck run (and then reports a change)", async () => {
+  const c = state.cookie;
+  const research = state.tasks[0];
+  const before = await call("GET", `/api/projects/${state.projectId}`, { cookie: c });
+  const task = before.json.tasks.find((t) => t.id === research.id);
+  sql(`UPDATE "Task" SET status='running', startedAt=? WHERE id=?`, new Date(Date.now() - 10 * 60 * 1000).toISOString().replace("Z", "+00:00"), research.id);
+  const polled = await call("GET", `/api/projects/${state.projectId}`, { cookie: c, headers: { "if-none-match": before.headers.get("etag") } });
+  assert.equal(polled.status, 200, "recovery is a change");
+  assert.equal(polled.json.tasks.find((t) => t.id === research.id).status, "pending");
+  assert.ok(polled.json.events.some((e) => e.taskId === research.id && e.payload?.reason === "stuck_run_reclaimed"));
+  // Put it back the way the next test expects (it re-stages the stuck run itself).
+  sql(`UPDATE "Task" SET status=?, startedAt=?, completedAt=?, output=? WHERE id=?`, task.status, task.startedAt ? task.startedAt.replace("Z", "+00:00") : null, task.completedAt ? task.completedAt.replace("Z", "+00:00") : null, task.output, research.id);
 });
 
 test("3. stuck running task is recovered on the next poll and can run again", async () => {

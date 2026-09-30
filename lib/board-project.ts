@@ -8,7 +8,7 @@ export function needsSharedContextPrompt(project: { template: string; brief: str
   return project.template === "own" && project.brief.trim().length === 0;
 }
 
-/** Prefer the seeded demo so first-time signups land on a ready board. */
+/** Open the requested project, else the user's own (named) project, else the oldest. */
 export function pickBoardProject<T extends BoardProjectRef>(
   projects: readonly T[],
   requestedId?: string | null,
@@ -17,12 +17,7 @@ export function pickBoardProject<T extends BoardProjectRef>(
     const requested = projects.find((project) => project.id === requestedId);
     if (requested) return requested;
   }
-  return (
-    projects.find((project) => project.template === "landing") ??
-    projects.find((project) => project.template === "market") ??
-    projects.find((project) => project.template === "own") ??
-    projects[0]
-  );
+  return projects.find((project) => project.template === "own") ?? projects[0];
 }
 
 export function acceptPolledProject(selectedId: string, polledId: string): boolean {

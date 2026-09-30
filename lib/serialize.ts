@@ -1,7 +1,8 @@
 import { parseDepends } from "@/lib/depends";
+import { handName } from "@/lib/hands";
 import type { ActivityEventDTO, AgentDTO, ProjectDTO, TaskDTO, TaskRunDTO } from "@/lib/types";
 
-const AGENT_RANK: Record<string, number> = { Scout: 0, Maker: 1, You: 2 };
+const AGENT_RANK: Record<string, number> = { Odysseus: 0, Daedalus: 1, You: 2 };
 
 type AgentRecord = {
   id: string;
@@ -74,7 +75,7 @@ export function serializeAgent(agent: AgentRecord): AgentDTO {
   return {
     id: agent.id,
     projectId: agent.projectId,
-    name: agent.name,
+    name: handName(agent.name),
     provider: agent.provider,
     model: agent.model,
     role: agent.role,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AccountPanel } from "@/components/AccountPanel";
+import { useRouter } from "next/navigation";
 import type { NewTaskInput } from "@/components/AddTaskForm";
 import { AgentColumn } from "@/components/AgentColumn";
 import { ApprovalModal } from "@/components/ApprovalModal";
@@ -11,6 +11,7 @@ import { HandoffInspector } from "@/components/HandoffInspector";
 import { KnotPanel, type KnotPanelHandle } from "@/components/KnotPanel";
 import { LineageRail } from "@/components/LineageRail";
 import { NewProjectDialog } from "@/components/NewProjectDialog";
+import { OutputReader } from "@/components/OutputReader";
 import { RegionBoundary } from "@/components/RegionBoundary";
 import { SetupBanner } from "@/components/SetupBanner";
 import { TaskColumn } from "@/components/TaskColumn";
@@ -18,12 +19,14 @@ import { AccountButton, TopBar } from "@/components/TopBar";
 import { useClocks, useNow } from "@/components/use-now";
 import { WelcomeOverlay } from "@/components/WelcomeOverlay";
 import { useFlag, writeFlag } from "@/components/client-storage";
+import { fetchProject, useProjectPoll } from "@/components/project-poll";
 import { acceptPolledProject, needsSharedContextPrompt } from "@/lib/board-project";
 import { hideModelIds } from "@/lib/model-label";
 import { buildLineage } from "@/lib/lineage";
 import { cascadeFrom, taskNumber } from "@/lib/task-rules";
 import { agentOf, carriedInto, roughMinutes, since } from "@/lib/thread";
-import type { ActivityEventDTO, ProjectDTO, TaskDTO } from "@/lib/types";
+import { isSpinning } from "@/lib/poll-schedule";
+import type { ProjectDTO, TaskDTO } from "@/lib/types";
 
 export type ProjectOption = { id: string; name: string };
 
@@ -53,7 +56,7 @@ function observeStatuses(next: ProjectDTO, previousStatus: Record<string, string
   };
 }
 
-function HeroStatus({ data, demoAccount }: { data: ProjectDTO; demoAccount: boolean }) {
+function HeroStatus({ data }: { data: ProjectDTO }) {
   const now = useNow();
   const done = data.tasks.filter((task) => task.status === "done").length;
   const total = data.tasks.length;
@@ -88,7 +91,7 @@ function HeroStatus({ data, demoAccount }: { data: ProjectDTO; demoAccount: bool
   } else if (failed) {
     line = <span className="text-danger">The thread frayed at step {taskNumber(failed.id, data.tasks)} · respin it when ready</span>;
   } else if (total > 0 && done === total) {
-    line = <span>Every step is spun{demoAccount ? " · Reset demo clears it without calling a model" : ""}</span>;
+    line = <span>Every step is spun</span>;
   } else if (done === 0 && data.events.length === 0) {
     line = <span>Nothing runs until you press Run.</span>;
   } else {
@@ -111,26 +114,17 @@ export function Dashboard({
   missingSetup,
   email,
   accountInitial,
-  accountName,
-  accountFirstName,
-  accountLastName,
   runsLeft,
-  demoAccount = false,
-  openSettings = false,
 }: {
   initial: ProjectDTO;
   projects: ProjectOption[];
   missingSetup: string[];
   email: string;
   accountInitial: string;
-  accountName: string;
-  accountFirstName: string;
-  accountLastName: string;
   runsLeft: number;
-  demoAccount?: boolean;
-  openSettings?: boolean;
 }) {
   const { clock } = useClocks();
+  const router = useRouter();
   const [data, setData] = useState(initial);
   const [projects, setProjects] = useState(initialProjects);
   const [rerunId, setRerunId] = useState<string | null>(null);
@@ -140,6 +134,7 @@ export function Dashboard({
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [approvalId, setApprovalId] = useState<string | null>(null);
   const [handoffId, setHandoffId] = useState<string | null>(null);
+  const [readerId, setReaderId] = useState<string | null>(null);
   const knotRef = useRef<KnotPanelHandle>(null);
   const [contextOpen, setContextOpen] = useState(false);
   const [newProjectOpen, setNewProjectOpen] = useState(false);
@@ -147,17 +142,12 @@ export function Dashboard({
   const selectedIdRef = useRef(initial.id);
   const [lineageId, setLineageId] = useState<string | null>(null);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
-  const [accountOpen, setAccountOpen] = useState(openSettings);
   const [menu, setMenu] = useState<null | "account">(null);
-  const closeAccount = useCallback(() => setAccountOpen(false), []);
-  const [confirmReset, setConfirmReset] = useState(false);
   const [toast, setToast] = useState<{ tone: "danger" | "ok"; text: string } | null>(null);
   const [remaining, setRemaining] = useState(runsLeft);
-  const [resetting, setResetting] = useState(false);
   const [pulseRunId, setPulseRunId] = useState<string | null>(null);
   const hintDismissed = useFlag(HINT_KEY);
   const metAgents = useFlag(MET_KEY);
-  const seen = useRef(initial.events.map((event) => event.id).join(","));
   const previousStatus = useRef<Record<string, string>>(
     Object.fromEntries(initial.tasks.map((task) => [task.id, task.status])),
   );
@@ -166,7 +156,6 @@ export function Dashboard({
   const applyProject = useCallback((next: ProjectDTO) => {
     const observed = observeStatuses(next, previousStatus.current);
     previousStatus.current = observed.statuses;
-    seen.current = next.events.map((event) => event.id).join(",");
     if (observed.expandedId && observed.expandedId !== observed.knotId) setExpandedTaskId(observed.expandedId);
     setData(next);
   }, []);
@@ -189,44 +178,21 @@ export function Dashboard({
   }, [toast]);
 
   useEffect(() => {
-    if (!openSettings) return;
-    const url = new URL(window.location.href);
-    if (!url.searchParams.has("settings")) return;
-    url.searchParams.delete("settings");
-    window.history.replaceState(null, "", url);
-  }, [openSettings]);
-
-  useEffect(() => {
     if (!pulseRunId) return;
     const timer = setTimeout(() => setPulseRunId(null), 4000);
     return () => clearTimeout(timer);
   }, [pulseRunId]);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function poll() {
-      const projectId = selectedIdRef.current;
-      const eventsRes = await fetch(`/api/projects/${projectId}/events`);
-      if (!eventsRes.ok || cancelled || !acceptPolledProject(selectedIdRef.current, projectId)) return;
-      const events = (await eventsRes.json()) as ActivityEventDTO[];
-      const signature = events.map((event) => event.id).join(",");
-      if (signature === seen.current || cancelled || !acceptPolledProject(selectedIdRef.current, projectId)) return;
-      const projectRes = await fetch(`/api/projects/${projectId}`);
-      if (!projectRes.ok || cancelled || !acceptPolledProject(selectedIdRef.current, projectId)) return;
-      const project = (await projectRes.json()) as ProjectDTO;
-      if (cancelled || !acceptPolledProject(selectedIdRef.current, project.id)) return;
-      applyProject({ ...project, events });
-    }
-
-    const timer = setInterval(() => {
-      void poll();
-    }, 2000);
-    return () => {
-      cancelled = true;
-      clearInterval(timer);
-    };
-  }, [applyProject, selectedId]);
+  // Poll only as hard as the moment needs: every 2s while a step spins, backing off
+  // to once a minute while idle, paused in a hidden tab, 304 when nothing changed.
+  const onPolled = useCallback(
+    (project: ProjectDTO, requestedId: string) => {
+      if (!acceptPolledProject(selectedIdRef.current, requestedId) || project.id !== requestedId) return;
+      applyProject(project);
+    },
+    [applyProject],
+  );
+  const poll = useProjectPoll({ projectId: selectedId, spinning: isSpinning(data.tasks, pendingId), onChange: onPolled });
 
   useEffect(() => {
     if (!menu) return;
@@ -244,26 +210,25 @@ export function Dashboard({
     };
   }, [menu]);
 
+  const closeReader = useCallback(() => setReaderId(null), []);
+
   const toggleAgent = useCallback((id: string) => {
     setExpandedAgentId((current) => (current === id ? null : id));
     queueMicrotask(() => writeFlag(MET_KEY, true));
   }, []);
 
+  // One request (the project already carries its newest 100 events).
   async function refresh() {
     const projectId = selectedIdRef.current;
-    const [projectRes, eventsRes] = await Promise.all([
-      fetch(`/api/projects/${projectId}`),
-      fetch(`/api/projects/${projectId}/events`),
-    ]);
+    poll.kick();
+    const result = await fetchProject(projectId);
     if (!acceptPolledProject(selectedIdRef.current, projectId)) return null;
-    if (!projectRes.ok) {
+    if (result.kind !== "changed") {
       setToast({ tone: "danger", text: "Could not refresh the project. Check the dev server, then try the action again." });
       return null;
     }
-    const project = (await projectRes.json()) as ProjectDTO;
-    if (!acceptPolledProject(selectedIdRef.current, project.id)) return null;
-    const events = eventsRes.ok ? ((await eventsRes.json()) as ActivityEventDTO[]) : project.events;
-    const next = { ...project, events };
+    const next = result.project;
+    if (!acceptPolledProject(selectedIdRef.current, next.id)) return null;
     applyProject(next);
     return next;
   }
@@ -379,14 +344,14 @@ export function Dashboard({
     if (id === selectedIdRef.current) return;
     const previous = selectedIdRef.current;
     rememberProject(id);
-    const response = await fetch(`/api/projects/${id}`);
+    const result = await fetchProject(id).catch(() => null);
     if (!acceptPolledProject(selectedIdRef.current, id)) return;
-    if (!response.ok) {
+    if (result?.kind !== "changed") {
       rememberProject(previous);
       setToast({ tone: "danger", text: "Could not open that project. The current board is unchanged." });
       return;
     }
-    const project = (await response.json()) as ProjectDTO;
+    const project = result.project;
     if (!acceptPolledProject(selectedIdRef.current, id) || project.id !== id) return;
     applyProject(project);
     setApprovalId(null);
@@ -475,33 +440,6 @@ export function Dashboard({
     }
   }
 
-  async function resetDemo() {
-    setResetting(true);
-    try {
-      const response = await fetch(`/api/projects/${data.id}/reset`, { method: "POST" });
-      const body = (await response.json()) as ProjectDTO & { error?: string };
-      if (!response.ok) {
-        setToast({
-          tone: "danger",
-          text: `${body.error ?? "Could not reset the demo"}. The board is unchanged. Try again.`,
-        });
-        return;
-      }
-      applyProject(body);
-      setProjects((current) => current.map((project) => (project.id === body.id ? { ...project, name: body.name } : project)));
-      setApprovalId(null);
-      setExpandedTaskId(null);
-      setContextOpen(false);
-      setConfirmReset(false);
-      setMenu(null);
-      setPulseRunId(null);
-    } catch {
-      setToast({ tone: "danger", text: "Could not reach the server. The reset was not confirmed." });
-    } finally {
-      setResetting(false);
-    }
-  }
-
   function highlightFirstRun() {
     const first = data.tasks[0];
     const node = document.querySelector('[data-task-index="0"]');
@@ -532,6 +470,7 @@ export function Dashboard({
   const emptyOwnBrief = needsSharedContextPrompt(data);
 
   const handoffTask = handoffId ? data.tasks.find((task) => task.id === handoffId) : undefined;
+  const readerTask = readerId ? data.tasks.find((task) => task.id === readerId) : undefined;
 
   return (
     <div className="flex h-full min-h-0 flex-col text-ink">
@@ -550,11 +489,11 @@ export function Dashboard({
             button?.scrollIntoView({ block: "center" });
             button?.click();
           }}
-          className="rt-btn rt-btn-ghost"
+          className="rt-btn rt-btn-ghost max-sm:hidden"
         >
           ＋ Step
         </button>
-        <button type="button" onClick={() => setContextOpen(true)} className="rt-btn">
+        <button type="button" onClick={() => setContextOpen(true)} className="rt-btn max-md:hidden">
           Brief
         </button>
         <div ref={menuRef} className="relative">
@@ -572,9 +511,8 @@ export function Dashboard({
               {[
                 { label: "Shared context", run: () => setContextOpen(true) },
                 { label: "New project", run: () => setNewProjectOpen(true) },
-                { label: "Settings", run: () => setAccountOpen(true) },
+                { label: "Settings", run: () => void router.push("/settings") },
                 { label: "Give feedback", run: () => setFeedbackOpen(true) },
-                ...(demoAccount ? [{ label: "Reset demo", run: () => setConfirmReset(true) }] : []),
                 {
                   label: "Sign out",
                   run: () =>
@@ -629,9 +567,9 @@ export function Dashboard({
               </button>
             </div>
           </div>
-          <HeroStatus data={data} demoAccount={demoAccount} />
+          <HeroStatus data={data} />
         </section>
-        <main className="grid min-h-0 flex-1 grid-cols-1 gap-[22px] px-7 lg:grid-cols-[236px_minmax(0,1fr)] xl:grid-cols-[236px_minmax(0,1fr)_436px]">
+        <main className="grid flex-none grid-cols-1 xl:min-h-0 xl:flex-1 gap-[22px] px-7 lg:grid-cols-[236px_minmax(0,1fr)] xl:grid-cols-[236px_minmax(0,1fr)_436px]">
           <AgentColumn
             project={data}
             expandedId={expandedAgentId}
@@ -660,6 +598,7 @@ export function Dashboard({
               lineageTaskId={lineageId}
               onOpenLineage={(id) => setLineageId((current) => (current === id ? null : id))}
               onOpenHandoff={setHandoffId}
+              onOpenReader={setReaderId}
             />
           </RegionBoundary>
           <RegionBoundary name="Decision">
@@ -674,24 +613,12 @@ export function Dashboard({
                 onOpenHandoff={setHandoffId}
                 onRun={(id) => void run(id)}
                 onRerun={setRerunId}
+                onOpenReader={setReaderId}
               />
             </div>
           </RegionBoundary>
         </main>
       </div>
-      <AccountPanel
-        open={accountOpen}
-        onClose={closeAccount}
-        initial={accountInitial}
-        name={accountName}
-        email={email}
-        firstName={accountFirstName}
-        lastName={accountLastName}
-        projectId={data.id}
-        projectName={data.name}
-        brief={data.brief}
-        onSaveBrief={(name, brief) => saveContext(name, brief, { quiet: true })}
-      />
       {approvalTask ? (
         <ApprovalModal
           task={approvalTask}
@@ -717,6 +644,7 @@ export function Dashboard({
         <NewProjectDialog onClose={() => setNewProjectOpen(false)} onCreate={createProject} />
       ) : null}
       {feedbackOpen ? <FeedbackModal onClose={() => setFeedbackOpen(false)} /> : null}
+      {readerTask ? <OutputReader key={readerTask.id} task={readerTask} project={data} onClose={closeReader} /> : null}
       {handoffTask ? (
         <HandoffInspector
           key={handoffTask.id}
@@ -752,33 +680,6 @@ export function Dashboard({
                 className="rt-btn rt-btn-thread"
               >
                 {rerunning ? "Re-running" : "Re-run"}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-      {confirmReset ? (
-        <div className="fixed inset-0 z-40 flex items-end justify-center bg-ink/30 p-4 sm:items-center" role="presentation">
-          <div role="dialog" aria-modal="true" aria-labelledby="reset-title" className="w-full max-w-md bg-raised rounded-2xl p-5 ring-1 ring-line">
-            <h2 id="reset-title" className="font-serif text-[26px] font-normal leading-tight">
-              Reset demo
-            </h2>
-            <p className="mt-2 text-sm leading-normal text-ink-dim">
-              {data.template === "own"
-                ? "Tasks return to pending. Outputs and activity are cleared. Your project name and brief stay. Claude and GPT are not called."
-                : "Tasks return to pending. Outputs and activity are cleared. The example name and brief are restored. Claude and GPT are not called."}
-            </p>
-            <div className="mt-4 flex justify-end gap-2">
-              <button type="button" onClick={() => setConfirmReset(false)} className="rt-btn rt-btn-ghost">
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={resetting}
-                onClick={() => void resetDemo()}
-                className="rt-btn rt-btn-thread"
-              >
-                {resetting ? "Resetting" : "Reset demo"}
               </button>
             </div>
           </div>

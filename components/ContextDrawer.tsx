@@ -88,7 +88,7 @@ export function ContextDrawer({
         </h2>
         <p className="mt-1 text-sm leading-normal text-ink-dim">
           {prompting
-            ? "Optional. Scout and Maker use this when you press Run. You can close anytime and explore the board first."
+            ? "Optional. Odysseus and Daedalus read this when you press Run. You can close anytime and explore the board first."
             : "Every agent receives this automatically. This is the thread."}
         </p>
       </div>

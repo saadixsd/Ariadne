@@ -35,14 +35,16 @@ export function TopBar({
   children?: ReactNode;
 }) {
   return (
-    <header className="relative z-30 flex min-h-14 flex-wrap items-center gap-x-[18px] gap-y-2 border-b border-line bg-raised/60 px-7 py-2 backdrop-blur-md">
-      <BrandMark />
-      <label className="relative flex min-w-0 items-center">
+    // One row at every width: the project name truncates and secondary controls fold
+    // away before anything wraps, so the account button never drops to its own line.
+    <header className="relative z-30 flex min-h-14 flex-nowrap items-center gap-x-3 border-b border-line bg-raised/60 px-4 py-2 backdrop-blur-md sm:gap-x-[18px] sm:px-7">
+      <BrandMark className="shrink-0 max-sm:text-[0px]" />
+      <label className="relative flex min-w-0 shrink items-center">
         <span className="sr-only">Project</span>
         <select
           value={projectId}
           onChange={(event) => onSwitchProject(event.target.value)}
-          className="max-w-60 cursor-pointer appearance-none truncate bg-transparent py-1.5 pr-7 pl-2.5 text-sm font-[550] text-ink hover:bg-panel"
+          className="w-full max-w-60 min-w-0 cursor-pointer appearance-none truncate bg-transparent py-1.5 pr-7 pl-2.5 text-sm font-[550] text-ink hover:bg-panel"
         >
           {projects.map((project) => (
             <option key={project.id} value={project.id}>
@@ -54,10 +56,15 @@ export function TopBar({
           ▾
         </span>
       </label>
-      <ViewSwitch view={view} projectId={projectId} />
-      <div className="flex-1" />
+      <div className="shrink-0">
+        <ViewSwitch view={view} projectId={projectId} />
+      </div>
+      <div className="min-w-0 flex-1" />
       <RunsMeter remaining={runsLeft} />
-      {children}
+      <a href="/settings" className="hidden shrink-0 text-[13px] font-[550] text-ink-dim hover:text-ink lg:inline">
+        Settings
+      </a>
+      <div className="flex shrink-0 items-center gap-2">{children}</div>
     </header>
   );
 }

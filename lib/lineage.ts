@@ -8,6 +8,14 @@ export type LineageApproval = {
   at: string;
 };
 
+/** A change you asked for at a knot, carried forward into the steps it sent back. */
+export type LineageNote = {
+  note: string;
+  at: string;
+  /** The knot where you wrote it. */
+  gateTitle: string | null;
+};
+
 export type LineageBriefNode = {
   kind: "brief";
   id: "brief";
@@ -27,6 +35,8 @@ export type LineageWorkNode = {
   duration: string | null;
   body: string | null;
   approval: LineageApproval | null;
+  /** Your change notes that reached this step (newest last). */
+  notes: LineageNote[];
   selected: boolean;
 };
 
@@ -114,6 +124,24 @@ function approvalFromEvents(taskId: string, events: ActivityEventDTO[]): Lineage
   };
 }
 
+/**
+ * Change notes that concern a task: written at its own knot, or sent back to it as
+ * a root to redo. Read from the structured payload, never from message text.
+ */
+export function changeNotesFor(taskId: string, project: Pick<ProjectDTO, "events" | "tasks">): LineageNote[] {
+  const notes: LineageNote[] = [];
+  for (const event of project.events) {
+    if (event.type !== "note" || event.payload?.decision !== "changes_requested") continue;
+    const note = typeof event.payload.note === "string" ? event.payload.note : null;
+    if (!note) continue;
+    const roots = Array.isArray(event.payload.rootTaskIds) ? event.payload.rootTaskIds : [];
+    if (event.taskId !== taskId && !roots.includes(taskId)) continue;
+    const gate = project.tasks.find((task) => task.id === event.taskId);
+    notes.push({ note, at: event.createdAt, gateTitle: gate?.title ?? null });
+  }
+  return notes.sort((a, b) => a.at.localeCompare(b.at));
+}
+
 function isDecision(task: TaskDTO, agent: AgentDTO | undefined, events: ActivityEventDTO[]): boolean {
   if (agent?.provider === "human") return true;
   if (task.status === "awaiting_approval") return true;
@@ -166,6 +194,7 @@ export function buildLineage(project: ProjectDTO, taskId: string): LineageStep[]
         duration: durationLabel(task),
         body: task.output,
         approval,
+        notes: changeNotesFor(task.id, project),
         selected: task.id === taskId,
       },
     });

@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { useClocks } from "@/components/use-now";
 import { OutputView } from "@/components/OutputView";
 import { ContextBar, PacketSections } from "@/components/ThreadBits";
-import { orderedLineageTasks } from "@/lib/lineage";
+import { changeNotesFor, orderedLineageTasks } from "@/lib/lineage";
+import { socraticQuestion } from "@/lib/philosophy";
 import type { TreeNode } from "@/lib/live-tree";
 import { hideModelIds } from "@/lib/model-label";
 import { taskNumber } from "@/lib/task-rules";
@@ -111,8 +112,12 @@ function KnotFoot({
     }
   }
 
+  const question = socraticQuestion(task.id, changeNotesFor(task.id, project).length);
   return (
-    <div className="grid gap-2.5 border-t border-line px-[22px] pt-3.5 pb-[18px]">
+    <div className="grid gap-2.5 border-t border-gate-line/60 bg-gate-bg/40 px-[22px] pt-3.5 pb-[18px]">
+      <p className="font-serif text-[17px] leading-snug text-gate-ink italic" data-socratic>
+        Before you tie off: {question}
+      </p>
       {writing ? (
         <label className="block rounded-[10px] border border-dashed border-line-strong px-3 py-2 focus-within:border-thread">
           <span className="sr-only">What should change?</span>
@@ -126,23 +131,23 @@ function KnotFoot({
           />
           <span className="block font-mono text-[11px] text-ink-faint">
             {rewinds.length > 0
-              ? `↺ resets ${stepRange(rewinds, project.tasks)} · you rerun ${stepRange(knot.rerunFirst, project.tasks)} with your note`
+              ? `↺ resets ${stepRange(rewinds, project.tasks)} · your note carries into ${stepRange(knot.rerunFirst, project.tasks)}`
               : "↺ sends this step back with your note"}
           </span>
         </label>
       ) : null}
       <div className="flex gap-2">
         <button type="button" disabled={busy !== null} onClick={() => void submit(true)} className="rt-btn rt-btn-knot h-10 flex-1 text-sm">
-          {busy === "approve" ? "Tying off…" : "Approve · tie off"}
+          {busy === "approve" ? "Tying off…" : "Tie off (Approve)"}
         </button>
         <button type="button" disabled={busy !== null} onClick={() => void submit(false)} className="rt-btn h-10 text-sm">
-          {busy === "changes" ? "Sending…" : writing ? "Send changes" : "Request changes"}
+          {busy === "changes" ? "Sending back…" : writing ? "Send it back" : "Ask for changes"}
         </button>
       </div>
       <p className="text-xs text-ink-faint">
         {unlock
           ? `↳ Unlocks ${String(taskNumber(unlock.id, project.tasks)).padStart(2, "0")} · ${unlock.title} (${agentOf(unlock, project.agents)?.name ?? "next step"}). No model is called until you press Run.`
-          : "↳ Approving marks this step done. No model is called."}
+          : "↳ Tying off marks this step done. No model is called."}
       </p>
     </div>
   );
@@ -307,9 +312,9 @@ export function TreeDetailRail({
               title={knot ? "Context carried to you" : carried.handed ? `Context carried to ${tone.name}` : `Context ${tone.name} will receive`}
             />
             {knot && preview ? (
-              <div className="rounded-xl border border-line bg-raised px-3.5 py-3">
-                <p className="eyebrow text-[10px]">What you&apos;re approving · {preview.eyebrow}</p>
-                <p className="mt-1.5 font-serif text-2xl leading-[1.05]">{preview.title}</p>
+              <div className="rounded-xl border border-gate-line/70 bg-raised px-3.5 py-3">
+                <p className="eyebrow mb-1 text-[10px]">What you&apos;re judging · {preview.eyebrow}</p>
+                {knotInfo?.artifact?.output ? <OutputView output={knotInfo.artifact.output} /> : <p className="mt-1.5 font-serif text-2xl leading-[1.05]">{preview.title}</p>}
                 {flags && flags.flags.length > 0 ? (
                   <p className="mt-1.5 text-[12.5px] text-ink-dim">
                     ⚑ {flags.reviewer} noted: {flags.flags.slice(0, 2).map((flag) => flag.split(/[.;—]/)[0].trim()).join("; ")}.
@@ -323,8 +328,8 @@ export function TreeDetailRail({
               </p>
             ) : null}
             {!knot && !isOutput && task.output ? (
-              <div className="max-h-80 overflow-auto rounded-xl border border-line bg-panel px-3.5 py-3">
-                <p className="eyebrow mb-1.5 text-[10px]">Output</p>
+              <div className="rounded-xl border border-line bg-panel px-3.5 py-3">
+                <p className="eyebrow -mb-6 text-[10px]">Output</p>
                 <OutputView output={task.output} />
               </div>
             ) : null}
@@ -334,7 +339,7 @@ export function TreeDetailRail({
           <>
             <p className="text-[13px] leading-normal text-ink-dim">
               {carried.human
-                ? "Every finished step upstream, exactly as it was packaged for you."
+                ? "The door (your brief), then every finished step upstream, as it was packaged for you."
                 : `The prompt ${tone.name} ${carried.handed ? "received" : "will receive"}: shared brief, upstream handoffs, then the step instructions.`}
             </p>
             <PacketSections key={task?.id} sections={carried.sections} />

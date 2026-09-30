@@ -14,6 +14,8 @@ function subscribe(listener: () => void) {
   if (timer === undefined) {
     now = Date.now();
     timer = window.setInterval(() => {
+      // A hidden tab has nothing to show: skip the re-render, catch up on return.
+      if (document.visibilityState === "hidden") return;
       now = Date.now();
       for (const item of listeners) item();
     }, 1000);

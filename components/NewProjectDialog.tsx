@@ -87,7 +87,7 @@ export function NewProjectDialog({
             New project
           </h2>
           <p className="mt-2 text-sm leading-normal text-ink-dim">
-            This project is yours. Scout and Maker use the brief when you press Run. Creating it does not call Claude
+            This project is yours. Odysseus and Daedalus read the brief when you press Run. Creating it does not call Claude
             or GPT.
           </p>
           <label className="mt-4 block text-sm">

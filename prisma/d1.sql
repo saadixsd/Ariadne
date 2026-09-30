@@ -157,3 +157,8 @@ CREATE UNIQUE INDEX "TaskRun_taskId_attempt_key" ON "TaskRun"("taskId", "attempt
 -- CreateIndex
 CREATE INDEX "RateLimit_expiresAt_idx" ON "RateLimit"("expiresAt");
 
+-- CreateIndex
+CREATE INDEX "Task_projectId_idx" ON "Task"("projectId");
+
+-- CreateIndex
+CREATE INDEX "ActivityEvent_projectId_createdAt_idx" ON "ActivityEvent"("projectId", "createdAt");

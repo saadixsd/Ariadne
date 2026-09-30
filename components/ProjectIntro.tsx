@@ -45,7 +45,7 @@ export function ProjectIntro() {
         <p className="mt-6 text-[13px] font-medium tracking-[0.22em] text-ink-dim">ARIADNE</p>
         <h1 className="mt-3 text-[2.75rem] font-semibold leading-[1.05] tracking-tight">What are you making?</h1>
         <p className="mt-4 text-[17px] leading-relaxed text-ink-dim">
-          Name the project and describe it in a sentence or two. Scout and Maker share that.
+          Name the project and describe it in a sentence or two. Odysseus and Daedalus both read it.
         </p>
         <label className="mt-10 block">
           <span className="text-[13px] text-ink-dim">Project name</span>
