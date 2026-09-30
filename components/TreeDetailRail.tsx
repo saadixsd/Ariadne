@@ -162,6 +162,7 @@ export function TreeDetailRail({
   onRun,
   onRerun,
   onDecide,
+  onEditBrief,
 }: {
   project: ProjectDTO;
   node: TreeNode;
@@ -171,6 +172,8 @@ export function TreeDetailRail({
   onRun: (taskId: string) => void;
   onRerun: (taskId: string) => void;
   onDecide: (approved: boolean, note: string) => Promise<void>;
+  /** Opens the same brief editor the Board uses. */
+  onEditBrief?: () => void;
 }) {
   const { clock } = useClocks();
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -284,10 +287,18 @@ export function TreeDetailRail({
         </div>
       ) : null}
       <div id="tree-detail-panel" role={tabs.length > 0 ? "tabpanel" : undefined} aria-labelledby={tabs.length > 0 ? `tree-tab-${tab}` : undefined} className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] content-start gap-3.5 overflow-x-hidden overflow-y-auto px-[22px] py-4">
+        {tab === "brief" && onEditBrief ? (
+          <p className="flex items-center justify-between gap-3 text-[12.5px] text-ink-faint">
+            <span>{project.brief.trim() ? `${project.brief.trim().length.toLocaleString("en-US")} characters · every agent reads it first` : "Every agent reads it before it works."}</span>
+            <button type="button" onClick={onEditBrief} className="rt-btn h-[28px] shrink-0 px-2.5">
+              Edit brief
+            </button>
+          </p>
+        ) : null}
         {tab === "brief" ? (
           project.brief.trim() ? (
-            <blockquote className="rounded-xl border border-line bg-panel px-4 py-3.5 font-serif text-[19px] leading-[1.35] text-ink-dim italic">
-              “{project.brief.trim()}”
+            <blockquote className="rounded-xl border border-line bg-panel px-4 py-3.5 font-serif text-[17px] leading-[1.5] break-words whitespace-pre-line text-ink">
+              {project.brief.trim()}
             </blockquote>
           ) : (
             <p className="text-sm text-ink-dim">No brief yet.</p>

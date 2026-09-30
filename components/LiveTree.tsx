@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { CoordinationTree } from "@/components/CoordinationTree";
 import { AccountButton, TopBar } from "@/components/TopBar";
 import { TreeDetailRail } from "@/components/TreeDetailRail";
-import { fetchProject, useProjectPoll } from "@/components/project-poll";
+import { ContextDrawer } from "@/components/ContextDrawer";
+import { failureText, fetchProject, serverError, useProjectPoll } from "@/components/project-poll";
 import { acceptPolledProject } from "@/lib/board-project";
 import { isSpinning } from "@/lib/poll-schedule";
 import { workflowTree } from "@/lib/live-tree";
@@ -108,6 +109,7 @@ export function LiveTree({
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [rerunId, setRerunId] = useState<string | null>(null);
+  const [editingBrief, setEditingBrief] = useState(false);
   const [rerunning, setRerunning] = useState(false);
   const [toast, setToast] = useState<{ tone: "danger" | "ok"; text: string } | null>(null);
   const selectedIdRef = useRef(initial.id);
@@ -136,6 +138,24 @@ export function LiveTree({
     return project;
   }
 
+  // Same save as the Board's shared-context drawer: PATCH name + brief, then re-read the project.
+  async function saveBrief(name: string, brief: string): Promise<string | null> {
+    const projectId = data.id;
+    const response = await fetch(`/api/projects/${projectId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, brief }),
+    }).catch(() => null);
+    if (!response) return "Could not reach the server. Your previous brief is still in use.";
+    const body = (await response.json().catch(() => ({}))) as { error?: string };
+    if (!acceptPolledProject(selectedIdRef.current, projectId)) return "That project changed before the brief could be saved.";
+    if (!response.ok) return body.error ?? "Could not save the brief";
+    setEditingBrief(false);
+    setData((current) => (current.id === projectId ? { ...current, name, brief } : current));
+    await load().catch(() => null);
+    return null;
+  }
+
   useEffect(() => {
     if (!menu) return;
     function onPointer(event: MouseEvent) {
@@ -162,11 +182,11 @@ export function LiveTree({
     }));
     try {
       const response = await fetch(`/api/tasks/${taskId}/run`, { method: "POST" });
-      const body = (await response.json()) as { error?: string; task?: { status: string } };
       if (!response.ok) {
+        const failure = failureText("Run failed", response.status, await serverError(response));
         setToast({
           tone: "danger",
-          text: `${hideModelIds(body.error ?? "Run failed")}. Open the task to copy the error, or press Retry when you want another attempt.`,
+          text: `${hideModelIds(failure)} Open the task to copy the error, or press Retry when you want another attempt.`,
         });
       } else if (data.agents.find((agent) => agent.id === task?.agentId)?.provider !== "human") {
         setRemaining((count) => Math.max(0, count - 1));
@@ -177,9 +197,9 @@ export function LiveTree({
     } catch {
       setToast({
         tone: "danger",
-        text: "Could not reach the server. The run was not confirmed. Check the dev server before pressing Run again.",
+        text: "Could not reach the server, so the run was not confirmed. Check your connection, then reload the page before pressing Run again.",
       });
-      await load();
+      await load().catch(() => null);
     } finally {
       busy.current = false;
       setPendingId(null);
@@ -371,9 +391,19 @@ export function LiveTree({
             onRun={(id) => void run(id)}
             onRerun={setRerunId}
             onDecide={decide}
+            onEditBrief={() => setEditingBrief(true)}
           />
         ) : null}
       </div>
+      {editingBrief ? (
+        <ContextDrawer
+          key={`${data.id}\n${data.name}\n${data.brief}`}
+          name={data.name}
+          brief={data.brief}
+          onClose={() => setEditingBrief(false)}
+          onSave={saveBrief}
+        />
+      ) : null}
       {rerunId ? (
         <div className="fixed inset-0 z-[60] flex items-end justify-center bg-ink/30 p-4 sm:items-center" role="presentation">
           <div

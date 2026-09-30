@@ -6,7 +6,7 @@ import { ancestorsOf, layoutDag, placeDag } from "../../lib/dag-layout";
 import { handName } from "../../lib/hands";
 import { delphicLine, SOCRATIC_QUESTIONS, socraticQuestion } from "../../lib/philosophy";
 import { POLL_ACTIVE_MS, POLL_IDLE_MAX_MS, POLL_IDLE_START_MS, isSpinning, nextPollDelay } from "../../lib/poll-schedule";
-import { foldPlan } from "../../lib/text-fold";
+import { briefLead, foldPlan } from "../../lib/text-fold";
 
 const t = (id: string, ...dependsOn: string[]) => ({ id, dependsOn });
 
@@ -75,6 +75,20 @@ test("dag: placement puts the door left, the deliverable right, and centres each
   assert.equal(Math.abs(b - c), 100);
   assert.equal((b + c) / 2, placed.nodes.get("a")?.y, "the branch is centred on its parent");
   assert.equal(layoutDag([]).layers.length, 0);
+  // With the door's compact size, the first column packs up to it and the drawing is never shorter than the door.
+  const compact = placeDag(layout, { colW: 300, rowH: 100, padX: 150, padY: 50, door: { width: 230, height: 400 } });
+  assert.equal(compact.nodes.get("a")?.x, 150 + 115 + 150);
+  assert.equal(compact.centre.x, 150 + 115 + 150 + 2 * 300);
+  assert.equal(compact.width, compact.centre.x + 150);
+  assert.equal(compact.height, 400 + 100);
+  assert.equal(compact.door.y, compact.height / 2);
+});
+
+test("brief lead: first line, first sentence, for the compact door card", () => {
+  assert.equal(briefLead("\n\n  Miso is a tiny character. It lives in a gauge.\nMore here."), "Miso is a tiny character.");
+  assert.equal(briefLead("Build v2.0 of the site, no full stop"), "Build v2.0 of the site, no full stop");
+  assert.equal(briefLead("Hi. Build a one-page site for the café"), "Hi. Build a one-page site for the café");
+  assert.equal(briefLead("   "), "");
 });
 
 test("dag: 200 tasks lay out fast", () => {
@@ -140,4 +154,13 @@ test("hands: legacy names map to Odysseus and Daedalus; others pass through", ()
   assert.equal(handName("Maker"), "Daedalus");
   assert.equal(handName("You"), "You");
   assert.equal(handName("Odysseus"), "Odysseus");
+});
+
+test("errors: failed requests show the server's error, never a dev-server hint", async () => {
+  const { failureText, serverError } = await import("../../components/project-poll");
+  assert.equal(failureText("Run failed", 500, "Unexpected server error"), "Run failed: Unexpected server error.");
+  assert.equal(failureText("Run failed", 429, "Daily limit is used up."), "Run failed: Daily limit is used up.");
+  assert.equal(failureText("Could not refresh the project", 503, null), "Could not refresh the project (the server answered 503).");
+  assert.equal(await serverError(Response.json({ error: "Sign in required" }, { status: 401 })), "Sign in required");
+  assert.equal(await serverError(new Response("<html>Worker threw exception</html>", { status: 500 })), null);
 });

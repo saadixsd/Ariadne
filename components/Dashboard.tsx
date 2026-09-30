@@ -19,7 +19,7 @@ import { AccountButton, TopBar } from "@/components/TopBar";
 import { useClocks, useNow } from "@/components/use-now";
 import { WelcomeOverlay } from "@/components/WelcomeOverlay";
 import { useFlag, writeFlag } from "@/components/client-storage";
-import { fetchProject, useProjectPoll } from "@/components/project-poll";
+import { failureText, fetchProject, serverError, useProjectPoll } from "@/components/project-poll";
 import { acceptPolledProject, needsSharedContextPrompt } from "@/lib/board-project";
 import { hideModelIds } from "@/lib/model-label";
 import { buildLineage } from "@/lib/lineage";
@@ -224,7 +224,11 @@ export function Dashboard({
     const result = await fetchProject(projectId);
     if (!acceptPolledProject(selectedIdRef.current, projectId)) return null;
     if (result.kind !== "changed") {
-      setToast({ tone: "danger", text: "Could not refresh the project. Check the dev server, then try the action again." });
+      const text =
+        result.kind === "error"
+          ? failureText("Could not refresh the project", result.status, result.message)
+          : "Could not refresh the project.";
+      setToast({ tone: "danger", text: `${text} Reload the page to see the latest state.` });
       return null;
     }
     const next = result.project;
@@ -248,24 +252,26 @@ export function Dashboard({
     }));
     try {
       const response = await fetch(`/api/tasks/${taskId}/run`, { method: "POST" });
-      const body = (await response.json()) as { error?: string; task?: { status: string } };
+      const failure = response.ok ? null : failureText("Run failed", response.status, await serverError(response));
       if (!response.ok) {
         setToast({
           tone: "danger",
-          text: `${hideModelIds(body.error ?? "Run failed")}. Open the task to copy the error, or press Retry when you want another attempt.`,
+          text: `${hideModelIds(failure ?? "Run failed")} Open the task to copy the error, or press Retry when you want another attempt.`,
         });
       } else if (data.agents.find((agent) => agent.id === task?.agentId)?.provider !== "human") {
         setRemaining((count) => Math.max(0, count - 1));
       }
       const next = await refresh();
+      // A failed refresh must not hide why the run failed.
+      if (failure && !next) setToast({ tone: "danger", text: `${hideModelIds(failure)} The board could not be refreshed either. Reload the page, then try again.` });
       const updated = next?.tasks.find((item) => item.id === taskId);
       if (updated?.status === "awaiting_approval") focusKnot();
     } catch {
       setToast({
         tone: "danger",
-        text: "Could not reach the server. The run was not confirmed. Check the dev server before pressing Run again.",
+        text: "Could not reach the server, so the run was not confirmed. Check your connection, then reload the page before pressing Run again.",
       });
-      await refresh();
+      await refresh().catch(() => null);
     } finally {
       setPendingId(null);
     }

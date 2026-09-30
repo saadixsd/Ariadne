@@ -22,6 +22,7 @@ import {
   type ThreadState,
 } from "@/lib/thread";
 import { ancestorsOf, layoutDag, placeDag, type DagLayout } from "@/lib/dag-layout";
+import { briefLead } from "@/lib/text-fold";
 import type { ProjectDTO, TaskDTO } from "@/lib/types";
 
 // Space kept clear under the graph for the floating legend chip.
@@ -135,26 +136,33 @@ function StepCard({
   );
 }
 
+// The door is a compact card at the same scale as a step; the full brief opens in the rail.
+const DOOR_W = 230;
+const DOOR_H = 84;
+
 function DoorCard({ project, selected, onSelect }: { project: ProjectDTO; selected: boolean; onSelect: (id: string) => void }) {
   const { clockShort } = useClocks();
+  const lead = briefLead(project.brief);
   return (
     <button
       type="button"
       data-node-focus="root"
       data-node-id="root"
       onClick={() => onSelect("root")}
-      aria-label="The door: the project brief. Open details."
+      aria-label="The door: the project brief. Open the full brief."
       aria-pressed={selected}
-      className={`block w-[250px] rounded-xl border border-ink bg-ink px-3 pt-[9px] pb-2.5 text-left text-raised shadow-[0_6px_18px_-8px_rgba(31,26,20,.4)] transition-transform duration-150 hover:-translate-y-0.5 motion-reduce:hover:translate-y-0 ${
+      title={lead ? "Open the full brief" : undefined}
+      style={{ width: DOOR_W }}
+      className={`block rounded-xl border border-ink bg-ink px-3 pt-[9px] pb-2.5 text-left text-raised shadow-[0_6px_18px_-8px_rgba(31,26,20,.4)] transition-transform duration-150 hover:-translate-y-0.5 motion-reduce:hover:translate-y-0 ${
         selected ? "outline-2 outline-offset-[3px] outline-thread" : ""
       }`}
     >
-      <span className="flex justify-between font-mono text-[10.5px] tracking-[0.06em] text-[#c9bba5] uppercase">
+      <span className="flex justify-between gap-3 font-mono text-[10.5px] tracking-[0.06em] whitespace-nowrap text-[#c9bba5] uppercase">
         <span>The door · brief</span>
         <span>{clockShort(project.createdAt)}</span>
       </span>
-      <span className="mt-1 line-clamp-3 block font-serif text-[14.5px] leading-[1.3] text-[#ede5d6] italic">
-        {project.brief.trim() ? `“${project.brief.trim()}”` : "No brief yet. Every agent reads it before it works."}
+      <span className="mt-1 line-clamp-2 font-serif text-[15px] leading-[1.3] break-words text-[#ede5d6] italic">
+        {lead ? `“${lead}”` : "No brief yet. Every agent reads it before it works."}
       </span>
     </button>
   );
@@ -331,9 +339,11 @@ function ThreadList({
 
 const COL_W = 300;
 const ROW_H = 132;
-const PAD_X = 150;
+const PAD_X = 140;
 const PAD_Y = 70;
 const CARD_HALF = 118;
+// Below this the cards stop being readable; the graph pans sideways instead of shrinking further.
+const MIN_SCALE = 0.7;
 
 function edgePath(a: { x: number; y: number }, b: { x: number; y: number }) {
   const bend = Math.max(40, (b.x - a.x) * 0.5);
@@ -386,11 +396,18 @@ export function CoordinationTree({
   }, []);
 
   const graph = size.width >= MIN_GRAPH_WIDTH && tasks.length > 0;
-  const placed = placeDag(layout, { colW: COL_W, rowH: ROW_H, padX: PAD_X, padY: PAD_Y });
+  const placed = placeDag(layout, { colW: COL_W, rowH: ROW_H, padX: PAD_X, padY: PAD_Y, door: { width: DOOR_W, height: DOOR_H } });
   const W = Math.max(placed.width, 600);
   const H = Math.max(placed.height, 360) + LEGEND_ROOM;
-  const fit = size.width && size.height ? Math.min(1, size.width / W, (size.height - 8) / H) : 1;
+  const fit = size.width && size.height ? Math.max(MIN_SCALE, Math.min(1, size.width / W, (size.height - 8) / H)) : 1;
   const scale = fit * zoom;
+
+  // When the graph is wider than the pane (rail open, narrow window), bring the selected card into view.
+  useEffect(() => {
+    if (!selectedId) return;
+    const element = box.current?.querySelector<HTMLElement>(`[data-tree-scroll] [data-node-id="${CSS.escape(selectedId)}"]`);
+    element?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [selectedId, scale]);
   // Lineage: while a step is hovered or selected, what fed into it stays lit and the rest recedes.
   const focusId = hover ?? (selectedId && indexOf.has(selectedId) ? selectedId : null);
   const lineage = focusId ? ancestorsOf(focusId, layout) : null;
@@ -412,7 +429,7 @@ export function CoordinationTree({
       drawn.push({ id: `${from}->${to}`, from, to, d: edgePath(a, b), kind, mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 } });
     for (const id of layout.sources) {
       const point = pos.get(id);
-      if (point) push("root", id, { x: door.x + 125, y: door.y }, into(point), edgeKind("door", stateOf.get(id) ?? "unspun", woven));
+      if (point) push("root", id, { x: door.x + DOOR_W / 2, y: door.y }, into(point), edgeKind("door", stateOf.get(id) ?? "unspun", woven));
     }
     for (const edge of layout.edges) {
       const a = pos.get(edge.from);
@@ -428,8 +445,8 @@ export function CoordinationTree({
     const hoverPlace = hover ? pos.get(hover) : undefined;
 
     content = (
-      <div className="h-full overflow-auto" data-tree-scroll>
-        <div className="relative mx-auto" style={{ width: W * scale, height: H * scale }}>
+      <div className="flex h-full overflow-auto" data-tree-scroll>
+        <div className="relative m-auto shrink-0" style={{ width: W * scale, height: H * scale }}>
           <div className="absolute top-0 left-0 origin-top-left" style={{ width: W, height: H, transform: `scale(${scale})` }}>
             <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} className="absolute inset-0 overflow-visible" aria-hidden>
               {drawn.map((segment) => (

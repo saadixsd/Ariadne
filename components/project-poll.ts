@@ -11,7 +11,19 @@ const etags = new Map<string, string>();
 export type ProjectFetch =
   | { kind: "changed"; project: ProjectDTO }
   | { kind: "unchanged" }
-  | { kind: "error"; status: number };
+  | { kind: "error"; status: number; message: string | null };
+
+/** The server's `{ error }` text when the body is JSON; null for an HTML error page or an empty body. */
+export async function serverError(response: Response): Promise<string | null> {
+  const body = (await response.json().catch(() => null)) as { error?: unknown } | null;
+  return typeof body?.error === "string" && body.error.trim() ? body.error.trim() : null;
+}
+
+/** Plain wording for a failed request, with the server's own error when it sent one. */
+export function failureText(what: string, status: number, message: string | null): string {
+  if (!message) return `${what} (the server answered ${status}).`;
+  return /[.!?]$/.test(message) ? `${what}: ${message}` : `${what}: ${message}.`;
+}
 
 /** GET the project; with `conditional`, echo the last ETag and accept a 304. */
 export async function fetchProject(projectId: string, conditional = false): Promise<ProjectFetch> {
@@ -20,7 +32,7 @@ export async function fetchProject(projectId: string, conditional = false): Prom
   if (conditional && known) headers["If-None-Match"] = known;
   const response = await fetch(`/api/projects/${projectId}`, { headers, cache: "no-store" });
   if (response.status === 304) return { kind: "unchanged" };
-  if (!response.ok) return { kind: "error", status: response.status };
+  if (!response.ok) return { kind: "error", status: response.status, message: await serverError(response) };
   const etag = response.headers.get("etag");
   if (etag) etags.set(projectId, etag);
   return { kind: "changed", project: (await response.json()) as ProjectDTO };

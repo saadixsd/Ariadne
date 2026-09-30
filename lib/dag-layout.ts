@@ -161,27 +161,31 @@ export function ancestorsOf(id: string, layout: Pick<DagLayout, "parents">): Set
 
 export type Placed = { x: number; y: number };
 
-/** Centre points for a layered drawing: the door, every task, and the deliverable. */
+/** Centre points for a layered drawing: the door, every task, and the deliverable.
+ *  `door` is the door card's own size: with it the first column sits half a column past the door's right edge
+ *  (not a whole column past its centre), and the drawing is at least as tall as the door. */
 export function placeDag(
   layout: Pick<DagLayout, "layers">,
-  size: { colW: number; rowH: number; padX: number; padY: number },
+  size: { colW: number; rowH: number; padX: number; padY: number; door?: { width: number; height: number } },
 ): { door: Placed; centre: Placed; nodes: Map<string, Placed>; width: number; height: number } {
   const rows = Math.max(1, ...layout.layers.map((layer) => layer.length));
-  const height = rows * size.rowH + size.padY * 2;
+  const height = Math.max(rows * size.rowH, size.door?.height ?? 0) + size.padY * 2;
   const mid = height / 2;
+  const first = size.padX + (size.door ? size.door.width / 2 + size.colW / 2 : size.colW);
   const nodes = new Map<string, Placed>();
   layout.layers.forEach((layer, column) => {
-    const x = size.padX + (column + 1) * size.colW;
+    const x = first + column * size.colW;
     layer.forEach((id, row) => {
       nodes.set(id, { x, y: mid + (row - (layer.length - 1) / 2) * size.rowH });
     });
   });
   const columns = layout.layers.length;
+  const centreX = first + columns * size.colW;
   return {
     door: { x: size.padX, y: mid },
-    centre: { x: size.padX + (columns + 1) * size.colW, y: mid },
+    centre: { x: centreX, y: mid },
     nodes,
-    width: size.padX * 2 + (columns + 1) * size.colW,
+    width: centreX + size.padX,
     height,
   };
 }

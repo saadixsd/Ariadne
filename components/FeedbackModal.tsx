@@ -34,7 +34,7 @@ export function FeedbackModal({ onClose }: { onClose: () => void }) {
       setPhase("done");
     } catch {
       setPhase("error");
-      setError("Could not reach the server. Check that the dev server is running, then try again.");
+      setError("Could not reach the server. Check your connection, then try again.");
     } finally {
       setSending(false);
     }

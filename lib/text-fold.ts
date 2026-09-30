@@ -9,3 +9,10 @@ export function foldPlan(text: string): { fold: boolean; label: string } {
   const minutes = Math.max(1, Math.round(words / 230));
   return { fold, label: `${words.toLocaleString("en-US")} words · ${minutes} min read` };
 }
+
+/** The opening of a brief for a compact card: its first non-empty line, cut to the first sentence. */
+export function briefLead(brief: string): string {
+  const line = brief.split(/\n/).map((item) => item.trim()).find((item) => item.length > 0) ?? "";
+  const sentence = /^.+?[.!?](?=\s|$)/.exec(line)?.[0] ?? line;
+  return sentence.length >= 24 || sentence === line ? sentence : line;
+}
