@@ -1,83 +1,108 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { LineageRail } from "@/components/LineageRail";
 import { OutputView } from "@/components/OutputView";
-import { buildLineage, handoffConnector } from "@/lib/lineage";
+import { ContextBar, PacketSections } from "@/components/ThreadBits";
+import { orderedLineageTasks } from "@/lib/lineage";
 import type { TreeNode } from "@/lib/live-tree";
 import { hideModelIds } from "@/lib/model-label";
-import { nextTask, taskNumber } from "@/lib/task-rules";
+import { taskNumber } from "@/lib/task-rules";
+import {
+  agentOf,
+  agentTone,
+  artifactPreview,
+  carriedInto,
+  clock,
+  clockShort,
+  durationSeconds,
+  knotFor,
+  modelTag,
+  outputGist,
+  reviewFlags,
+  stepRange,
+  stopwatch,
+  threadState,
+  failureReason,
+} from "@/lib/thread";
 import type { ProjectDTO, TaskDTO } from "@/lib/types";
 
-function when(value: string | null | undefined) {
-  if (!value) return null;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return null;
-  return date.toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
+type Tab = "lineage" | "packet" | "brief" | "output";
+
+function firstLine(task: TaskDTO, project: ProjectDTO) {
+  const gist = outputGist(task, project.agents);
+  if (!gist) return null;
+  const text = gist.lead && gist.lead.endsWith(".") ? gist.rest.split(" · ")[0] : gist.lead ?? gist.rest;
+  return text?.replace(/^Verdict:\s*/, "") || null;
 }
 
-function statusLabel(status: string | undefined) {
-  if (status === "running") return "Running";
-  if (status === "done") return "Done";
-  if (status === "failed") return "Failed";
-  if (status === "awaiting_approval") return "Waiting on you";
-  if (status === "cancelled" || status === "canceled" || status === "pruned" || status === "removed") return "Pruned";
-  if (status === "pending") return "Pending";
-  return status ?? "Pending";
-}
-
-function HandoffLists({ task, project }: { task: TaskDTO; project: ProjectDTO }) {
-  const agents = new Map(project.agents.map((agent) => [agent.id, agent.name]));
-  const name = (item: TaskDTO) => agents.get(item.agentId) ?? "Unassigned";
-  const incomingTasks = task.dependsOn.flatMap((id) => {
-    const source = project.tasks.find((item) => item.id === id);
-    return source ? [source] : [];
-  });
-  const outgoingTasks = project.tasks.filter((item) => item.dependsOn.includes(task.id));
-  const recordedIn = project.events.filter((event) => event.type === "handoff" && event.taskId === task.id);
-  const recordedOut = project.events.filter((event) => event.type === "handoff" && event.fromTaskId === task.id);
-
+function Lineage({ task, project, knot }: { task: TaskDTO; project: ProjectDTO; knot: boolean }) {
+  const ancestors = orderedLineageTasks(task.id, project.tasks).filter((item) => item.id !== task.id);
+  const agent = agentOf(task, project.agents);
+  const state = threadState(task, project.tasks);
   return (
-    <div className="mt-4 grid gap-3">
-      <div>
-        <h3 className="text-xs font-semibold tracking-[0.14em] text-[#0e5c36]">HANDOFFS IN</h3>
-        <ul className="mt-1 space-y-1 text-sm leading-normal text-[#5c6f61]">
-          {recordedIn.length > 0
-            ? recordedIn.map((event) => <li key={event.id}>{hideModelIds(event.message)}</li>)
-            : incomingTasks.length > 0
-              ? incomingTasks.map((source) => <li key={source.id}>{handoffConnector(name(source), name(task))}</li>)
-              : <li>No handoff in yet.</li>}
-        </ul>
-      </div>
-      <div>
-        <h3 className="text-xs font-semibold tracking-[0.14em] text-[#0e5c36]">HANDOFFS OUT</h3>
-        <ul className="mt-1 space-y-1 text-sm leading-normal text-[#5c6f61]">
-          {recordedOut.length > 0
-            ? recordedOut.map((event) => <li key={event.id}>{hideModelIds(event.message)}</li>)
-            : outgoingTasks.length > 0
-              ? outgoingTasks.map((target) => <li key={target.id}>{handoffConnector(name(task), name(target))}</li>)
-              : <li>No handoff out yet.</li>}
-        </ul>
-      </div>
-    </div>
+    <ol className="relative grid gap-3 pl-[26px]">
+      <span aria-hidden className="absolute top-2 bottom-[22px] left-[7px] w-0.5 rounded bg-thread" />
+      {ancestors.map((item) => {
+        const who = agentOf(item, project.agents)?.name ?? "Unassigned";
+        const quote = firstLine(item, project);
+        const spun = item.status === "done";
+        return (
+          <li key={item.id} className="relative">
+            <span
+              aria-hidden
+              className={`absolute top-1 -left-6 h-3 w-3 rounded-full border-2 ${spun ? "border-thread bg-thread shadow-[inset_0_0_0_3px_var(--color-raised)]" : "border-thread-dim bg-raised"}`}
+            />
+            <p className="text-[13px]">
+              <b className="font-semibold">
+                {who} · {item.title}
+              </b>
+              <span className="ml-1.5 font-mono text-[11px] text-ink-faint tnum">
+                {[clockShort(item.completedAt ?? item.startedAt), stopwatch(durationSeconds(item))].filter(Boolean).join(" · ")}
+              </span>
+            </p>
+            {quote ? <q className="mt-[3px] block font-serif text-[15px] leading-[1.3] text-ink-dim italic">{quote}</q> : null}
+          </li>
+        );
+      })}
+      <li className="relative">
+        <span
+          aria-hidden
+          className={`absolute top-1 -left-6 h-3 w-3 rounded-full border-2 ${
+            knot ? "border-gate bg-gate shadow-[0_0_0_4px_rgba(201,138,18,.2)]" : state === "spun" ? "border-thread bg-thread" : "border-thread bg-raised"
+          }`}
+        />
+        <p className="text-[13px]">
+          <b className="font-semibold">{knot ? "You · decide" : `${agent?.name ?? "Unassigned"} · this step`}</b>
+          <span className="ml-1.5 font-mono text-[11px] text-ink-faint">{knot ? "now" : state}</span>
+        </p>
+      </li>
+    </ol>
   );
 }
 
-function GateDecision({
+function KnotFoot({
   task,
-  tasks,
+  project,
   onDecide,
 }: {
   task: TaskDTO;
-  tasks: TaskDTO[];
+  project: ProjectDTO;
   onDecide: (approved: boolean, note: string) => Promise<void>;
 }) {
+  const knot = knotFor(task, project);
   const [note, setNote] = useState("");
+  const [writing, setWriting] = useState(false);
   const [busy, setBusy] = useState<"approve" | "changes" | null>(null);
-  const upcoming = nextTask(task.id, tasks);
-  const number = taskNumber(upcoming?.id ?? "", tasks);
+  const noteRef = useRef<HTMLTextAreaElement>(null);
+  const unlock = knot.unlocks[0];
+  const rewinds = knot.resets.filter((item) => item.id !== task.id);
 
   async function submit(approved: boolean) {
+    if (!approved && note.trim().length === 0) {
+      setWriting(true);
+      requestAnimationFrame(() => noteRef.current?.focus());
+      return;
+    }
     setBusy(approved ? "approve" : "changes");
     try {
       await onDecide(approved, note);
@@ -87,49 +112,38 @@ function GateDecision({
   }
 
   return (
-    <div className="mt-4 border-t border-[#f59e0b]/40 pt-4">
-      <p className="text-xs font-semibold tracking-[0.16em] text-[#b45309]">APPROVAL GATE</p>
-      <p className="mt-2 text-sm leading-normal text-[#b45309]">
-        {upcoming ? `Approving unlocks task ${number}: ${upcoming.title}` : "Approving marks this task done."}
-      </p>
-      <p className="mt-1 text-sm leading-normal text-[#5c6f61]">
-        Nothing continues until you choose. Approve and Request changes are the only actions here.
-      </p>
-      <div className="mt-3">
-        {task.output ? (
-          <OutputView output={task.output} />
-        ) : (
-          <p className="text-sm text-[#5c6f61]">No output packaged. Check the lineage before deciding.</p>
-        )}
-      </div>
-      <label className="mt-3 block text-sm">
-        Request changes
-        <textarea
-          value={note}
-          onChange={(event) => setNote(event.target.value)}
-          rows={3}
-          placeholder="What should change?"
-          className="mt-1 w-full rounded-md bg-[#f6faf6] px-3 py-2 text-sm leading-normal ring-1 ring-[#dfe9e1]"
-        />
-      </label>
-      <div className="mt-3 flex flex-wrap justify-end gap-2">
-        <button
-          type="button"
-          disabled={busy !== null || note.trim().length === 0}
-          onClick={() => void submit(false)}
-          className="rounded-md px-3 py-2 text-sm font-medium ring-1 ring-[#dfe9e1] disabled:opacity-50"
-        >
-          {busy === "changes" ? "Sending" : "Request changes"}
+    <div className="grid gap-2.5 border-t border-line px-[22px] pt-3.5 pb-[18px]">
+      {writing ? (
+        <label className="block rounded-[10px] border border-dashed border-line-strong px-3 py-2 focus-within:border-thread">
+          <span className="sr-only">What should change?</span>
+          <textarea
+            ref={noteRef}
+            value={note}
+            onChange={(event) => setNote(event.target.value)}
+            rows={3}
+            placeholder="What should change?"
+            className="w-full resize-none bg-transparent text-[13px] leading-normal outline-none placeholder:text-ink-faint"
+          />
+          <span className="block font-mono text-[11px] text-ink-faint">
+            {rewinds.length > 0
+              ? `↺ resets ${stepRange(rewinds, project.tasks)} · you rerun ${stepRange(knot.rerunFirst, project.tasks)} with your note`
+              : "↺ sends this step back with your note"}
+          </span>
+        </label>
+      ) : null}
+      <div className="flex gap-2">
+        <button type="button" disabled={busy !== null} onClick={() => void submit(true)} className="rt-btn rt-btn-knot h-10 flex-1 text-sm">
+          {busy === "approve" ? "Tying off…" : "Approve · tie off"}
         </button>
-        <button
-          type="button"
-          disabled={busy !== null}
-          onClick={() => void submit(true)}
-          className="rounded-md bg-[#f59e0b] px-4 py-2 text-sm font-semibold text-[#101812] hover:bg-[#fbbf24] disabled:opacity-50"
-        >
-          {busy === "approve" ? "Approving" : "Approve"}
+        <button type="button" disabled={busy !== null} onClick={() => void submit(false)} className="rt-btn h-10 text-sm">
+          {busy === "changes" ? "Sending…" : writing ? "Send changes" : "Request changes"}
         </button>
       </div>
+      <p className="text-xs text-ink-faint">
+        {unlock
+          ? `↳ Unlocks ${String(taskNumber(unlock.id, project.tasks)).padStart(2, "0")} · ${unlock.title} (${agentOf(unlock, project.agents)?.name ?? "next step"}). No model is called until you press Run.`
+          : "↳ Approving marks this step done. No model is called."}
+      </p>
     </div>
   );
 }
@@ -154,12 +168,14 @@ export function TreeDetailRail({
   onDecide: (approved: boolean, note: string) => Promise<void>;
 }) {
   const closeRef = useRef<HTMLButtonElement>(null);
-  const taskId = node.kind === "output" ? node.sourceTaskId : node.taskId;
+  const sink = [...project.tasks].reverse().find((task) => !project.tasks.some((other) => other.dependsOn.includes(task.id))) ?? project.tasks.at(-1);
+  const taskId = node.kind === "output" ? sink?.id : node.taskId;
   const task = project.tasks.find((item) => item.id === taskId) ?? null;
-  const lineage = task ? buildLineage(project, task.id) : null;
-  const gate = node.kind === "gate" && task?.status === "awaiting_approval";
-  const pruned = node.kind === "pruned" || node.status === "pruned";
-  const busy = task !== null && pendingId === task.id;
+  const isRoot = node.kind === "root";
+  const isOutput = node.kind === "output";
+  const knot = !isOutput && task?.status === "awaiting_approval";
+  const [tab, setTab] = useState<Tab>(isRoot ? "brief" : isOutput ? "output" : "lineage");
+  const busy = task !== null && (pendingId === task.id || task.status === "running");
 
   useEffect(() => {
     closeRef.current?.focus();
@@ -173,130 +189,174 @@ export function TreeDetailRail({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  const eyebrow =
-    node.kind === "root"
-      ? "BRIEF"
-      : node.kind === "output"
-        ? "ARTIFACT"
-        : gate
-          ? "WAITING ON YOU"
-          : pruned
-            ? "PRUNED"
-            : "STEP";
+  const agents = project.agents;
+  const agent = agentOf(task ?? undefined, agents);
+  const tone = agentTone(agent, agents);
+  const number = task ? taskNumber(task.id, project.tasks) : 0;
+  const state = task ? threadState(task, project.tasks, pendingId) : null;
+  const carried = task ? carriedInto(task, project) : null;
+  const knotInfo = knot && task ? knotFor(task, project) : null;
+  const preview = knotInfo ? artifactPreview(knotInfo.artifact, agents) : null;
+  const flags = knotInfo ? reviewFlags(knotInfo.reviewers, agents) : null;
+  const inputNames = knotInfo ? [...new Set(knotInfo.inputs.map((input) => input.agent?.name ?? ""))].filter(Boolean) : [];
+
+  const eyebrow = isRoot
+    ? "The door · brief"
+    : isOutput
+      ? "The centre · deliverable"
+      : knot
+        ? "● The knot · waiting on you"
+        : `Step ${String(number).padStart(2, "0")} · ${state === "knot" ? "the knot" : state}`;
+  const title = isRoot ? project.name : isOutput ? (sink?.title ?? "No output yet") : (task?.title ?? node.label);
+  const sub = isRoot
+    ? `${authorName ? `Written by ${authorName}` : "Written by you"}${clock(project.createdAt) ? ` · ${clock(project.createdAt)}` : ""} · every agent reads it first.`
+    : knot && knotInfo
+      ? `Opened ${clock(knotInfo.openedAt) ?? "just now"} · everything ${inputNames.length > 0 ? inputNames.join(" and ") : "upstream"} spun reaches you here.`
+      : task
+        ? [tone.name, modelTag(task, agents), stopwatch(durationSeconds(task)), task.completedAt ? `finished ${clock(task.completedAt)}` : null]
+            .filter(Boolean)
+            .join(" · ")
+        : "";
+  const tabs: { id: Tab; label: string }[] = isRoot
+    ? []
+    : isOutput
+      ? [
+          { id: "output", label: "Deliverable" },
+          { id: "lineage", label: "Lineage" },
+          { id: "packet", label: "Packet" },
+        ]
+      : [
+          { id: "lineage", label: "Lineage" },
+          { id: "packet", label: "Packet" },
+          { id: "brief", label: "Brief" },
+        ];
 
   return (
     <aside
-      role="dialog"
       aria-labelledby="tree-detail-title"
       data-tree-rail
-      className="fixed top-0 right-0 z-50 flex h-full w-full max-w-lg flex-col border-l border-[#dfe9e1] bg-white shadow-[-12px_0_40px_rgba(16,24,18,0.08)]"
+      className="flex min-h-0 flex-col overflow-hidden border-l border-line bg-raised shadow-[-20px_0_40px_-30px_rgba(31,26,20,.25)]"
     >
-      <div className={`border-b px-5 py-4 ${gate ? "border-[#f59e0b]/40 bg-[#fffbeb]" : "border-[#dfe9e1]"}`}>
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className={`text-xs font-semibold tracking-[0.16em] ${gate ? "text-[#b45309]" : pruned ? "text-[#8a988e]" : "text-[#0e5c36]"}`}>
-              {eyebrow}
-            </p>
-            <h2 id="tree-detail-title" className="mt-1 text-lg font-semibold leading-tight text-[#101812]">
-              {node.kind === "root" ? project.name : node.label}
-            </h2>
-          </div>
-          <button
-            ref={closeRef}
-            type="button"
-            onClick={onClose}
-            aria-label="Close details"
-            className="px-2 py-1 text-sm text-[#5c6f61] hover:text-[#101812]"
-          >
-            Close
+      <div className={`border-b border-line px-[22px] pt-[18px] pb-3.5 ${knot ? "bg-[linear-gradient(180deg,#fcf1d6,var(--color-raised))]" : ""}`}>
+        <div className="flex items-center justify-between gap-3">
+          <p className={`eyebrow ${knot ? "text-gate-ink" : state === "frayed" ? "text-danger" : ""}`}>{eyebrow}</p>
+          <button ref={closeRef} type="button" onClick={onClose} aria-label="Close details" className="rt-btn rt-btn-ghost h-[26px] px-2">
+            Esc ✕
           </button>
         </div>
+        <h2 id="tree-detail-title" className="mt-1.5 font-serif text-[32px] leading-[1.05]">
+          {title}
+        </h2>
+        {sub ? <p className="mt-1 text-[13px] text-ink-dim">{sub}</p> : null}
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
-        {node.kind === "root" ? (
-          <div>
-            <p className="text-sm leading-normal text-[#5c6f61]">
-              {authorName ? `Written by ${authorName}` : "Written by you"}
-              {when(project.createdAt) ? ` · ${when(project.createdAt)}` : ""}
-            </p>
-            {project.brief.trim() ? (
-              <div className="mt-3">
-                <OutputView output={project.brief} />
-              </div>
-            ) : (
-              <p className="mt-3 text-sm text-[#5c6f61]">No brief yet.</p>
-            )}
-          </div>
-        ) : null}
-
-        {node.kind === "output" ? (
-          <div>
-            {task?.output ? (
-              <>
-                <p className="text-sm leading-normal text-[#5c6f61]">From {task.title}.</p>
-                <div className="mt-3">
-                  <OutputView output={task.output} />
-                </div>
-              </>
-            ) : (
-              <p className="text-sm leading-normal text-[#5c6f61]">No output yet.</p>
-            )}
-          </div>
-        ) : null}
-
-        {task && node.kind !== "root" && node.kind !== "output" ? (
-          <div>
-            <p className="text-sm leading-normal text-[#5c6f61]">
-              {[statusLabel(task.status), [node.role, node.model].filter(Boolean).join(" · ")].filter(Boolean).join(" · ")}
-            </p>
-            {when(task.startedAt) ? (
-              <p className="mt-1 font-mono text-xs text-[#5c6f61]">Started {when(task.startedAt)}</p>
-            ) : null}
-            {when(task.completedAt) ? (
-              <p className="mt-1 font-mono text-xs text-[#5c6f61]">Finished {when(task.completedAt)}</p>
-            ) : null}
-            {pruned ? (
-              <p className="mt-3 text-sm leading-normal text-[#5c6f61]">{node.note ?? "Pruned."}</p>
-            ) : null}
-            {gate ? (
-              <GateDecision key={task.id} task={task} tasks={project.tasks} onDecide={onDecide} />
-            ) : (
-              <div className="mt-3">
-                {task.output ? <OutputView output={task.output} /> : <p className="text-sm text-[#5c6f61]">No output yet.</p>}
-              </div>
-            )}
-            <HandoffLists task={task} project={project} />
-            {lineage ? (
-              <div className="mt-5 border-t border-[#dfe9e1] pt-4">
-                <h3 className="text-xs font-semibold tracking-[0.14em] text-[#0e5c36]">LINEAGE</h3>
-                <div className="mt-3">
-                  <LineageRail steps={lineage} onClose={onClose} embedded />
-                </div>
-              </div>
-            ) : null}
-          </div>
-        ) : null}
-      </div>
-      {task && node.kind !== "output" && node.kind !== "root" && !gate && !pruned ? (
-        <div className="flex justify-end gap-2 border-t border-[#dfe9e1] px-5 py-3">
-          {task.status === "done" ? (
+      {tabs.length > 0 ? (
+        <div role="tablist" aria-label="Detail views" className="flex gap-[18px] border-b border-line px-[22px]">
+          {tabs.map((item) => (
             <button
+              key={item.id}
               type="button"
-              onClick={() => onRerun(task.id)}
-              className="rounded-md px-3 py-2 text-sm font-medium text-[#0e5c36] ring-1 ring-[#0e5c36]/35 hover:bg-[#eef6f0]"
+              role="tab"
+              aria-selected={tab === item.id}
+              aria-controls="tree-detail-panel"
+              id={`tree-tab-${item.id}`}
+              onClick={() => setTab(item.id)}
+              onKeyDown={(event) => {
+                if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
+                const index = tabs.findIndex((entry) => entry.id === tab);
+                const next = tabs[(index + (event.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length];
+                setTab(next.id);
+                requestAnimationFrame(() => document.getElementById(`tree-tab-${next.id}`)?.focus());
+              }}
+              tabIndex={tab === item.id ? 0 : -1}
+              className={`-mb-px rounded-none border-b-2 pt-2.5 pb-[9px] text-[13px] font-[560] ${
+                tab === item.id ? "border-thread text-ink" : "border-transparent text-ink-faint hover:text-ink-dim"
+              }`}
             >
-              Re-run
+              {item.label}
             </button>
-          ) : task.status !== "running" && task.status !== "awaiting_approval" ? (
+          ))}
+        </div>
+      ) : null}
+      <div id="tree-detail-panel" role={tabs.length > 0 ? "tabpanel" : undefined} aria-labelledby={tabs.length > 0 ? `tree-tab-${tab}` : undefined} className="grid min-h-0 flex-1 content-start gap-3.5 overflow-y-auto px-[22px] py-4">
+        {tab === "brief" ? (
+          project.brief.trim() ? (
+            <blockquote className="rounded-xl border border-line bg-panel px-4 py-3.5 font-serif text-[19px] leading-[1.35] text-ink-dim italic">
+              “{project.brief.trim()}”
+            </blockquote>
+          ) : (
+            <p className="text-sm text-ink-dim">No brief yet.</p>
+          )
+        ) : null}
+        {tab === "output" ? (
+          task?.output && task.status === "done" ? (
+            <div className="rounded-xl border border-line bg-panel px-3.5 py-3">
+              <OutputView output={task.output} />
+            </div>
+          ) : (
+            <p className="text-sm leading-normal text-ink-dim">
+              Not woven yet. {sink ? `It appears here when ${agentOf(sink, agents)?.name ?? "the last step"} finishes “${sink.title}”.` : ""}
+            </p>
+          )
+        ) : null}
+        {tab === "lineage" && task && carried ? (
+          <>
+            <Lineage task={task} project={project} knot={knot} />
+            <ContextBar
+              sections={carried.sections}
+              title={knot ? "Context carried to you" : carried.handed ? `Context carried to ${tone.name}` : `Context ${tone.name} will receive`}
+            />
+            {knot && preview ? (
+              <div className="rounded-xl border border-line bg-raised px-3.5 py-3">
+                <p className="eyebrow text-[10px]">What you&apos;re approving · {preview.eyebrow}</p>
+                <p className="mt-1.5 font-serif text-2xl leading-[1.05]">{preview.title}</p>
+                {flags && flags.flags.length > 0 ? (
+                  <p className="mt-1.5 text-[12.5px] text-ink-dim">
+                    ⚑ {flags.reviewer} noted: {flags.flags.slice(0, 2).map((flag) => flag.split(/[.;—]/)[0].trim()).join("; ")}.
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+            {!knot && !isOutput && task.status === "failed" ? (
+              <p className="rounded-xl border border-danger/30 bg-danger/5 px-3 py-2.5 font-mono text-[12px] text-danger">
+                {hideModelIds(failureReason(task.id, project.events) ?? "This run failed.")}
+              </p>
+            ) : null}
+            {!knot && !isOutput && task.output ? (
+              <div className="max-h-80 overflow-auto rounded-xl border border-line bg-panel px-3.5 py-3">
+                <p className="eyebrow mb-1.5 text-[10px]">Output</p>
+                <OutputView output={task.output} />
+              </div>
+            ) : null}
+          </>
+        ) : null}
+        {tab === "packet" && carried ? (
+          <>
+            <p className="text-[13px] leading-normal text-ink-dim">
+              {carried.human
+                ? "Every finished step upstream, exactly as it was packaged for you."
+                : `The prompt ${tone.name} ${carried.handed ? "received" : "will receive"}: shared brief, upstream handoffs, then the step instructions.`}
+            </p>
+            <PacketSections key={task?.id} sections={carried.sections} />
+          </>
+        ) : null}
+      </div>
+      {knot && task ? <KnotFoot key={task.id} task={task} project={project} onDecide={onDecide} /> : null}
+      {task && !knot && !isOutput && task.status !== "awaiting_approval" ? (
+        <div className="flex justify-end gap-2 border-t border-line px-[22px] pt-3.5 pb-[18px]">
+          {task.status === "done" ? (
+            <button type="button" onClick={() => onRerun(task.id)} className="rt-btn h-10 text-sm">
+              Rerun
+            </button>
+          ) : (
             <button
               type="button"
               disabled={!node.runnable || busy}
               onClick={() => onRun(task.id)}
-              className="rounded-md bg-[#0e5c36] px-3 py-2 text-sm font-medium text-white hover:bg-[#0b4a2b] disabled:cursor-not-allowed disabled:bg-[#e6ebe7] disabled:text-[#9aa89e]"
+              className="rt-btn rt-btn-thread h-10 text-sm"
             >
-              {busy ? "Running" : task.status === "failed" ? "Retry" : "Run"}
+              {busy ? "Spinning…" : task.status === "failed" ? "Respin" : agent?.provider === "human" ? "Open the knot" : "Run"}
             </button>
-          ) : null}
+          )}
         </div>
       ) : null}
     </aside>

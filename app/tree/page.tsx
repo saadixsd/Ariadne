@@ -7,7 +7,6 @@ import { DAILY_MODEL_RUNS, modelRunsToday } from "@/lib/usage";
 import { getPrisma } from "@/lib/prisma";
 import { getProject } from "@/lib/project";
 import { redirect } from "next/navigation";
-import "./tree.css";
 
 export const dynamic = "force-dynamic";
 
@@ -43,6 +42,7 @@ export default async function TreePage({
       projects={projects.map(({ id, name }) => ({ id, name }))}
       runsLeft={runsLeft}
       authorName={accountDisplay(user).name}
+      accountInitial={accountDisplay(user).initial}
     />
   );
 }

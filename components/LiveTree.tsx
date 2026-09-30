@@ -1,47 +1,90 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import { CoordinationTree } from "@/components/CoordinationTree";
+import { AccountButton, TopBar } from "@/components/TopBar";
 import { TreeDetailRail } from "@/components/TreeDetailRail";
-import { ViewSwitch } from "@/components/ViewSwitch";
 import { acceptPolledProject } from "@/lib/board-project";
-import { DAILY_MODEL_RUNS } from "@/lib/limits";
 import { workflowTree } from "@/lib/live-tree";
 import { hideModelIds } from "@/lib/model-label";
 import { canRunTask, cascadeFrom, dependenciesMet, taskNumber } from "@/lib/task-rules";
+import { agentOf, threadState } from "@/lib/thread";
 import type { ProjectDTO, TaskDTO } from "@/lib/types";
-import { useFlag, writeFlag } from "@/components/client-storage";
 
-const LEGEND_COLLAPSED = "ariadne.tree.legend.collapsed";
+type NextAction = {
+  pill: string;
+  tone: "knot" | "thread" | "fail" | "plain";
+  text: ReactNode;
+  action?: { label: string; taskId: string; kind: "review" | "run" };
+};
 
-function nextActionText(project: ProjectDTO): string {
+function lowerFirst(value: string) {
+  return value.charAt(0).toLowerCase() + value.slice(1);
+}
+
+function nextAction(project: ProjectDTO): NextAction {
   const tasks = project.tasks;
   const total = tasks.length;
-  if (total === 0) return "No steps yet.";
-  const step = (task: TaskDTO, rest: string) =>
-    `Step ${taskNumber(task.id, tasks)} of ${total} · ${task.title} ${rest}`;
+  if (total === 0) return { pill: "no steps", tone: "plain", text: "No steps yet. Add one from the Board." };
+  const pill = (task: TaskDTO) => `step ${taskNumber(task.id, tasks)} of ${total}`;
+  const who = (task: TaskDTO) => agentOf(task, project.agents)?.name ?? "the next step";
   const waiting = tasks.find((task) => task.status === "awaiting_approval");
-  if (waiting) return step(waiting, "is waiting on you");
-  const running = tasks.find((task) => task.status === "running");
-  if (running) return step(running, "is running");
-  const ready = tasks.find((task) => canRunTask(task, tasks));
-  if (ready) return step(ready, ready.status === "failed" ? "needs a retry" : "is ready to run");
-  const locked = tasks.find((task) => task.status === "pending" && !dependenciesMet(task, tasks));
-  if (locked) {
-    const names = locked.dependsOn
-      .map((id) => tasks.find((task) => task.id === id))
-      .filter((task): task is TaskDTO => task != null && task.status !== "done")
-      .map((task) => task.title);
-    const when =
-      names.length === 1
-        ? `${names[0]} finishes`
-        : names.length > 1
-          ? `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]} finish`
-          : "the steps it needs are finished";
-    return step(locked, `unlocks when ${when}`);
+  if (waiting) {
+    const unlock = tasks.find((task) => task.dependsOn.includes(waiting.id));
+    return {
+      pill: pill(waiting),
+      tone: "knot",
+      text: (
+        <>
+          The thread stops at your knot — <b className="font-semibold text-ink">{waiting.title}</b>.
+          {unlock ? ` Approving lets ${who(unlock)} ${lowerFirst(unlock.title)}.` : " Approving finishes the thread."}
+        </>
+      ),
+      action: { label: "Review →", taskId: waiting.id, kind: "review" },
+    };
   }
-  if (tasks.every((task) => task.status === "done")) return `All ${total} steps are finished.`;
-  return `Step 1 of ${total} · ${tasks[0]?.title ?? "The next step"}`;
+  const running = tasks.find((task) => task.status === "running");
+  if (running) {
+    return {
+      pill: pill(running),
+      tone: "thread",
+      text: (
+        <>
+          {who(running)} is spinning <b className="font-semibold text-ink">{running.title}</b>. The thread moves on when it lands.
+        </>
+      ),
+    };
+  }
+  const failed = tasks.find((task) => task.status === "failed");
+  if (failed) {
+    return {
+      pill: pill(failed),
+      tone: "fail",
+      text: (
+        <>
+          The thread frayed at <b className="font-semibold text-ink">{failed.title}</b>. Respin it when you are ready.
+        </>
+      ),
+      action: canRunTask(failed, tasks) ? { label: "Respin", taskId: failed.id, kind: "run" } : undefined,
+    };
+  }
+  const ready = tasks.find((task) => canRunTask(task, tasks));
+  if (ready) {
+    return {
+      pill: pill(ready),
+      tone: "plain",
+      text: (
+        <>
+          Next on the thread: <b className="font-semibold text-ink">{ready.title}</b> for {who(ready)}. Nothing runs until you press Run.
+        </>
+      ),
+      action: { label: agentOf(ready, project.agents)?.provider === "human" ? "Open the knot" : "Run", taskId: ready.id, kind: "run" },
+    };
+  }
+  const locked = tasks.find((task) => task.status === "pending" && !dependenciesMet(task, tasks));
+  if (locked) return { pill: pill(locked), tone: "plain", text: <>{locked.title} unlocks when the steps it needs are spun.</> };
+  return { pill: `${total} of ${total}`, tone: "thread", text: <>Every step is spun. The deliverable is at the centre.</> };
 }
 
 export function LiveTree({
@@ -49,12 +92,15 @@ export function LiveTree({
   projects,
   runsLeft,
   authorName,
+  accountInitial,
 }: {
   initial: ProjectDTO;
   projects: { id: string; name: string }[];
   runsLeft: number;
   authorName: string;
+  accountInitial: string;
 }) {
+  const router = useRouter();
   const [data, setData] = useState(initial);
   const [remaining, setRemaining] = useState(runsLeft);
   const [pendingId, setPendingId] = useState<string | null>(null);
@@ -64,7 +110,8 @@ export function LiveTree({
   const [toast, setToast] = useState<{ tone: "danger" | "ok"; text: string } | null>(null);
   const selectedIdRef = useRef(initial.id);
   const busy = useRef(false);
-  const legendCollapsed = useFlag(LEGEND_COLLAPSED);
+  const [menu, setMenu] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
   const tree = useMemo(() => workflowTree(data), [data]);
   const detailNode = tree.nodes.find((node) => node.id === detailId) ?? null;
 
@@ -78,6 +125,22 @@ export function LiveTree({
     setData(project);
     return project;
   }, []);
+
+  useEffect(() => {
+    if (!menu) return;
+    function onPointer(event: MouseEvent) {
+      if (!menuRef.current?.contains(event.target as Node)) setMenu(false);
+    }
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") setMenu(false);
+    }
+    document.addEventListener("mousedown", onPointer);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onPointer);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [menu]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -195,118 +258,131 @@ export function LiveTree({
     }
   }
 
+  const next = nextAction(data);
+  const states = data.tasks.map((task) => threadState(task, data.tasks, pendingId));
+  const counts = {
+    spun: states.filter((state) => state === "spun").length,
+    knot: states.filter((state) => state === "knot").length,
+    spinning: states.filter((state) => state === "spinning").length,
+    frayed: states.filter((state) => state === "frayed").length,
+  };
+  const unspun = states.length - counts.spun - counts.knot - counts.spinning - counts.frayed;
+  const pillTone =
+    next.tone === "knot"
+      ? "border-gate-line bg-gate-bg text-gate-ink"
+      : next.tone === "fail"
+        ? "border-danger/30 bg-danger/5 text-danger"
+        : next.tone === "thread"
+          ? "border-thread-soft bg-raised text-thread"
+          : "border-line bg-raised text-ink-dim";
+
   return (
-    <main className="min-h-full bg-[#f6faf6] text-[#101812]">
-      <header className="flex flex-wrap items-center justify-between gap-4 border-b border-[#dfe9e1] bg-white px-4 py-3">
-        <div className="flex min-w-0 flex-wrap items-end gap-3">
-          <div className="shrink-0 pb-0.5">
-            <p className="text-xs font-semibold tracking-[0.28em] text-[#0e5c36]">ARIADNE</p>
-            <span className="mt-1 block h-px w-full bg-[#0e5c36]" aria-hidden />
-          </div>
-          <label className="min-w-0">
-            <span className="sr-only">Project</span>
-            <select
-              value={data.id}
-              onChange={(event) => {
-                window.location.href = `/tree?project=${encodeURIComponent(event.target.value)}`;
-              }}
-              className="max-w-56 truncate rounded-md bg-white px-2 py-1 text-sm font-semibold text-[#101812] ring-1 ring-[#dfe9e1]"
-            >
-              {projects.map((project) => (
-                <option key={project.id} value={project.id}>
-                  {project.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <ViewSwitch view="tree" projectId={data.id} />
+    <div className="flex h-full min-h-0 flex-col text-ink">
+      <TopBar
+        view="tree"
+        projectId={data.id}
+        projects={projects}
+        onSwitchProject={(id) => {
+          window.location.href = `/tree?project=${encodeURIComponent(id)}`;
+        }}
+        runsLeft={remaining}
+      >
+        <button type="button" onClick={() => setDetailId("root")} className="rt-btn">
+          Brief
+        </button>
+        <div ref={menuRef} className="relative">
+          <AccountButton initial={accountInitial} label="Account menu" expanded={menu} onClick={() => setMenu((value) => !value)} />
+          {menu ? (
+            <div role="menu" className="absolute right-0 z-40 mt-2 w-52 rounded-xl border border-line bg-raised p-1 shadow-[0_18px_40px_-16px_rgba(31,26,20,.35)]">
+              <a role="menuitem" href={`/?project=${encodeURIComponent(data.id)}&settings=1`} className="block rounded-lg px-3 py-2 text-sm hover:bg-panel">
+                Settings
+              </a>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setMenu(false);
+                  void fetch("/api/auth/sign-out", { method: "POST" }).then(() => {
+                    router.replace("/sign-in");
+                  });
+                }}
+                className="w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-panel"
+              >
+                Sign out
+              </button>
+            </div>
+          ) : null}
         </div>
-        <p className="flex items-center gap-1.5 rounded-full bg-[#e7f4ec] px-2.5 py-1 text-[11px] font-semibold tracking-[0.14em] text-[#0e5c36] ring-1 ring-[#cfe3d6]">
-          <span className="pulse-status h-1.5 w-1.5 rounded-full bg-[#10b981]" aria-hidden />
-          TREE VIEW · LIVE
-        </p>
-      </header>
-      <p className="border-b border-[#dfe9e1] px-4 py-2 text-sm leading-normal text-[#5c6f61]">
-        {remaining} of {DAILY_MODEL_RUNS} free agent runs left today.
-      </p>
-      <p data-next-action className="border-b border-[#dfe9e1] bg-white px-4 py-1.5 text-sm leading-normal text-[#101812]">
-        {nextActionText(data)}
-      </p>
-      {detailNode ? (
-        <button type="button" aria-label="Close details" className="fixed inset-0 z-30 bg-[#101812]/15" onClick={closeDetail} />
-      ) : null}
-      <CoordinationTree
-        tree={tree}
-        pendingId={pendingId}
-        selectedId={detailId}
-        onSelect={setDetailId}
-        onBackdrop={detailNode ? closeDetail : undefined}
-        onRun={(id) => void run(id)}
-        onReview={setDetailId}
-        onRerun={setRerunId}
-      />
-      <footer className="border-t border-[#dfe9e1] bg-white px-6 py-4">
-        <h2 className="text-xs font-semibold tracking-[0.16em] text-[#0e5c36]">
+      </TopBar>
+      <div data-next-action className="flex min-h-12 flex-wrap items-center gap-x-3.5 gap-y-1 border-b border-line px-7 py-2 text-[13.5px] text-ink-dim">
+        <span className={`rounded-full border px-[9px] py-[3px] font-mono text-[11.5px] ${pillTone}`}>{next.pill}</span>
+        <span className="min-w-0">{next.text}</span>
+        {next.action ? (
           <button
             type="button"
-            aria-expanded={!legendCollapsed}
-            onClick={() => writeFlag(LEGEND_COLLAPSED, !legendCollapsed)}
-            className="inline-flex items-center gap-2"
+            onClick={() => {
+              const action = next.action;
+              if (!action) return;
+              if (action.kind === "review") setDetailId(action.taskId);
+              else void run(action.taskId);
+            }}
+            disabled={next.action.kind === "run" && pendingId !== null}
+            className={`rt-btn h-7 px-3 text-xs ${next.action.kind === "review" ? "rt-btn-knot" : "rt-btn-thread"}`}
           >
-            LEGEND
-            <span className="font-medium tracking-normal text-[#5c6f61]">{legendCollapsed ? "Show" : "Hide"}</span>
+            {next.action.label}
           </button>
-        </h2>
-        {legendCollapsed ? null : (
-        <ul className="mt-3 flex flex-wrap gap-x-6 gap-y-2 text-sm text-[#5c6f61]">
-          <li className="flex items-center gap-2">
-            <span className="h-2.5 w-2.5 rounded-full bg-[#0e5c36]" aria-hidden />
-            Branch — a step an agent is doing or has finished
-          </li>
-          <li className="flex items-center gap-2">
-            <span className="h-2.5 w-2.5 rounded-full bg-[#f59e0b]" aria-hidden />
-            Gate — gold, waiting on you
-          </li>
-          <li className="flex items-center gap-2">
-            <span className="h-2.5 w-2.5 rounded-full border border-dashed border-[#a9b8ad]" aria-hidden />
-            Pruned — faded, dashed, kept so the dead end stays visible
-          </li>
-          <li className="flex items-center gap-2">
-            <span className="h-2.5 w-2.5 rounded-full bg-[#10b981]" aria-hidden />
-            Output — the artifact where branches converge
-          </li>
-          <li className="flex items-center gap-2">
-            <span className="h-0.5 w-4 bg-[#0e5c36]" aria-hidden />
-            Green line — work that has moved. Gray line — a link. Dashed — a pruned path
-          </li>
-        </ul>
-        )}
-      </footer>
-      {detailNode ? (
-        <TreeDetailRail
-          key={detailNode.id}
-          project={data}
-          node={detailNode}
-          authorName={authorName}
-          pendingId={pendingId}
-          onClose={closeDetail}
-          onRun={(id) => void run(id)}
-          onRerun={setRerunId}
-          onDecide={decide}
-        />
-      ) : null}
+        ) : null}
+        <span className="ml-auto flex items-center gap-1.5 font-mono text-[11.5px]" aria-label={`${counts.spun} spun, ${counts.knot} knot, ${unspun} unspun`}>
+          {states.map((state, index) => (
+            <i
+              key={data.tasks[index].id}
+              aria-hidden
+              className={`inline-block h-[3px] w-[22px] rounded ${
+                state === "spun" ? "bg-thread" : state === "knot" ? "bg-gate" : state === "spinning" ? "pulse-status bg-thread" : state === "frayed" ? "bg-danger" : "bg-line-strong"
+              }`}
+            />
+          ))}
+          <span className="ml-1.5" aria-hidden>
+            {[
+              `${counts.spun} spun`,
+              counts.spinning ? `${counts.spinning} spinning` : null,
+              counts.knot ? `${counts.knot} knot` : null,
+              counts.frayed ? `${counts.frayed} frayed` : null,
+              `${unspun} unspun`,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+          </span>
+        </span>
+      </div>
+      <div className={`grid min-h-0 flex-1 ${detailNode ? "grid-cols-1 lg:grid-cols-[minmax(0,1fr)_430px]" : "grid-cols-1"}`}>
+        <CoordinationTree project={data} pendingId={pendingId} selectedId={detailId} onSelect={(id) => setDetailId((current) => (current === id ? null : id))} />
+        {detailNode ? (
+          <TreeDetailRail
+            key={detailNode.id}
+            project={data}
+            node={detailNode}
+            authorName={authorName}
+            pendingId={pendingId}
+            onClose={closeDetail}
+            onRun={(id) => void run(id)}
+            onRerun={setRerunId}
+            onDecide={decide}
+          />
+        ) : null}
+      </div>
       {rerunId ? (
-        <div className="fixed inset-0 z-[60] flex items-end justify-center bg-[#101812]/30 p-4 sm:items-center" role="presentation">
+        <div className="fixed inset-0 z-[60] flex items-end justify-center bg-ink/30 p-4 sm:items-center" role="presentation">
           <div
             role="dialog"
             aria-modal="true"
             aria-labelledby="rerun-title"
-            className="w-full max-w-md rounded-xl bg-white p-5 shadow-[0_12px_40px_rgba(16,24,18,0.16)] ring-1 ring-[#dfe9e1]"
+            className="w-full max-w-md rounded-2xl border border-line bg-raised p-5"
           >
-            <h2 id="rerun-title" className="text-lg font-semibold leading-tight text-[#101812]">
+            <h2 id="rerun-title" className="font-serif text-[26px] leading-tight">
               Re-run this task
             </h2>
-            <p className="mt-2 text-sm leading-normal text-[#5c6f61]">
+            <p className="mt-2 text-sm leading-normal text-ink-dim">
               These steps return to pending and lose their output. Only the task you re-run calls an agent. The rest stay pending until you press Run.
             </p>
             <ul className="mt-3 space-y-1 text-sm leading-normal">
@@ -317,14 +393,14 @@ export function LiveTree({
               ))}
             </ul>
             <div className="mt-4 flex justify-end gap-2">
-              <button type="button" onClick={() => setRerunId(null)} className="px-3 py-2 text-sm text-[#5c6f61] hover:text-[#101812]">
+              <button type="button" onClick={() => setRerunId(null)} className="rt-btn rt-btn-ghost">
                 Cancel
               </button>
               <button
                 type="button"
                 disabled={rerunning}
                 onClick={() => void confirmRerun()}
-                className="rounded-md bg-[#0e5c36] px-3 py-2 text-sm font-medium text-white hover:bg-[#0b4a2b] disabled:opacity-50"
+                className="rt-btn rt-btn-thread"
               >
                 {rerunning ? "Re-running" : "Re-run"}
               </button>
@@ -335,13 +411,13 @@ export function LiveTree({
       {toast ? (
         <div
           role="status"
-          className={`fixed right-4 bottom-14 z-50 max-w-sm rounded-lg bg-white px-4 py-3 text-sm leading-normal shadow-[0_8px_24px_rgba(16,24,18,0.12)] ring-1 ${
-            toast.tone === "ok" ? "text-[#0e5c36] ring-[#10b981]/40" : "text-[#b91c1c] ring-[#fca5a5]"
+          className={`fixed right-4 bottom-6 z-50 max-w-sm rounded-xl bg-raised px-4 py-3 text-sm leading-normal shadow-[0_18px_40px_-16px_rgba(31,26,20,.35)] ring-1 ${
+            toast.tone === "ok" ? "text-thread ring-ok/40" : "text-danger ring-danger/50"
           }`}
         >
           {toast.text}
         </div>
       ) : null}
-    </main>
+    </div>
   );
 }

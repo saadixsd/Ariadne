@@ -1,652 +1,518 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import type { EdgeKind, TreeNode, TreeStatus, TreeWorkflow } from "@/lib/live-tree";
-import { columnsByDepth } from "@/lib/tree-layout";
-
-function formatElapsed(total: number) {
-  const safe = Math.max(0, total);
-  const minutes = Math.floor(safe / 60);
-  const seconds = safe % 60;
-  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
-}
-
-function Elapsed({
+import { useEffect, useRef, useState } from "react";
+import { Monogram } from "@/components/ThreadBits";
+import { useNow } from "@/components/use-now";
+import { taskNumber } from "@/lib/task-rules";
+import {
+  agentOf,
+  agentTone,
+  carriedInto,
+  carriedNoun,
+  charsLabel,
+  inputChars,
+  clockShort,
+  durationSeconds,
+  modelTag,
+  objectOf,
+  outputGist,
   since,
-  frozen,
-  ticking,
-}: {
-  since?: string | null;
-  frozen?: number;
-  ticking: boolean;
-}) {
-  const [live, setLive] = useState<number | null>(null);
+  stopwatch,
+  threadState,
+  type ThreadState,
+} from "@/lib/thread";
+import { pointAt, polylineLength, rectSpiral, roundedPath, slicePolyline } from "@/lib/tree-layout";
+import type { ProjectDTO, TaskDTO } from "@/lib/types";
 
-  useEffect(() => {
-    if (!ticking || !since) return;
-    const tick = () => {
-      const start = Date.parse(since);
-      if (Number.isNaN(start)) return;
-      setLive(Math.max(0, Math.floor((Date.now() - start) / 1000)));
-    };
-    tick();
-    const timer = window.setInterval(tick, 1000);
-    return () => window.clearInterval(timer);
-  }, [since, ticking]);
+const H = 780;
+// Space kept clear under the spiral for the floating legend chip.
+const LEGEND_ROOM = 40;
+const RED = "var(--color-thread)";
+const GRAPHITE = "var(--color-thread-dim)";
+const MAX_SPIRAL_STEPS = 9;
+const MIN_SPIRAL_WIDTH = 720;
 
-  const seconds = ticking ? live : frozen;
-  if (seconds === undefined || seconds === null) return null;
-  return <span className="font-mono text-[11px] font-medium tabular-nums text-[#10b981]">{formatElapsed(seconds)}</span>;
+type Segment = { id: string; d: string; kind: "spun" | "spinning" | "frayed" | "unspun" };
+
+function stateLabel(state: ThreadState) {
+  if (state === "spun") return "spun";
+  if (state === "spinning") return "spinning";
+  if (state === "knot") return "the knot";
+  if (state === "frayed") return "frayed";
+  if (state === "ready") return "ready";
+  return "unspun";
 }
 
-const SHADOW = "shadow-[0_1px_2px_rgba(16,24,18,0.04),0_4px_14px_rgba(16,24,18,0.06)]";
-const LIFT = "hover:shadow-[0_4px_8px_rgba(16,24,18,0.08),0_16px_32px_rgba(16,24,18,0.14)]";
-
-function statusDot(status: TreeStatus | undefined, taskStatus: string | undefined) {
-  const fade = "tree-dot";
-  if (taskStatus === "failed") return `${fade} bg-[#dc2626]`;
-  if (status === "done") return `${fade} bg-[#0e5c36]`;
-  if (status === "active") return `${fade} bg-[#10b981] pulse-status`;
-  if (status === "waiting") return `${fade} bg-[#f59e0b]`;
-  if (status === "pruned") return `${fade} bg-[#b8c6bb]`;
-  return `${fade} bg-[#c3cdc5]`;
+function segmentKind(target: ThreadState | "centre", woven: boolean): Segment["kind"] {
+  if (target === "centre") return woven ? "spun" : "unspun";
+  if (target === "spun" || target === "knot") return "spun";
+  if (target === "spinning") return "spinning";
+  if (target === "frayed") return "frayed";
+  return "unspun";
 }
 
-function cardClass(node: TreeNode) {
-  if (node.kind === "pruned" || node.status === "pruned") {
-    return "border border-dashed border-[#b8c6bb] bg-[#eef2ee] opacity-60";
-  }
-  if (node.kind === "gate" && node.status === "waiting") return "tree-gate border border-[#f59e0b] bg-white";
-  if (node.kind === "output" && node.status === "done") {
-    return `border border-[#10b981] bg-[#ecfdf5] ring-2 ring-[#10b981]/35 ${SHADOW} ${LIFT}`;
-  }
-  if (node.kind === "output") return "border border-dashed border-[#dfe9e1] bg-white";
-  if (node.status === "locked") return "border border-[#e6ebe7] bg-[#f7f8f7]";
-  if (node.status === "active") return `border border-[#10b981] bg-white ${SHADOW} ${LIFT}`;
-  if (node.taskStatus === "failed") return `border border-[#fca5a5] bg-white ${SHADOW} ${LIFT}`;
-  return `border border-[#dfe9e1] bg-white ${SHADOW} ${LIFT}`;
+function arrow(dx: number, dy: number) {
+  if (dx > 0) return "→";
+  if (dx < 0) return "←";
+  if (dy > 0) return "↓";
+  return "↑";
 }
 
-function titleClass(node: TreeNode) {
-  if (node.status === "locked" || (node.kind === "output" && node.status !== "done")) return "text-[#8a988e]";
-  return "text-[#101812]";
+function waitingSince(task: TaskDTO, project: ProjectDTO) {
+  return (
+    project.events
+      .filter((event) => event.type === "approval_requested" && event.taskId === task.id)
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+      .at(-1)?.createdAt ?? task.startedAt
+  );
 }
 
-function RootCard({
-  node,
+function Clock({ task, state, project }: { task: TaskDTO; state: ThreadState; project: ProjectDTO }) {
+  const now = useNow();
+  if (state === "knot") return <span className="tnum">{stopwatch(since(waitingSince(task, project), now)) ?? ""}</span>;
+  if (state === "spinning") return <span className="tnum text-thread">{stopwatch(since(task.startedAt, now)) ?? ""}</span>;
+  if (state === "spun") return <span className="tnum">{stopwatch(durationSeconds(task)) ?? ""}</span>;
+  if (state === "unspun") return <span>locked</span>;
+  return null;
+}
+
+function StepCard({
+  task,
+  index,
+  state,
+  project,
   selected,
   onSelect,
-  onShow,
-  onHide,
+  onHover,
 }: {
-  node: TreeNode;
+  task: TaskDTO;
+  index: number;
+  state: ThreadState;
+  project: ProjectDTO;
   selected: boolean;
   onSelect: (id: string) => void;
-  onShow: (id: string, element: HTMLElement) => void;
-  onHide: (id: string) => void;
+  onHover: (id: string | null) => void;
 }) {
+  const agent = agentOf(task, project.agents);
+  const tone = agentTone(agent, project.agents);
+  const tag = modelTag(task, project.agents);
+  const tones: Record<ThreadState, string> = {
+    spun: "border-line bg-raised shadow-[0_1px_0_rgba(31,26,20,.04),0_6px_18px_-8px_rgba(31,26,20,.18)]",
+    spinning: "border-thread/50 bg-raised shadow-[0_1px_0_rgba(31,26,20,.04),0_6px_18px_-8px_rgba(31,26,20,.18)]",
+    knot: "knot-breathe border-[#d9a441] bg-[linear-gradient(0deg,var(--color-gate-bg),#fdf6e4)] outline-2 outline-offset-[3px] outline-gate",
+    frayed: "border-danger/40 bg-raised shadow-[0_6px_18px_-8px_rgba(31,26,20,.18)]",
+    ready: "border-line-strong bg-raised shadow-[0_6px_18px_-8px_rgba(31,26,20,.18)]",
+    unspun: "border-dashed border-line-strong bg-raised/60",
+  };
   return (
-    <article
-      data-node-id={node.id}
-      onClick={() => onSelect(node.id)}
-      onMouseEnter={(event) => onShow(node.id, event.currentTarget)}
-      onMouseLeave={() => onHide(node.id)}
-      className={`tree-card w-44 shrink-0 cursor-pointer overflow-hidden rounded-[11px] border border-[#0e5c36] bg-white ${SHADOW} ${LIFT} ${selected ? "ring-2 ring-[#0e5c36]" : ""}`}
+    <button
+      type="button"
+      data-node-focus={task.id}
+      data-node-id={task.id}
+      onClick={() => onSelect(task.id)}
+      onMouseEnter={() => onHover(task.id)}
+      onMouseLeave={() => onHover(null)}
+      onFocus={() => onHover(task.id)}
+      onBlur={() => onHover(null)}
+      aria-label={`Step ${index + 1}, ${task.title}, ${tone.name}, ${stateLabel(state)}. Open details.`}
+      aria-pressed={selected}
+      className={`block min-w-[190px] max-w-[250px] rounded-xl border px-3 pt-[9px] pb-2.5 text-left transition-[transform,box-shadow,border-color] duration-150 hover:-translate-y-0.5 hover:border-line-strong hover:shadow-[0_1px_0_rgba(31,26,20,.04),0_16px_28px_-12px_rgba(31,26,20,.3)] motion-reduce:hover:translate-y-0 ${tones[state]} ${
+        selected && state !== "knot" ? "outline-2 outline-offset-[3px] outline-thread" : ""
+      }`}
     >
-      <button
-        type="button"
-        data-node-focus={node.id}
-        onClick={(event) => {
-          event.stopPropagation();
-          onSelect(node.id);
-        }}
-        onFocus={(event) => onShow(node.id, event.currentTarget.closest("article") ?? event.currentTarget)}
-        onBlur={() => onHide(node.id)}
-        onKeyDown={(event) => {
-          if (event.key === "Enter") {
-            event.preventDefault();
-            onSelect(node.id);
-          }
-        }}
-        className="tree-node-btn w-full bg-[#0e5c36] px-3 py-3 text-left"
+      <span
+        className={`flex justify-between gap-3 font-mono text-[10.5px] tracking-[0.06em] uppercase ${
+          state === "knot" ? "text-gate-ink" : state === "frayed" ? "text-danger" : "text-ink-faint"
+        }`}
       >
-        <span className="flex items-start gap-2">
-          <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-[#10b981]" aria-hidden />
-          <h3 className="text-sm font-semibold leading-tight text-white">{node.label}</h3>
+        <span>
+          {String(index + 1).padStart(2, "0")} ·{" "}
+          <b className={`font-medium ${state === "spun" || state === "spinning" ? "text-thread" : ""}`}>{stateLabel(state)}</b>
         </span>
-      </button>
-      {node.note ? <p className="px-3 py-2 text-xs leading-normal text-[#5c6f61]">{node.note}</p> : null}
-    </article>
+        <Clock task={task} state={state} project={project} />
+      </span>
+      <span className={`mt-[3px] block truncate font-serif text-xl leading-[1.1] ${state === "unspun" ? "text-ink-faint" : "text-ink"}`}>
+        {task.title}
+      </span>
+      <span className={`mt-[5px] flex items-center gap-1.5 text-xs ${state === "unspun" ? "text-ink-faint" : "text-ink-dim"}`}>
+        <Monogram tone={tone} size={18} dim={state === "unspun"} />
+        {tone.name}
+        {state === "knot" ? <span className="font-mono text-[11px] text-gate-ink">· waiting</span> : null}
+        {tag && state !== "knot" && state !== "unspun" ? <span className="font-mono text-[11px] text-ink-faint">{tag}</span> : null}
+      </span>
+    </button>
   );
 }
 
-function NodeCard({
-  node,
-  pendingId,
-  selected,
-  hint,
-  onSelect,
-  onShow,
-  onHide,
-  onRun,
-  onReview,
-  onRerun,
-}: {
-  node: TreeNode;
-  pendingId: string | null;
-  selected: boolean;
-  hint?: string;
-  onSelect: (id: string) => void;
-  onShow: (id: string, element: HTMLElement) => void;
-  onHide: (id: string) => void;
-  onRun: (taskId: string) => void;
-  onReview: (taskId: string) => void;
-  onRerun: (taskId: string) => void;
-}) {
-  const chip = [node.role, node.model].filter(Boolean).join(" · ");
-  const ticking = node.status === "active" || node.status === "waiting";
-  const busy = node.taskId !== undefined && pendingId === node.taskId;
-  const note = hint ?? node.note;
-  if (node.kind === "root") {
-    return <RootCard node={node} selected={selected} onSelect={onSelect} onShow={onShow} onHide={onHide} />;
-  }
+function DoorCard({ project, selected, onSelect }: { project: ProjectDTO; selected: boolean; onSelect: (id: string) => void }) {
   return (
-    <article
-      data-node-id={node.id}
-      onClick={() => onSelect(node.id)}
-      onMouseEnter={(event) => onShow(node.id, event.currentTarget)}
-      onMouseLeave={() => onHide(node.id)}
-      className={`tree-card w-44 shrink-0 cursor-pointer rounded-[11px] px-3 py-3 ${cardClass(node)} ${selected ? "ring-2 ring-[#0e5c36]" : ""}`}
+    <button
+      type="button"
+      data-node-focus="root"
+      data-node-id="root"
+      onClick={() => onSelect("root")}
+      aria-label="The door: the project brief. Open details."
+      aria-pressed={selected}
+      className={`block w-[250px] rounded-xl border border-ink bg-ink px-3 pt-[9px] pb-2.5 text-left text-raised shadow-[0_6px_18px_-8px_rgba(31,26,20,.4)] transition-transform duration-150 hover:-translate-y-0.5 motion-reduce:hover:translate-y-0 ${
+        selected ? "outline-2 outline-offset-[3px] outline-thread" : ""
+      }`}
     >
-      <button
-        type="button"
-        data-node-focus={node.id}
-        onClick={(event) => {
-          event.stopPropagation();
-          onSelect(node.id);
-        }}
-        onFocus={(event) => onShow(node.id, event.currentTarget.closest("article") ?? event.currentTarget)}
-        onBlur={() => onHide(node.id)}
-        onKeyDown={(event) => {
-          if (event.key === "Enter") {
-            event.preventDefault();
-            onSelect(node.id);
-          }
-        }}
-        className="tree-node-btn w-full text-left"
-      >
-      {node.kind === "gate" && node.status === "waiting" ? (
-        <p className="text-[10px] font-semibold tracking-[0.16em] text-[#b45309]">WAITING ON YOU</p>
-      ) : null}
-      {node.kind === "output" ? (
-        <p
-          className={`text-[10px] font-semibold tracking-[0.16em] ${node.status === "done" ? "text-[#0e5c36]" : "text-[#8a988e]"}`}
-        >
-          ARTIFACT
-        </p>
-      ) : null}
-      <div className="mt-1 flex items-start gap-2">
-        <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${statusDot(node.status, node.taskStatus)}`} aria-hidden />
-        <h3 className={`text-sm font-semibold leading-tight ${titleClass(node)}`}>{node.label}</h3>
-      </div>
-      {chip ? (
-        <p
-          className={`mt-2 inline-block rounded px-1.5 py-0.5 font-mono text-[11px] ring-1 ${
-            node.status === "locked" || node.status === "pruned"
-              ? "bg-white/60 text-[#8a988e] ring-[#e6ebe7]"
-              : "bg-[#eef6f0] text-[#0e5c36] ring-[#dfe9e1]"
-          }`}
-        >
-          {chip}
-        </p>
-      ) : null}
-      {ticking || node.elapsedSec !== undefined ? (
-        <p className="mt-2">
-          <Elapsed since={node.since} frozen={node.elapsedSec} ticking={ticking} />
-        </p>
-      ) : null}
-      {note ? (
-        <p className={`mt-2 text-xs leading-normal ${node.status === "locked" ? "text-[#9aa89e]" : "text-[#5c6f61]"}`}>
-          {note}
-        </p>
-      ) : null}
-      </button>
-      <div onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()}>
-      {node.taskId && node.taskStatus === "awaiting_approval" ? (
-        <button
-          type="button"
-          onClick={() => onReview(node.taskId!)}
-          className="mt-3 rounded bg-[#f59e0b] px-2 py-1 text-xs font-semibold text-[#101812] hover:bg-[#fbbf24]"
-        >
-          Review
-        </button>
-      ) : null}
-      {node.taskId && node.taskStatus === "done" ? (
-        <button
-          type="button"
-          onClick={() => onRerun(node.taskId!)}
-          className="mt-3 rounded px-2 py-1 text-xs font-medium text-[#0e5c36] ring-1 ring-[#0e5c36]/35 hover:bg-[#eef6f0]"
-        >
-          Re-run
-        </button>
-      ) : null}
-      {node.taskId &&
-      node.status !== "pruned" &&
-      node.taskStatus !== "done" &&
-      node.taskStatus !== "awaiting_approval" &&
-      node.taskStatus !== "running" ? (
-        <button
-          type="button"
-          data-can-run={node.runnable ? "true" : "false"}
-          disabled={!node.runnable || busy}
-          onClick={() => onRun(node.taskId!)}
-          className="mt-3 rounded bg-[#0e5c36] px-2 py-1 text-xs font-medium text-white hover:bg-[#0b4a2b] disabled:cursor-not-allowed disabled:bg-[#e6ebe7] disabled:text-[#9aa89e]"
-        >
-          {busy ? "Running" : node.taskStatus === "failed" ? "Retry" : "Run"}
-        </button>
-      ) : null}
-      </div>
-    </article>
+      <span className="flex justify-between font-mono text-[10.5px] tracking-[0.06em] text-[#c9bba5] uppercase">
+        <span>The door · brief</span>
+        <span>{clockShort(project.createdAt)}</span>
+      </span>
+      <span className="mt-1 line-clamp-3 block font-serif text-[14.5px] leading-[1.3] text-[#ede5d6] italic">
+        {project.brief.trim() ? `“${project.brief.trim()}”` : "No brief yet. Every agent reads it before it works."}
+      </span>
+    </button>
   );
 }
 
-function edgeStroke(kind: EdgeKind) {
-  if (kind === "dead") return "#a9b8ad";
-  if (kind === "thread") return "#0e5c36";
-  return "#c9d6cc";
+function CentreCard({
+  project,
+  sink,
+  woven,
+  selected,
+  onSelect,
+}: {
+  project: ProjectDTO;
+  sink: TaskDTO | undefined;
+  woven: boolean;
+  selected: boolean;
+  onSelect: (id: string) => void;
+}) {
+  const agent = agentOf(sink, project.agents);
+  const name = sink ? objectOf(sink.title) : "deliverable";
+  return (
+    <button
+      type="button"
+      data-node-focus="output"
+      data-node-id="output"
+      onClick={() => onSelect("output")}
+      aria-label={`The centre: ${name}. ${woven ? "Woven. Open it." : "Not woven yet."}`}
+      aria-pressed={selected}
+      className={`block w-[250px] rounded-2xl px-3 py-3 text-center ${selected ? "outline-2 outline-offset-[3px] outline-thread" : ""}`}
+    >
+      <span
+        aria-hidden
+        className={`mx-auto grid h-[86px] w-[86px] place-items-center rounded-full border-[1.5px] bg-[radial-gradient(circle,var(--color-raised)_0_60%,transparent_61%)] ${
+          woven ? "border-thread text-thread" : "border-dashed border-line-strong text-ink-faint"
+        }`}
+      >
+        <span className="font-serif text-[30px]">✦</span>
+      </span>
+      <span className="mt-2 block font-serif text-[21px] leading-tight text-ink">The {name}</span>
+      <span className="mt-0.5 block text-[12.5px] leading-snug text-ink-faint">
+        {woven
+          ? `Woven by ${agent?.name ?? "the last step"} · open it`
+          : sink
+            ? `Not woven yet — appears here when ${agent?.name ?? "the last step"} finishes step ${taskNumber(sink.id, project.tasks)}.`
+            : "Add steps on the Board. The deliverable appears here when the last one is spun."}
+      </span>
+    </button>
+  );
 }
 
-function previewStatus(node: TreeNode) {
-  if (node.taskStatus === "failed") return "Failed";
-  if (node.status === "active") return "Running";
-  if (node.status === "waiting") return "Waiting on you";
-  if (node.status === "done") return "Done";
-  if (node.status === "pruned" || node.kind === "pruned") return "Pruned";
-  if (node.status === "locked") return "Locked";
-  if (node.runnable) return "Ready";
-  if (node.kind === "root") return "Brief";
-  if (node.kind === "output") return "No output yet";
-  return "Pending";
+function HoverCard({ task, index, project }: { task: TaskDTO; index: number; project: ProjectDTO }) {
+  const agents = project.agents;
+  const agent = agentOf(task, agents);
+  const gist = outputGist(task, agents);
+  const state = threadState(task, project.tasks);
+  const tag = modelTag(task, agents);
+  const carried = carriedInto(task, project);
+  let line: string;
+  if (state === "knot") line = `Waiting on you. ${carried.arrived.length} inputs reach you here, ${charsLabel(inputChars(carried))} in all.`;
+  else if (state === "spinning") line = `${agent?.name ?? "The agent"} is working on it now.`;
+  else if (state === "frayed") line = "The run failed. Open it to read the error and respin.";
+  else if (state === "spun") line = gist ? [gist.lead, gist.rest].filter(Boolean).join(" ") : "Finished.";
+  else if (state === "ready") line = "Ready. Nothing runs until you press Run.";
+  else line = "Locked until the steps it needs are spun.";
+  return (
+    <div className="w-[300px] rounded-xl bg-ink px-3.5 py-3 text-[12.5px] leading-[1.4] text-[#f4eee3] shadow-[0_18px_40px_-16px_rgba(31,26,20,.6)]">
+      <p className="flex justify-between font-mono text-[10.5px] tracking-[0.06em] text-[#c9bba5] uppercase">
+        <span>Step {String(index + 1).padStart(2, "0")}</span>
+        <span>{tag ?? agent?.name ?? ""}</span>
+      </p>
+      <p className="mt-1.5 line-clamp-3">{line}</p>
+      <p className="mt-2 border-t border-white/10 pt-2 font-mono text-[11px] text-[#c9bba5]">Click to inspect · Enter opens the rail</p>
+    </div>
+  );
 }
 
-function handoffNames(node: TreeNode, tree: TreeWorkflow, byId: Map<string, TreeNode>) {
-  return tree.edges
-    .filter((edge) => edge.from === node.id)
-    .map((edge) => byId.get(edge.to))
-    .filter((next): next is TreeNode => next != null && next.kind !== "output" && next.kind !== "root")
-    .map((next) => next.role || next.label);
+function Legend() {
+  return (
+    <div className="pointer-events-none absolute bottom-[18px] left-7 z-10 flex flex-wrap items-center gap-3.5 rounded-full border border-line bg-raised/85 px-3.5 py-1.5 text-xs text-ink-dim backdrop-blur-sm">
+      <em className="font-serif text-[15px] text-ink">The labyrinth</em>
+      <span className="hidden text-ink-faint xl:inline">brief at the door, deliverable at the centre</span>
+      <span className="inline-flex items-center gap-1.5">
+        <svg viewBox="0 0 26 10" className="h-2.5 w-[26px]" aria-hidden>
+          <path d="M1 5 H25" stroke={RED} strokeWidth="3" />
+        </svg>
+        spun
+      </span>
+      <span className="inline-flex items-center gap-1.5">
+        <svg viewBox="0 0 26 10" className="h-2.5 w-[26px]" aria-hidden>
+          <path d="M1 5 H25" stroke={RED} strokeWidth="3" className="thread-spin" />
+        </svg>
+        spinning
+      </span>
+      <span className="inline-flex items-center gap-1.5">
+        <svg viewBox="0 0 26 10" className="h-2.5 w-[26px]" aria-hidden>
+          <circle cx="13" cy="5" r="4.5" fill="var(--color-gate)" />
+        </svg>
+        knot · you
+      </span>
+      <span className="inline-flex items-center gap-1.5">
+        <svg viewBox="0 0 26 10" className="h-2.5 w-[26px]" aria-hidden>
+          <path d="M1 5 H25" stroke={GRAPHITE} strokeWidth="2" strokeDasharray="2 4" />
+        </svg>
+        unspun
+      </span>
+    </div>
+  );
 }
 
-function previewLine(node: TreeNode, tree: TreeWorkflow, byId: Map<string, TreeNode>) {
-  if (node.kind === "root") return "The brief the rest of the work starts from.";
-  if (node.kind === "output") {
-    return node.status === "done"
-      ? `The finished artifact from ${node.label}.`
-      : "No output yet. It lands here when the work is finished.";
-  }
-  if (node.kind === "pruned" || node.status === "pruned") {
-    return `${node.role ?? "This step"} was pruned. What it produced stays visible.`;
-  }
-  const next = handoffNames(node, tree, byId);
-  const hands = next.length > 0 ? ` and hands it to ${next.join(" and ")}` : "";
-  if (node.kind === "gate") {
-    if (node.status === "waiting") return `Waiting on you to decide “${node.label}”.`;
-    return `You decide “${node.label}”${hands}.`;
-  }
-  const who = node.role ?? "This step";
-  return `${who} takes “${node.label}”${hands}.`;
-}
-
-function unlockHint(node: TreeNode, tree: TreeWorkflow, byId: Map<string, TreeNode>) {
-  const blockers = tree.edges
-    .filter((edge) => edge.to === node.id)
-    .map((edge) => byId.get(edge.from))
-    .filter((parent): parent is TreeNode => parent != null && parent.kind !== "root" && parent.status !== "done");
-  if (blockers.length === 1) return `Unlocks when ${blockers[0]?.label} finishes.`;
-  if (blockers.length > 1) {
-    const names = blockers.map((parent) => parent.label);
-    return `Unlocks when ${names.slice(0, -1).join(", ")} and ${names[names.length - 1]} finish.`;
-  }
-  return "Unlocks when the steps it needs are finished.";
-}
-
-type Preview = { id: string; left: number; top: number; above: boolean };
-
-function placePreview(rect: DOMRect): Omit<Preview, "id"> {
-  const width = 240;
-  const left = Math.min(window.innerWidth - width - 12, Math.max(12, rect.left));
-  const above = rect.top > 150;
-  return { left, top: above ? rect.top - 8 : rect.bottom + 8, above };
-}
-
-type Box = { left: number; right: number; top: number; bottom: number };
-
-function directCurve(x1: number, y1: number, x2: number, y2: number) {
-  const bend = Math.max(16, (x2 - x1) * 0.45);
-  return `M ${x1} ${y1} C ${x1 + bend} ${y1}, ${x2 - bend} ${y2}, ${x2} ${y2}`;
-}
-
-function aroundCards(x1: number, y1: number, x2: number, y2: number, lane: number) {
-  const spanIn = Math.abs(lane - y1);
-  const spanOut = Math.abs(lane - y2);
-  const radius = Math.max(0, Math.min(10, spanIn / 2, spanOut / 2, (x2 - x1) / 4));
-  const dirIn = lane >= y1 ? 1 : -1;
-  const dirOut = y2 >= lane ? 1 : -1;
-  const xa = x1 + Math.max(18, radius + 6);
-  const xb = x2 - Math.max(18, radius + 6);
-  if (radius === 0) return `M ${x1} ${y1} H ${xa} V ${lane} H ${xb} V ${y2} H ${x2}`;
-  return [
-    `M ${x1} ${y1}`,
-    `H ${xa - radius}`,
-    `Q ${xa} ${y1} ${xa} ${y1 + dirIn * radius}`,
-    `V ${lane - dirIn * radius}`,
-    `Q ${xa} ${lane} ${xa + radius} ${lane}`,
-    `H ${xb - radius}`,
-    `Q ${xb} ${lane} ${xb} ${lane + dirOut * radius}`,
-    `V ${y2 - dirOut * radius}`,
-    `Q ${xb} ${y2} ${xb + radius} ${y2}`,
-    `H ${x2}`,
-  ].join(" ");
+/** Below ~720px or past nine steps the spiral gets cramped; unroll it into a vertical thread. */
+function ThreadList({
+  project,
+  states,
+  selectedId,
+  sink,
+  woven,
+  onSelect,
+}: {
+  project: ProjectDTO;
+  states: ThreadState[];
+  selectedId: string | null;
+  sink: TaskDTO | undefined;
+  woven: boolean;
+  onSelect: (id: string) => void;
+}) {
+  const [, setHover] = useState<string | null>(null);
+  return (
+    <ol className="mx-auto grid max-w-xl gap-0 px-6 pt-6 pb-24">
+      <li className="grid grid-cols-[28px_minmax(0,1fr)] gap-3">
+        <span aria-hidden className="relative flex justify-center">
+          {project.tasks.length > 0 ? <span className="absolute top-6 bottom-0 w-[3px] rounded bg-thread" /> : null}
+        </span>
+        <div className="pb-5">
+          <DoorCard project={project} selected={selectedId === "root"} onSelect={onSelect} />
+        </div>
+      </li>
+      {project.tasks.map((task, index) => {
+        const state = states[index];
+        const line = state === "unspun" || state === "ready" ? "border-l-2 border-dashed border-thread-dim" : state === "frayed" ? "border-l-[3px] border-dashed border-danger" : "border-l-[3px] border-thread";
+        return (
+          <li key={task.id} className="grid grid-cols-[28px_minmax(0,1fr)] gap-3">
+            <span aria-hidden className="relative flex justify-center">
+              <span className={`absolute inset-y-0 ${line}`} />
+              <span
+                className={`relative mt-6 h-3.5 w-3.5 rounded-full border-2 ${
+                  state === "knot" ? "border-gate bg-gate" : state === "spun" ? "border-thread bg-thread shadow-[inset_0_0_0_3px_var(--color-raised)]" : "border-thread-dim bg-raised"
+                }`}
+              />
+            </span>
+            <div className="pb-5">
+              <StepCard task={task} index={index} state={state} project={project} selected={selectedId === task.id} onSelect={onSelect} onHover={setHover} />
+            </div>
+          </li>
+        );
+      })}
+      <li className="grid grid-cols-[28px_minmax(0,1fr)] gap-3">
+        <span aria-hidden />
+        <div className="justify-self-start">
+          <CentreCard project={project} sink={sink} woven={woven} selected={selectedId === "output"} onSelect={onSelect} />
+        </div>
+      </li>
+    </ol>
+  );
 }
 
 export function CoordinationTree({
-  tree,
+  project,
   pendingId,
   selectedId,
   onSelect,
-  onBackdrop,
-  onRun,
-  onReview,
-  onRerun,
 }: {
-  tree: TreeWorkflow;
+  project: ProjectDTO;
   pendingId: string | null;
   selectedId: string | null;
   onSelect: (id: string) => void;
-  onBackdrop?: () => void;
-  onRun: (taskId: string) => void;
-  onReview: (taskId: string) => void;
-  onRerun: (taskId: string) => void;
 }) {
-  const canvas = useRef<HTMLDivElement>(null);
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const nodes = useRef(new Map<string, HTMLElement>());
-  const framed = useRef(false);
-  const [paths, setPaths] = useState<{ id: string; to: string; d: string; kind: EdgeKind }[]>([]);
-  const [metrics, setMetrics] = useState({ scroll: 0, client: 0, width: 0 });
-  const [preview, setPreview] = useState<Preview | null>(null);
-  const columns = columnsByDepth(tree);
-  const byId = new Map(tree.nodes.map((node) => [node.id, node]));
-  const firstLockedId = tree.nodes.find(
-    (node) => node.status === "locked" && node.kind !== "output" && node.kind !== "root",
-  )?.id;
-  const previewNode = preview ? byId.get(preview.id) : undefined;
+  const box = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState({ width: 0, height: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [hover, setHover] = useState<string | null>(null);
+  const tasks = project.tasks;
+  const states = tasks.map((task) => threadState(task, tasks, pendingId));
+  const sink = [...tasks].reverse().find((task) => !tasks.some((other) => other.dependsOn.includes(task.id))) ?? tasks.at(-1);
+  const woven = !!sink && sink.status === "done" && !!sink.output;
 
-  function trackPreview(current: Preview | null): Preview | null {
-    if (!current) return current;
-    const element = nodes.current.get(current.id);
-    const scroller = scrollRef.current;
-    if (!element || !scroller) return null;
-    const rect = element.getBoundingClientRect();
-    const port = scroller.getBoundingClientRect();
-    if (rect.right < port.left + 8 || rect.left > port.right - 8) return null;
-    return { id: current.id, ...placePreview(rect) };
-  }
-
-  function readMetrics() {
-    const scroller = scrollRef.current;
-    if (!scroller) return;
-    const next = {
-      scroll: scroller.scrollLeft,
-      client: scroller.clientWidth,
-      width: scroller.scrollWidth,
-    };
-    setMetrics((current) =>
-      current.scroll === next.scroll && current.client === next.client && current.width === next.width ? current : next,
-    );
-    setPreview(trackPreview);
-  }
-
-  function showPreview(id: string, element: HTMLElement) {
-    const placed = placePreview(element.getBoundingClientRect());
-    setPreview({ id, ...placed });
-  }
-
-  function hidePreview(id: string) {
-    setPreview((current) => {
-      if (!current || current.id !== id) return current;
-      const focused = document.activeElement?.closest("[data-node-id]")?.getAttribute("data-node-id");
-      if (focused === id) return current;
-      return null;
+  useEffect(() => {
+    const element = box.current;
+    if (!element) return;
+    const observer = new ResizeObserver(([entry]) => {
+      const { width, height } = entry.contentRect;
+      setSize((current) => (current.width === width && current.height === height ? current : { width, height }));
     });
-  }
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
 
-  function frameTree() {
-    const scroller = scrollRef.current;
-    if (!scroller || scroller.scrollWidth <= scroller.clientWidth + 1) return;
-    const actionable =
-      tree.nodes.find((node) => node.status === "waiting") ??
-      tree.nodes.find((node) => node.status === "active") ??
-      tree.nodes.find((node) => node.runnable) ??
-      null;
-    const rootEl = nodes.current.get("root");
-    const targetEl = actionable ? nodes.current.get(actionable.id) : rootEl;
-    if (!rootEl || !targetEl) return;
-    const port = scroller.getBoundingClientRect();
-    const start = rootEl.getBoundingClientRect();
-    const end = targetEl.getBoundingClientRect();
-    const left = start.left - port.left + scroller.scrollLeft;
-    const right = end.right - port.left + scroller.scrollLeft;
-    const pad = 24;
-    scroller.scrollLeft =
-      right - left + pad * 2 <= scroller.clientWidth
-        ? Math.max(0, left - pad)
-        : Math.max(0, right - scroller.clientWidth + pad);
-  }
+  const spiral = size.width >= MIN_SPIRAL_WIDTH && tasks.length > 0 && tasks.length <= MAX_SPIRAL_STEPS;
+  const W = Math.round(Math.min(1500, Math.max(980, (H * size.width) / Math.max(1, size.height))));
+  const fit = size.width && size.height ? Math.min(size.width / W, (size.height - 8) / H) : 1;
+  const scale = fit * zoom;
 
-  useLayoutEffect(() => {
-    const root = canvas.current;
-    if (!root) return;
-
-    function draw() {
-      const box = root?.getBoundingClientRect();
-      if (!box) return;
-      const rects = new Map<string, Box>();
-      for (const [id, element] of nodes.current) {
-        const rect = element.getBoundingClientRect();
-        rects.set(id, {
-          left: rect.left - box.left,
-          right: rect.right - box.left,
-          top: rect.top - box.top,
-          bottom: rect.bottom - box.top,
-        });
-      }
-      const lanes = { above: 0, below: 0 };
-      const next = tree.edges.flatMap((edge) => {
-        const from = rects.get(edge.from);
-        const to = rects.get(edge.to);
-        if (!from || !to) return [];
-        const x1 = from.right;
-        const y1 = (from.top + from.bottom) / 2;
-        const x2 = to.left;
-        const y2 = (to.top + to.bottom) / 2;
-        const between = [...rects.values()].filter(
-          (rect) => rect !== from && rect !== to && rect.right > x1 + 2 && rect.left < x2 - 2,
-        );
-        const bandTop = Math.min(y1, y2) - 8;
-        const bandBot = Math.max(y1, y2) + 8;
-        const blocked = between.some((rect) => rect.bottom > bandTop && rect.top < bandBot);
-        let d = directCurve(x1, y1, x2, y2);
-        if (blocked && between.length > 0) {
-          const below = Math.max(...between.map((rect) => rect.bottom)) + 26 + lanes.below * 14;
-          const above = Math.min(...between.map((rect) => rect.top)) - 26 - lanes.above * 14;
-          const useBelow =
-            Math.abs(below - y1) + Math.abs(below - y2) <= Math.abs(above - y1) + Math.abs(above - y2);
-          if (useBelow) lanes.below += 1;
-          else lanes.above += 1;
-          d = aroundCards(x1, y1, x2, y2, useBelow ? below : above);
-        }
-        return [{ id: `${edge.from}-${edge.to}`, to: edge.to, kind: edge.kind, d }];
-      });
-      setPaths(next);
-      readMetrics();
-      setPreview(trackPreview);
+  let content = null;
+  if (spiral && size.width > 0) {
+    const { points, centre } = rectSpiral(W, H - LEGEND_ROOM, {
+      mx: 150,
+      my: 76,
+      gx: 250,
+      gy: 172,
+      minX: 230,
+      minY: 150,
+      centre: { halfW: 125, halfH: 78 },
+    });
+    const walls = rectSpiral(W, H - LEGEND_ROOM, {
+      mx: 150 - 125,
+      my: 76 - 86,
+      gx: 250,
+      gy: 172,
+      minX: 230,
+      minY: 150,
+      centre: { halfW: 125, halfH: 78 },
+    }).points;
+    const total = polylineLength(points);
+    const stops = [0, ...tasks.map((_, index) => (total * (index + 1)) / (tasks.length + 1)), total];
+    const place = stops.map((s) => pointAt(points, s));
+    const segments: Segment[] = [];
+    for (let index = 0; index < stops.length - 1; index += 1) {
+      const target: ThreadState | "centre" = index < tasks.length ? states[index] : "centre";
+      const previousSpun = index === 0 || states[index - 1] === "spun";
+      const kind = previousSpun ? segmentKind(target, woven) : "unspun";
+      segments.push({ id: `seg-${index}`, d: roundedPath(slicePolyline(points, stops[index], stops[index + 1]), 40), kind });
     }
+    const firstUnspun = segments.findIndex((segment) => segment.kind === "unspun");
+    const beads = segments.flatMap((segment, index) => {
+      if (index === 0 || index >= tasks.length) return [];
+      const task = tasks[index];
+      const carried = carriedInto(task, project);
+      const mid = pointAt(points, (stops[index] + stops[index + 1]) / 2);
+      if (segment.kind === "unspun" && index !== firstUnspun) return [];
+      const list = carried.handed ? carried.arrived : carried.sources;
+      const what =
+        list.length === 1
+          ? carriedNoun(list[0], project.agents)
+          : list.length === 0
+            ? "brief"
+            : `${list.length} inputs${carried.handed ? ` · ${charsLabel(inputChars(carried)).replace(" chars", "")}` : ""}`;
+      return [{ id: task.id, x: mid.x, y: mid.y, text: `${what} ${arrow(mid.dx, mid.dy)}`, live: carried.handed }];
+    });
+    const knotIndex = states.indexOf("knot");
+    const hoverIndex = hover ? tasks.findIndex((task) => task.id === hover) : -1;
+    const hoverPlace = hoverIndex >= 0 ? place[hoverIndex + 1] : null;
 
-    draw();
-    if (!framed.current) {
-      framed.current = true;
-      frameTree();
-      readMetrics();
-    }
-    const frame = window.requestAnimationFrame(draw);
-    const observer = new ResizeObserver(draw);
-    observer.observe(root);
-    const scroller = scrollRef.current;
-    if (scroller) observer.observe(scroller);
-    window.addEventListener("resize", draw);
-    return () => {
-      window.cancelAnimationFrame(frame);
-      observer.disconnect();
-      window.removeEventListener("resize", draw);
-    };
-  }, [tree]);
-
-  const overflow = metrics.width > metrics.client + 1;
-  const moreRight = overflow && metrics.scroll + metrics.client < metrics.width - 8;
-  const thumb = overflow ? Math.max(12, (metrics.client / metrics.width) * 100) : 100;
-  const thumbLeft = overflow ? (metrics.scroll / (metrics.width - metrics.client)) * (100 - thumb) : 0;
-
-  function scrubTo(clientX: number, track: HTMLElement) {
-    const scroller = scrollRef.current;
-    if (!scroller) return;
-    const rect = track.getBoundingClientRect();
-    const ratio = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
-    const max = scroller.scrollWidth - scroller.clientWidth;
-    scroller.scrollLeft = ratio * max;
-    readMetrics();
+    content = (
+      <div className="h-full overflow-auto" data-tree-scroll>
+        <div className="relative mx-auto" style={{ width: W * scale, height: H * scale }}>
+          <div className="absolute top-0 left-0 origin-top-left" style={{ width: W, height: H, transform: `scale(${scale})` }}>
+            <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} className="absolute inset-0 overflow-visible" aria-hidden>
+              <rect x={24} y={-26} width={W - 48} height={H + 4} rx={60} fill="none" stroke="#e6dccb" strokeWidth={6} strokeOpacity={0.5} />
+              <path d={roundedPath(walls, 40)} fill="none" stroke="#d8cab3" strokeWidth={1.5} strokeLinecap="round" />
+              {segments.map((segment) => (
+                <path
+                  key={`${segment.id}-${segment.kind}`}
+                  d={segment.d}
+                  fill="none"
+                  strokeLinecap="round"
+                  pathLength={segment.kind === "spun" ? 1 : undefined}
+                  className={segment.kind === "spun" ? "thread-draw" : segment.kind === "spinning" ? "thread-spin" : undefined}
+                  stroke={segment.kind === "unspun" ? GRAPHITE : segment.kind === "frayed" ? "var(--color-danger)" : RED}
+                  strokeWidth={segment.kind === "unspun" ? 2 : 3}
+                  strokeDasharray={segment.kind === "unspun" ? "2 6" : segment.kind === "frayed" ? "6 5 2 7" : undefined}
+                />
+              ))}
+              {knotIndex >= 0 ? (
+                <circle cx={place[knotIndex + 1].x} cy={place[knotIndex + 1].y} r={9} fill="var(--color-gate)" stroke="var(--color-raised)" strokeWidth={2} />
+              ) : null}
+            </svg>
+            {beads.map((bead) => (
+              <span
+                key={bead.id}
+                className={`absolute z-[2] -translate-x-1/2 -translate-y-1/2 rounded-full border px-2 py-0.5 font-mono text-[11.5px] whitespace-nowrap ${
+                  bead.live ? "border-thread-soft bg-raised text-thread" : "border-dashed border-line-strong bg-canvas text-ink-faint"
+                }`}
+                style={{ left: bead.x, top: bead.y }}
+              >
+                {bead.text}
+              </span>
+            ))}
+            <div className="absolute z-[3] -translate-x-1/2 -translate-y-1/2" style={{ left: place[0].x, top: place[0].y }}>
+              <DoorCard project={project} selected={selectedId === "root"} onSelect={onSelect} />
+            </div>
+            {tasks.map((task, index) => (
+              <div
+                key={task.id}
+                className="absolute z-[3] -translate-x-1/2 -translate-y-1/2"
+                style={{ left: place[index + 1].x, top: place[index + 1].y }}
+              >
+                <StepCard
+                  task={task}
+                  index={index}
+                  state={states[index]}
+                  project={project}
+                  selected={selectedId === task.id}
+                  onSelect={onSelect}
+                  onHover={setHover}
+                />
+              </div>
+            ))}
+            <div className="absolute z-[2] -translate-x-1/2 -translate-y-1/2" style={{ left: centre.x, top: centre.y }}>
+              <CentreCard project={project} sink={sink} woven={woven} selected={selectedId === "output"} onSelect={onSelect} />
+            </div>
+            {hover && hoverPlace && hoverIndex >= 0 ? (
+              <div
+                className="pointer-events-none absolute z-[6]"
+                style={{
+                  left: Math.min(W - 160, Math.max(160, hoverPlace.x)),
+                  top: hoverPlace.y > H - 190 ? hoverPlace.y - 50 : hoverPlace.y + 48,
+                  transform: `translate(-50%, ${hoverPlace.y > H - 190 ? "-100%" : "0"})`,
+                }}
+              >
+                <HoverCard task={tasks[hoverIndex]} index={hoverIndex} project={project} />
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </div>
+    );
+  } else if (size.width > 0) {
+    content = (
+      <div className="h-full overflow-auto" data-tree-scroll>
+        <ThreadList project={project} states={states} selectedId={selectedId} sink={sink} woven={woven} onSelect={onSelect} />
+      </div>
+    );
   }
 
   return (
-    <div className={onBackdrop ? "relative z-40" : "relative"}>
-    <div className="relative">
-    <div
-      ref={scrollRef}
-      data-tree-scroll
-      className="overflow-x-auto"
-      onScroll={readMetrics}
-      onClick={(event) => {
-        if (!onBackdrop) return;
-        if ((event.target as HTMLElement).closest("[data-node-id]")) return;
-        onBackdrop();
-      }}
-    >
-      <div ref={canvas} className="relative flex w-max min-w-full items-center gap-14 py-12 pl-6 pr-24">
-        <svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" aria-hidden>
-          {paths.map((path) => {
-            const feedingActive = byId.get(path.to)?.status === "active";
-            return (
-            <path
-              key={path.id}
-              d={path.d}
-              fill="none"
-              className={`tree-edge${feedingActive ? " tree-flow" : ""}`}
-              stroke={feedingActive ? "#10b981" : edgeStroke(path.kind)}
-              strokeWidth={2}
-              strokeDasharray={path.kind === "dead" ? "5 5" : undefined}
-            />
-            );
-          })}
-        </svg>
-        {columns.map((column, index) => (
-          <div key={index} className="relative z-10 flex shrink-0 flex-col justify-center gap-4">
-            {column.map((id) => {
-              const node = byId.get(id);
-              if (!node) return null;
-              return (
-                <div
-                  key={id}
-                  ref={(element) => {
-                    if (element) nodes.current.set(id, element);
-                    else nodes.current.delete(id);
-                  }}
-                >
-                  <NodeCard
-                    node={node}
-                    pendingId={pendingId}
-                    selected={selectedId === node.id}
-                    hint={node.id === firstLockedId ? unlockHint(node, tree, byId) : undefined}
-                    onSelect={onSelect}
-                    onShow={showPreview}
-                    onHide={hidePreview}
-                    onRun={onRun}
-                    onReview={onReview}
-                    onRerun={onRerun}
-                  />
-                </div>
-              );
-            })}
-          </div>
-        ))}
-      </div>
-    </div>
-    {moreRight ? (
-      <div aria-hidden className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-[#f6faf6] to-transparent" />
-    ) : null}
-    </div>
-    {overflow ? (
-      <div className="px-4 pt-1 pb-3">
-        <div
-          role="scrollbar"
-          aria-label="Tree position"
-          aria-orientation="horizontal"
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={overflow ? Math.round((metrics.scroll / Math.max(1, metrics.width - metrics.client)) * 100) : 0}
-          tabIndex={0}
-          className="relative h-7 cursor-pointer"
-          onPointerDown={(event) => {
-            scrubTo(event.clientX, event.currentTarget);
-            event.currentTarget.setPointerCapture(event.pointerId);
-          }}
-          onPointerMove={(event) => {
-            if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
-            scrubTo(event.clientX, event.currentTarget);
-          }}
-          onKeyDown={(event) => {
-            const scroller = scrollRef.current;
-            if (!scroller) return;
-            if (event.key === "ArrowRight") scroller.scrollLeft += 80;
-            if (event.key === "ArrowLeft") scroller.scrollLeft -= 80;
-            readMetrics();
-          }}
-        >
-          <span className="absolute top-3 right-0 left-0 h-1.5 rounded-full bg-[#e6ebe7]" />
-          <span
-            className="absolute top-3 h-1.5 rounded-full bg-[#0e5c36]"
-            style={{ width: `${thumb}%`, left: `${thumbLeft}%` }}
-          />
+    <section ref={box} aria-label="The labyrinth: every step from the brief to the deliverable" className="relative h-full min-h-0 overflow-hidden">
+      {content}
+      {spiral ? <Legend /> : null}
+      {spiral ? (
+        <div className="absolute right-[18px] bottom-[18px] z-10 flex flex-col overflow-hidden rounded-[10px] border border-line bg-raised">
+          <button type="button" aria-label="Zoom in" onClick={() => setZoom((value) => Math.min(1.8, value + 0.15))} className="h-[30px] w-8 rounded-none border-b border-line text-ink-dim hover:bg-panel">
+            ＋
+          </button>
+          <button type="button" aria-label="Zoom out" onClick={() => setZoom((value) => Math.max(0.6, value - 0.15))} className="h-[30px] w-8 rounded-none border-b border-line text-ink-dim hover:bg-panel">
+            −
+          </button>
+          <button type="button" aria-label="Fit to screen" onClick={() => setZoom(1)} className="h-[30px] w-8 rounded-none text-[11px] text-ink-dim hover:bg-panel">
+            fit
+          </button>
         </div>
-      </div>
-    ) : null}
-    {preview && previewNode ? (
-      <div
-        data-node-preview={preview.id}
-        className="pointer-events-none fixed z-30 w-60 rounded-[11px] border border-[#dfe9e1] bg-white px-3 py-2 shadow-[0_8px_24px_rgba(16,24,18,0.12)]"
-        style={{ left: preview.left, top: preview.top, transform: preview.above ? "translateY(-100%)" : undefined }}
-      >
-        <p className="text-sm leading-normal text-[#101812]">{previewLine(previewNode, tree, byId)}</p>
-        <p className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-[#5c6f61]">
-          {previewNode.model ? (
-            <span className="rounded bg-[#eef6f0] px-1.5 py-0.5 font-mono text-[#0e5c36] ring-1 ring-[#dfe9e1]">
-              {previewNode.model}
-            </span>
-          ) : null}
-          <span>{previewStatus(previewNode)}</span>
-        </p>
-        <p className="mt-1 text-[11px] font-medium text-[#0e5c36]">Click to inspect</p>
-      </div>
-    ) : null}
-    </div>
+      ) : null}
+    </section>
   );
 }
