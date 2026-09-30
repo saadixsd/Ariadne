@@ -53,13 +53,10 @@ export async function requireUser() {
   return user;
 }
 
-async function claimUnownedProjects(userId: string) {
-  const prisma = await getPrisma();
-  await prisma.project.updateMany({
-    where: { userId: null },
-    data: { userId },
-  });
-}
+// There is deliberately no "claim unowned projects" step on sign-up/sign-in/verify.
+// It used to assign every project with userId = null to whichever account signed
+// in next, so a stranger could take over orphaned data. Projects are only ever
+// created with an owner (lib/demo.ts) and never change owners.
 
 async function startSession(userId: string) {
   const prisma = await getPrisma();
@@ -143,7 +140,6 @@ export async function signUp(emailInput: string, password: string) {
     return { verify: true as const };
   }
 
-  await claimUnownedProjects(user.id);
   await startSession(user.id);
   return { verify: false as const };
 }
@@ -157,7 +153,6 @@ export async function signIn(emailInput: string, password: string) {
   if (!user.emailVerified) {
     throw new TaskRunError("Enter the code sent to your email", 403);
   }
-  await claimUnownedProjects(user.id);
   await startSession(user.id);
   return { email: user.email };
 }
@@ -175,7 +170,6 @@ export async function verifyEmail(emailInput: string, codeInput: string) {
   if (!match) throw new TaskRunError("That code is wrong or expired", 400);
   await prisma.user.update({ where: { id: user.id }, data: { emailVerified: true } });
   await prisma.verificationCode.deleteMany({ where: { userId: user.id } });
-  await claimUnownedProjects(user.id);
   await startSession(user.id);
 }
 

@@ -12,9 +12,13 @@ export class TaskRunError extends Error {
 
 export function errorResponse(error: unknown): Response {
   if (error instanceof TaskRunError) {
+    const retryAfter = error.details?.retryAfterSeconds;
     return Response.json(
       { error: error.message, ...(error.details ?? {}) },
-      { status: error.status },
+      {
+        status: error.status,
+        headers: typeof retryAfter === "number" ? { "Retry-After": String(retryAfter) } : undefined,
+      },
     );
   }
   console.error(error);
