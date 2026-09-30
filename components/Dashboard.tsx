@@ -3,24 +3,26 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AccountPanel } from "@/components/AccountPanel";
 import type { NewTaskInput } from "@/components/AddTaskForm";
-import { ActivityFeed } from "@/components/ActivityFeed";
 import { AgentColumn } from "@/components/AgentColumn";
 import { ApprovalModal } from "@/components/ApprovalModal";
 import { ContextDrawer } from "@/components/ContextDrawer";
 import { FeedbackModal } from "@/components/FeedbackModal";
+import { HandoffInspector } from "@/components/HandoffInspector";
+import { KnotPanel, type KnotPanelHandle } from "@/components/KnotPanel";
 import { LineageRail } from "@/components/LineageRail";
 import { NewProjectDialog } from "@/components/NewProjectDialog";
 import { RegionBoundary } from "@/components/RegionBoundary";
 import { SetupBanner } from "@/components/SetupBanner";
 import { TaskColumn } from "@/components/TaskColumn";
-import { ViewSwitch } from "@/components/ViewSwitch";
+import { AccountButton, TopBar } from "@/components/TopBar";
+import { useNow } from "@/components/use-now";
 import { WelcomeOverlay } from "@/components/WelcomeOverlay";
 import { useFlag, writeFlag } from "@/components/client-storage";
 import { acceptPolledProject, needsSharedContextPrompt } from "@/lib/board-project";
-import { DAILY_MODEL_RUNS } from "@/lib/limits";
 import { hideModelIds } from "@/lib/model-label";
 import { buildLineage } from "@/lib/lineage";
 import { cascadeFrom, taskNumber } from "@/lib/task-rules";
+import { agentOf, carriedInto, clock, roughMinutes, since } from "@/lib/thread";
 import type { ActivityEventDTO, ProjectDTO, TaskDTO } from "@/lib/types";
 
 export type ProjectOption = { id: string; name: string };
@@ -30,7 +32,7 @@ const MET_KEY = "ariadne.welcome.met";
 
 function observeStatuses(next: ProjectDTO, previousStatus: Record<string, string>) {
   let expandedId: string | null = null;
-  let approvalId: string | null = null;
+  let knotId: string | null = null;
   for (const task of next.tasks) {
     const previous = previousStatus[task.id];
     if (!previous || previous === task.status) continue;
@@ -42,27 +44,65 @@ function observeStatuses(next: ProjectDTO, previousStatus: Record<string, string
     ) {
       expandedId = task.id;
     }
-    if (task.status === "awaiting_approval") approvalId = task.id;
+    if (task.status === "awaiting_approval") knotId = task.id;
   }
   return {
     expandedId,
-    approvalId,
+    knotId,
     statuses: Object.fromEntries(next.tasks.map((task) => [task.id, task.status])),
   };
 }
 
-function statusLine(data: ProjectDTO) {
-  const agents = data.agents.filter((agent) => agent.provider !== "human").length;
+function HeroStatus({ data, demoAccount }: { data: ProjectDTO; demoAccount: boolean }) {
+  const now = useNow();
   const done = data.tasks.filter((task) => task.status === "done").length;
   const total = data.tasks.length;
-  const base = `You're coordinating ${agents} agents · ${done} of ${total} tasks complete.`;
-  if (total > 0 && done === total) {
-    return `${base} This run is finished. Read the outputs, or reset the example. Reset does not call Claude or GPT.`;
+  const waiting = data.tasks.find((task) => task.status === "awaiting_approval");
+  const running = data.tasks.find((task) => task.status === "running");
+  const failed = data.tasks.find((task) => task.status === "failed");
+  let line: React.ReactNode;
+  if (waiting) {
+    const opened = data.events
+      .filter((event) => event.type === "approval_requested" && event.taskId === waiting.id)
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+      .at(-1)?.createdAt;
+    const waited = roughMinutes(since(opened ?? waiting.startedAt, now));
+    line = (
+      <>
+        <span aria-hidden className="h-[9px] w-[9px] rounded-full bg-gate shadow-[0_0_0_3px_rgba(201,138,18,.18)]" />
+        <span>
+          The thread is waiting on <b className="font-semibold text-ink">you</b>
+          {waited ? ` · ${waited}` : ""}
+        </span>
+      </>
+    );
+  } else if (running) {
+    line = (
+      <>
+        <span aria-hidden className="pulse-status h-[9px] w-[9px] rounded-full bg-thread" />
+        <span>
+          {agentOf(running, data.agents)?.name ?? "An agent"} is spinning step {taskNumber(running.id, data.tasks)}
+        </span>
+      </>
+    );
+  } else if (failed) {
+    line = <span className="text-danger">The thread frayed at step {taskNumber(failed.id, data.tasks)} · respin it when ready</span>;
+  } else if (total > 0 && done === total) {
+    line = <span>Every step is spun{demoAccount ? " · Reset demo clears it without calling a model" : ""}</span>;
+  } else if (done === 0 && data.events.length === 0) {
+    line = <span>Nothing runs until you press Run.</span>;
+  } else {
+    line = <span>The thread is ready for the next step</span>;
   }
-  if (done === 0 && data.events.length === 0) {
-    return `${base} Nothing runs until you press Run.`;
-  }
-  return base;
+  return (
+    <div className="text-right">
+      <p className="font-serif text-[40px] leading-none">
+        {done}
+        <span className="text-ink-faint">/{total}</span> spun
+      </p>
+      <p className="mt-1.5 flex items-center justify-end gap-2 text-[13px] text-ink-dim">{line}</p>
+    </div>
+  );
 }
 
 export function Dashboard({
@@ -98,6 +138,8 @@ export function Dashboard({
   const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [approvalId, setApprovalId] = useState<string | null>(null);
+  const [handoffId, setHandoffId] = useState<string | null>(null);
+  const knotRef = useRef<KnotPanelHandle>(null);
   const [contextOpen, setContextOpen] = useState(false);
   const [newProjectOpen, setNewProjectOpen] = useState(false);
   const [selectedId, setSelectedId] = useState(initial.id);
@@ -108,7 +150,6 @@ export function Dashboard({
   const [menu, setMenu] = useState<null | "account">(null);
   const closeAccount = useCallback(() => setAccountOpen(false), []);
   const [confirmReset, setConfirmReset] = useState(false);
-  const [activityOpen, setActivityOpen] = useState(true);
   const [toast, setToast] = useState<{ tone: "danger" | "ok"; text: string } | null>(null);
   const [remaining, setRemaining] = useState(runsLeft);
   const [resetting, setResetting] = useState(false);
@@ -125,8 +166,7 @@ export function Dashboard({
     const observed = observeStatuses(next, previousStatus.current);
     previousStatus.current = observed.statuses;
     seen.current = next.events.map((event) => event.id).join(",");
-    if (observed.expandedId) setExpandedTaskId(observed.expandedId);
-    if (observed.approvalId) setApprovalId(observed.approvalId);
+    if (observed.expandedId && observed.expandedId !== observed.knotId) setExpandedTaskId(observed.expandedId);
     setData(next);
   }, []);
 
@@ -253,7 +293,7 @@ export function Dashboard({
       }
       const next = await refresh();
       const updated = next?.tasks.find((item) => item.id === taskId);
-      if (updated?.status === "awaiting_approval") setApprovalId(taskId);
+      if (updated?.status === "awaiting_approval") focusKnot();
     } catch {
       setToast({
         tone: "danger",
@@ -265,9 +305,11 @@ export function Dashboard({
     }
   }
 
-  async function decide(approved: boolean, note: string) {
-    if (!approvalId) return;
-    const id = approvalId;
+  function focusKnot() {
+    requestAnimationFrame(() => knotRef.current?.focusDecision());
+  }
+
+  async function decide(id: string, approved: boolean, note: string) {
     const saved = (project: ProjectDTO | null) => {
       const current = project?.tasks.find((task) => task.id === id);
       return approved ? current?.status === "done" : current?.status === "pending";
@@ -401,7 +443,7 @@ export function Dashboard({
       setRerunId(null);
       const next = await refresh();
       const updated = next?.tasks.find((item) => item.status === "awaiting_approval");
-      if (updated) setApprovalId(updated.id);
+      if (updated) focusKnot();
     } catch {
       setToast({ tone: "danger", text: "Could not reach the server. The re-run was not confirmed." });
     } finally {
@@ -479,7 +521,6 @@ export function Dashboard({
     }
   }
 
-  const waiting = data.tasks.find((task) => task.status === "awaiting_approval") ?? null;
   const approvalTask = data.tasks.find((task) => task.id === approvalId) ?? null;
   const lineageSteps = lineageId ? buildLineage(data, lineageId) : null;
   const first = data.tasks[0];
@@ -489,186 +530,154 @@ export function Dashboard({
     data.tasks.some((task) => task.requiresApproval && task.status === "done");
   const emptyOwnBrief = needsSharedContextPrompt(data);
 
+  const handoffTask = handoffId ? data.tasks.find((task) => task.id === handoffId) : undefined;
+
   return (
-    <div className="flex h-full min-h-0 flex-col bg-base text-ink">
+    <div className="flex h-full min-h-0 flex-col text-ink">
       <SetupBanner missing={missingSetup} />
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
-        <div className="flex min-w-0 flex-wrap items-end gap-3">
-          <div className="shrink-0 pb-0.5">
-            <p className="text-xs font-semibold tracking-[0.28em] text-ink">ARIADNE</p>
-            <span className="mt-1 block h-px w-full bg-thread" aria-hidden />
-          </div>
-          <label className="min-w-0">
-            <span className="sr-only">Project</span>
-            <select
-              value={selectedId}
-              onChange={(event) => void switchProject(event.target.value)}
-              className="max-w-56 truncate bg-base px-2 py-1 text-sm font-semibold text-ink ring-1 ring-line"
-            >
-              {projects.map((project) => (
-                <option key={project.id} value={project.id}>
-                  {project.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button
-            type="button"
-            onClick={() => setNewProjectOpen(true)}
-            className="px-2 py-1 text-sm ring-1 ring-line hover:ring-thread"
-          >
-            New project
-          </button>
-          <ViewSwitch view="board" projectId={selectedId} />
-        </div>
-        <div ref={menuRef} className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              setMenu(null);
-              setFeedbackOpen(true);
-            }}
-            className="px-2 py-1 text-sm ring-1 ring-line hover:ring-thread"
-          >
-            Give feedback
-          </button>
-          <div className="relative">
-            <button
-              type="button"
-              aria-label="Account menu"
-              aria-expanded={menu === "account"}
-              aria-haspopup="menu"
-              onClick={() => setMenu((current) => (current === "account" ? null : "account"))}
-              className="flex max-w-52 items-center gap-2 px-1.5 py-1 ring-1 ring-line hover:ring-thread"
-            >
-              <span
-                aria-hidden
-                className="flex h-6 w-6 shrink-0 items-center justify-center bg-panel text-[11px] font-semibold text-thread ring-1 ring-line"
-              >
-                {accountInitial}
-              </span>
-              <span className="min-w-0 truncate text-xs text-ink-dim" title={email}>
+      <TopBar
+        view="board"
+        projectId={selectedId}
+        projects={projects}
+        onSwitchProject={(id) => void switchProject(id)}
+        runsLeft={remaining}
+      >
+        <button
+          type="button"
+          onClick={() => {
+            const button = document.querySelector<HTMLButtonElement>("[data-add-step]");
+            button?.scrollIntoView({ block: "center" });
+            button?.click();
+          }}
+          className="rt-btn rt-btn-ghost"
+        >
+          ＋ Step
+        </button>
+        <button type="button" onClick={() => setContextOpen(true)} className="rt-btn">
+          Brief
+        </button>
+        <div ref={menuRef} className="relative">
+          <AccountButton
+            initial={accountInitial}
+            label={`Account menu for ${email}`}
+            expanded={menu === "account"}
+            onClick={() => setMenu((current) => (current === "account" ? null : "account"))}
+          />
+          {menu === "account" ? (
+            <div role="menu" className="absolute right-0 z-40 mt-2 w-60 rounded-xl border border-line bg-raised p-1 shadow-[0_18px_40px_-16px_rgba(31,26,20,.35)]">
+              <p className="truncate px-3 pt-2 pb-1.5 font-mono text-[11px] text-ink-faint" title={email}>
                 {email}
-              </span>
-            </button>
-            {menu === "account" ? (
-              <div role="menu" className="absolute right-0 z-20 mt-2 w-56 bg-raised p-1 ring-1 ring-line">
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    setMenu(null);
-                    setContextOpen(true);
-                  }}
-                  className="w-full px-3 py-2 text-left text-sm hover:bg-panel"
-                >
-                  Shared context
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    setMenu(null);
-                    setAccountOpen(true);
-                  }}
-                  className="w-full px-3 py-2 text-left text-sm hover:bg-panel"
-                >
-                  Settings
-                </button>
-                {demoAccount ? (
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      setMenu(null);
-                      setConfirmReset(true);
-                    }}
-                    className="w-full px-3 py-2 text-left text-sm hover:bg-panel"
-                  >
-                    Reset demo
-                  </button>
-                ) : null}
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    setMenu(null);
+              </p>
+              {[
+                { label: "Shared context", run: () => setContextOpen(true) },
+                { label: "New project", run: () => setNewProjectOpen(true) },
+                { label: "Settings", run: () => setAccountOpen(true) },
+                { label: "Give feedback", run: () => setFeedbackOpen(true) },
+                ...(demoAccount ? [{ label: "Reset demo", run: () => setConfirmReset(true) }] : []),
+                {
+                  label: "Sign out",
+                  run: () =>
                     void fetch("/api/auth/sign-out", { method: "POST" }).then(() => {
                       window.location.href = "/sign-in";
-                    });
+                    }),
+                },
+              ].map((item) => (
+                <button
+                  key={item.label}
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setMenu(null);
+                    item.run();
                   }}
-                  className="w-full px-3 py-2 text-left text-sm hover:bg-panel"
+                  className="w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-panel"
                 >
-                  Sign out
+                  {item.label}
                 </button>
-              </div>
-            ) : null}
-          </div>
-          {activityOpen ? null : (
-            <button
-              type="button"
-              onClick={() => setActivityOpen(true)}
-              className="px-2 py-1 text-sm text-thread ring-1 ring-thread/50"
-            >
-              Activity
-            </button>
-          )}
+              ))}
+            </div>
+          ) : null}
         </div>
-      </header>
-      <p className="border-b border-line px-4 py-2 text-sm leading-normal text-ink-dim">
-        {statusLine(data)} {remaining} of {DAILY_MODEL_RUNS} free agent runs left today.
-      </p>
-      <WelcomeOverlay
-        metAgents={metAgents}
-        ranTask={ranTask}
-        approved={approved}
-        canHighlightRun={first?.status === "pending"}
-        onRunDemo={highlightFirstRun}
-      />
-      <main
-        className={`grid min-h-0 flex-1 grid-cols-1 overflow-y-auto xl:overflow-hidden ${
-          activityOpen ? "xl:grid-cols-[220px_minmax(0,1fr)_300px]" : "xl:grid-cols-[220px_minmax(0,1fr)]"
-        }`}
-      >
-        <AgentColumn agents={data.agents} tasks={data.tasks} expandedId={expandedAgentId} onToggle={toggleAgent} />
-        <RegionBoundary name="Workflow">
-          <TaskColumn
-            tasks={data.tasks}
-            agents={data.agents}
-            events={data.events}
-            expandedId={expandedTaskId}
-            pendingId={pendingId}
-            pulseRunId={pulseRunId}
-            showDependencyHint={!hintDismissed}
-            onDismissHint={() => writeFlag(HINT_KEY, true)}
-            onToggle={(id) => setExpandedTaskId((current) => (current === id ? null : id))}
-            onRun={(id) => void run(id)}
-            onRerun={setRerunId}
-            onReview={setApprovalId}
-            onCopyError={(message) => void copyError(message)}
-            onAdd={addTask}
-            lineageTaskId={lineageId}
-            onOpenLineage={(id) => setLineageId((current) => (current === id ? null : id))}
+      </TopBar>
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto xl:overflow-hidden">
+        <WelcomeOverlay
+          metAgents={metAgents}
+          ranTask={ranTask}
+          approved={approved}
+          canHighlightRun={first?.status === "pending"}
+          onRunDemo={highlightFirstRun}
+        />
+        <section className="grid shrink-0 grid-cols-1 items-end gap-x-10 gap-y-4 px-7 pt-[22px] pb-[18px] md:grid-cols-[minmax(0,1fr)_auto]">
+          <div className="min-w-0">
+            <p className="eyebrow">Project{clock(data.createdAt) ? ` · started ${clock(data.createdAt)}` : ""}</p>
+            <h1 className="mt-1 font-serif text-[46px] leading-none tracking-[-0.015em]">{data.name}</h1>
+            <div className="mt-2.5 flex max-w-[780px] flex-wrap items-baseline gap-x-3 gap-y-1">
+              {data.brief.trim() ? (
+                <p className="line-clamp-2 min-w-0 flex-1 font-serif text-[17px] leading-[1.35] text-ink-dim italic">
+                  “{data.brief.trim()}”
+                </p>
+              ) : (
+                <p className="font-serif text-[17px] text-ink-faint italic">No brief yet. Every agent reads it before it works.</p>
+              )}
+              <button
+                type="button"
+                onClick={() => setContextOpen(true)}
+                className="text-xs font-semibold whitespace-nowrap text-thread underline decoration-1 underline-offset-[3px] hover:text-thread-bright"
+              >
+                The thread every agent reads · edit
+              </button>
+            </div>
+          </div>
+          <HeroStatus data={data} demoAccount={demoAccount} />
+        </section>
+        <main className="grid min-h-0 flex-1 grid-cols-1 gap-[22px] px-7 lg:grid-cols-[236px_minmax(0,1fr)] xl:grid-cols-[236px_minmax(0,1fr)_436px]">
+          <AgentColumn
+            project={data}
+            expandedId={expandedAgentId}
+            onToggle={toggleAgent}
+            onSelectTask={(id) => {
+              setExpandedTaskId(id);
+              requestAnimationFrame(() =>
+                document.querySelector(`[data-task-id="${CSS.escape(id)}"]`)?.scrollIntoView({ block: "nearest" }),
+              );
+            }}
           />
-        </RegionBoundary>
-        {activityOpen ? (
-          <RegionBoundary name="Activity">
-            <ActivityFeed
-              events={data.events}
-              tasks={data.tasks}
-              waitingTask={waiting}
-              onReview={() => waiting && setApprovalId(waiting.id)}
-              onRetry={(id) => void run(id)}
-              onHide={() => setActivityOpen(false)}
+          <RegionBoundary name="Workflow">
+            <TaskColumn
+              project={data}
+              expandedId={expandedTaskId}
+              pendingId={pendingId}
+              pulseRunId={pulseRunId}
+              showDependencyHint={!hintDismissed}
+              onDismissHint={() => writeFlag(HINT_KEY, true)}
+              onToggle={(id) => setExpandedTaskId((current) => (current === id ? null : id))}
+              onRun={(id) => void run(id)}
+              onRerun={setRerunId}
+              onTieOff={() => knotRef.current?.focusDecision()}
+              onCopyError={(message) => void copyError(message)}
+              onAdd={addTask}
+              lineageTaskId={lineageId}
+              onOpenLineage={(id) => setLineageId((current) => (current === id ? null : id))}
+              onOpenHandoff={setHandoffId}
             />
           </RegionBoundary>
-        ) : null}
-      </main>
-      <footer className="border-t border-line px-4 py-2">
-        <p className="text-xs leading-normal text-ink-dim">
-          Scout and Maker are AI agents and can make mistakes.
-        </p>
-      </footer>
+          <RegionBoundary name="Decision">
+            <div className="flex min-h-0 flex-col lg:col-span-2 xl:col-span-1">
+              <KnotPanel
+                project={data}
+                selectedId={expandedTaskId}
+                pendingId={pendingId}
+                handle={knotRef}
+                onDecide={decide}
+                onOpenPacket={setApprovalId}
+                onOpenHandoff={setHandoffId}
+                onRun={(id) => void run(id)}
+                onRerun={setRerunId}
+              />
+            </div>
+          </RegionBoundary>
+        </main>
+      </div>
       <AccountPanel
         open={accountOpen}
         onClose={closeAccount}
@@ -683,7 +692,12 @@ export function Dashboard({
         onSaveBrief={(name, brief) => saveContext(name, brief, { quiet: true })}
       />
       {approvalTask ? (
-        <ApprovalModal task={approvalTask} tasks={data.tasks} onClose={() => setApprovalId(null)} onDecide={decide} />
+        <ApprovalModal
+          task={approvalTask}
+          tasks={data.tasks}
+          onClose={() => setApprovalId(null)}
+          onDecide={(approvedNow, note) => decide(approvalTask.id, approvedNow, note)}
+        />
       ) : null}
       {lineageSteps ? (
         <LineageRail key={lineageId ?? "lineage"} steps={lineageSteps} onClose={() => setLineageId(null)} />
@@ -702,10 +716,18 @@ export function Dashboard({
         <NewProjectDialog onClose={() => setNewProjectOpen(false)} onCreate={createProject} />
       ) : null}
       {feedbackOpen ? <FeedbackModal onClose={() => setFeedbackOpen(false)} /> : null}
+      {handoffTask ? (
+        <HandoffInspector
+          key={handoffTask.id}
+          carried={carriedInto(handoffTask, data)}
+          project={data}
+          onClose={() => setHandoffId(null)}
+        />
+      ) : null}
       {rerunId ? (
         <div className="fixed inset-0 z-40 flex items-end justify-center bg-ink/30 p-4 sm:items-center" role="presentation">
-          <div role="dialog" aria-modal="true" aria-labelledby="rerun-title" className="w-full max-w-md bg-raised p-5 ring-1 ring-thread/50">
-            <h2 id="rerun-title" className="text-lg font-semibold leading-tight">
+          <div role="dialog" aria-modal="true" aria-labelledby="rerun-title" className="w-full max-w-md bg-raised rounded-2xl p-5 ring-1 ring-thread/50">
+            <h2 id="rerun-title" className="font-serif text-[26px] font-normal leading-tight">
               Re-run this task
             </h2>
             <p className="mt-2 text-sm leading-normal text-ink-dim">
@@ -719,14 +741,14 @@ export function Dashboard({
               ))}
             </ul>
             <div className="mt-4 flex justify-end gap-2">
-              <button type="button" onClick={() => setRerunId(null)} className="px-3 py-2 text-sm text-ink-dim hover:text-ink">
+              <button type="button" onClick={() => setRerunId(null)} className="rt-btn rt-btn-ghost">
                 Cancel
               </button>
               <button
                 type="button"
                 disabled={rerunning}
                 onClick={() => void confirmRerun()}
-                className="bg-thread px-3 py-2 text-sm font-medium text-(--color-base) disabled:opacity-50"
+                className="rt-btn rt-btn-thread"
               >
                 {rerunning ? "Re-running" : "Re-run"}
               </button>
@@ -736,8 +758,8 @@ export function Dashboard({
       ) : null}
       {confirmReset ? (
         <div className="fixed inset-0 z-40 flex items-end justify-center bg-ink/30 p-4 sm:items-center" role="presentation">
-          <div role="dialog" aria-modal="true" aria-labelledby="reset-title" className="w-full max-w-md bg-raised p-5 ring-1 ring-line">
-            <h2 id="reset-title" className="text-lg font-semibold leading-tight">
+          <div role="dialog" aria-modal="true" aria-labelledby="reset-title" className="w-full max-w-md bg-raised rounded-2xl p-5 ring-1 ring-line">
+            <h2 id="reset-title" className="font-serif text-[26px] font-normal leading-tight">
               Reset demo
             </h2>
             <p className="mt-2 text-sm leading-normal text-ink-dim">
@@ -746,14 +768,14 @@ export function Dashboard({
                 : "Tasks return to pending. Outputs and activity are cleared. The example name and brief are restored. Claude and GPT are not called."}
             </p>
             <div className="mt-4 flex justify-end gap-2">
-              <button type="button" onClick={() => setConfirmReset(false)} className="px-3 py-2 text-sm text-ink-dim hover:text-ink">
+              <button type="button" onClick={() => setConfirmReset(false)} className="rt-btn rt-btn-ghost">
                 Cancel
               </button>
               <button
                 type="button"
                 disabled={resetting}
                 onClick={() => void resetDemo()}
-                className="bg-thread px-3 py-2 text-sm font-medium text-(--color-base) disabled:opacity-50"
+                className="rt-btn rt-btn-thread"
               >
                 {resetting ? "Resetting" : "Reset demo"}
               </button>
@@ -764,7 +786,7 @@ export function Dashboard({
       {toast ? (
         <div
           role="status"
-          className={`fixed right-4 bottom-14 z-50 max-w-sm px-4 py-3 text-sm leading-normal ring-1 ${
+          className={`fixed right-4 bottom-6 z-50 max-w-sm rounded-xl px-4 py-3 shadow-[0_18px_40px_-16px_rgba(31,26,20,.35)] text-sm leading-normal ring-1 ${
             toast.tone === "ok" ? "bg-raised text-thread ring-ok/40" : "bg-raised text-danger ring-danger/50"
           }`}
         >
