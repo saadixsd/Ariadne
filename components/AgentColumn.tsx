@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useClocks } from "@/components/use-now";
 import { Monogram } from "@/components/ThreadBits";
 import { providerLabel, taskNumber } from "@/lib/task-rules";
-import { agentTone, clockShort, ledgerEntries, threadState } from "@/lib/thread";
+import { agentTone, ledgerEntries, threadState } from "@/lib/thread";
 import type { AgentDTO, ProjectDTO } from "@/lib/types";
 
 function roleHead(agent: AgentDTO) {
@@ -70,6 +71,7 @@ export function AgentColumn({
   onToggle: (id: string) => void;
   onSelectTask: (taskId: string) => void;
 }) {
+  const { clockShort } = useClocks();
   const { agents, tasks } = project;
   const panel = useRef<HTMLElement>(null);
   const [fullLog, setFullLog] = useState(false);

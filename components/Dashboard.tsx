@@ -15,14 +15,14 @@ import { RegionBoundary } from "@/components/RegionBoundary";
 import { SetupBanner } from "@/components/SetupBanner";
 import { TaskColumn } from "@/components/TaskColumn";
 import { AccountButton, TopBar } from "@/components/TopBar";
-import { useNow } from "@/components/use-now";
+import { useClocks, useNow } from "@/components/use-now";
 import { WelcomeOverlay } from "@/components/WelcomeOverlay";
 import { useFlag, writeFlag } from "@/components/client-storage";
 import { acceptPolledProject, needsSharedContextPrompt } from "@/lib/board-project";
 import { hideModelIds } from "@/lib/model-label";
 import { buildLineage } from "@/lib/lineage";
 import { cascadeFrom, taskNumber } from "@/lib/task-rules";
-import { agentOf, carriedInto, clock, roughMinutes, since } from "@/lib/thread";
+import { agentOf, carriedInto, roughMinutes, since } from "@/lib/thread";
 import type { ActivityEventDTO, ProjectDTO, TaskDTO } from "@/lib/types";
 
 export type ProjectOption = { id: string; name: string };
@@ -130,6 +130,7 @@ export function Dashboard({
   demoAccount?: boolean;
   openSettings?: boolean;
 }) {
+  const { clock } = useClocks();
   const [data, setData] = useState(initial);
   const [projects, setProjects] = useState(initialProjects);
   const [rerunId, setRerunId] = useState<string | null>(null);

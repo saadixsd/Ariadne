@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Monogram } from "@/components/ThreadBits";
-import { useNow } from "@/components/use-now";
+import { useClocks, useNow } from "@/components/use-now";
 import { taskNumber } from "@/lib/task-rules";
 import {
   agentOf,
@@ -11,7 +11,6 @@ import {
   carriedNoun,
   charsLabel,
   inputChars,
-  clockShort,
   durationSeconds,
   modelTag,
   objectOf,
@@ -145,6 +144,7 @@ function StepCard({
 }
 
 function DoorCard({ project, selected, onSelect }: { project: ProjectDTO; selected: boolean; onSelect: (id: string) => void }) {
+  const { clockShort } = useClocks();
   return (
     <button
       type="button"

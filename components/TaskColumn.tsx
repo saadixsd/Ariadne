@@ -4,7 +4,7 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { AddTaskForm, type NewTaskInput } from "@/components/AddTaskForm";
 import { OutputView } from "@/components/OutputView";
 import { Monogram } from "@/components/ThreadBits";
-import { useNow } from "@/components/use-now";
+import { useClocks, useNow } from "@/components/use-now";
 import { hideModelIds } from "@/lib/model-label";
 import { canRunTask, dependenciesMet, taskNumber } from "@/lib/task-rules";
 import {
@@ -12,7 +12,6 @@ import {
   agentTone,
   beadText,
   carriedInto,
-  clock,
   durationSeconds,
   isHumanTask,
   modelTag,
@@ -121,6 +120,7 @@ export function TaskColumn({
   onOpenLineage: (id: string) => void;
   onOpenHandoff: (taskId: string) => void;
 }) {
+  const { clock } = useClocks();
   const { tasks, agents, events } = project;
   const spool = useRef<HTMLDivElement>(null);
   const [eyes, setEyes] = useState<Eye[]>([]);

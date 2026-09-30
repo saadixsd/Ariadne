@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useClocks } from "@/components/use-now";
 import { ContextBar, PacketSections } from "@/components/ThreadBits";
-import { agentOf, clock, type Carried } from "@/lib/thread";
+import { agentOf, type Carried } from "@/lib/thread";
 import type { ProjectDTO } from "@/lib/types";
 
 /** The full context a step was (or will be) handed: the assembled packet, section by section. */
@@ -15,6 +16,7 @@ export function HandoffInspector({
   project: ProjectDTO;
   onClose: () => void;
 }) {
+  const { clock } = useClocks();
   const closeRef = useRef<HTMLButtonElement>(null);
   const [copied, setCopied] = useState(false);
   const to = carried.human ? "You" : (carried.targetAgent?.name ?? "This step");

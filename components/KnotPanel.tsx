@@ -3,7 +3,7 @@
 import { useImperativeHandle, useRef, useState, type Ref } from "react";
 import { OutputView } from "@/components/OutputView";
 import { ContextBar, Monogram } from "@/components/ThreadBits";
-import { useNow } from "@/components/use-now";
+import { useClocks, useNow } from "@/components/use-now";
 import { hideModelIds } from "@/lib/model-label";
 import { canRunTask, taskNumber } from "@/lib/task-rules";
 import {
@@ -13,7 +13,6 @@ import {
   carriedInto,
   charsLabel,
   inputChars,
-  clock,
   knotFor,
   reviewFlags,
   since,
@@ -95,6 +94,7 @@ function KnotBody({
   onOpenPacket: (taskId: string) => void;
   onOpenHandoff: (taskId: string) => void;
 }) {
+  const { clock } = useClocks();
   const { task } = knot;
   const agents = project.agents;
   const now = useNow();
@@ -257,6 +257,7 @@ function StepBody({
   onRerun: (id: string) => void;
   onOpenHandoff: (taskId: string) => void;
 }) {
+  const { clock } = useClocks();
   const agents = project.agents;
   const agent = agentOf(task, agents);
   const tone = agentTone(agent, agents);

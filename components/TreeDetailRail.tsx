@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useClocks } from "@/components/use-now";
 import { OutputView } from "@/components/OutputView";
 import { ContextBar, PacketSections } from "@/components/ThreadBits";
 import { orderedLineageTasks } from "@/lib/lineage";
@@ -12,8 +13,6 @@ import {
   agentTone,
   artifactPreview,
   carriedInto,
-  clock,
-  clockShort,
   durationSeconds,
   knotFor,
   modelTag,
@@ -36,6 +35,7 @@ function firstLine(task: TaskDTO, project: ProjectDTO) {
 }
 
 function Lineage({ task, project, knot }: { task: TaskDTO; project: ProjectDTO; knot: boolean }) {
+  const { clockShort } = useClocks();
   const ancestors = orderedLineageTasks(task.id, project.tasks).filter((item) => item.id !== task.id);
   const agent = agentOf(task, project.agents);
   const state = threadState(task, project.tasks);
@@ -167,6 +167,7 @@ export function TreeDetailRail({
   onRerun: (taskId: string) => void;
   onDecide: (approved: boolean, note: string) => Promise<void>;
 }) {
+  const { clock } = useClocks();
   const closeRef = useRef<HTMLButtonElement>(null);
   const sink = [...project.tasks].reverse().find((task) => !project.tasks.some((other) => other.dependsOn.includes(task.id))) ?? project.tasks.at(-1);
   const taskId = node.kind === "output" ? sink?.id : node.taskId;
