@@ -556,6 +556,8 @@ export function ledgerEntries(project: ProjectDTO): LedgerEntry[] {
     } else if (event.type === "approved") {
       text = `You tied off ${title}`;
       tone = "thread";
+    } else if (event.type === "failed" && event.payload?.reason === "stuck_run_reclaimed") {
+      text = title ? `Recovered a stuck run · ${title} can run again` : text;
     } else if (event.type === "failed") {
       text = title ? `Frayed: ${title}` : text;
       tone = "fail";
