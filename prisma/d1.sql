@@ -1,3 +1,8 @@
+-- Full schema snapshot for a FRESH database, generated from prisma/schema.prisma
+-- (prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script).
+-- Do NOT apply this to an existing database. Production changes go through
+-- migrations/ (wrangler d1 migrations apply). See "Database migrations" in README.md.
+
 -- CreateTable
 CREATE TABLE "User" (
     "id" TEXT NOT NULL PRIMARY KEY,
@@ -5,6 +10,8 @@ CREATE TABLE "User" (
     "passwordHash" TEXT NOT NULL,
     "passwordSalt" TEXT NOT NULL,
     "emailVerified" BOOLEAN NOT NULL DEFAULT false,
+    "firstName" TEXT,
+    "lastName" TEXT,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -80,14 +87,46 @@ CREATE TABLE "Task" (
 );
 
 -- CreateTable
+CREATE TABLE "TaskRun" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "taskId" TEXT NOT NULL,
+    "projectId" TEXT NOT NULL,
+    "attempt" INTEGER NOT NULL,
+    "outcome" TEXT NOT NULL,
+    "provider" TEXT,
+    "model" TEXT,
+    "systemPrompt" TEXT,
+    "prompt" TEXT,
+    "output" TEXT,
+    "error" TEXT,
+    "latencyMs" INTEGER,
+    "tries" INTEGER NOT NULL DEFAULT 1,
+    "startedAt" DATETIME,
+    "completedAt" DATETIME,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "TaskRun_taskId_fkey" FOREIGN KEY ("taskId") REFERENCES "Task" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+-- CreateTable
 CREATE TABLE "ActivityEvent" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "projectId" TEXT NOT NULL,
     "type" TEXT NOT NULL,
     "message" TEXT NOT NULL,
     "taskId" TEXT,
+    "fromTaskId" TEXT,
+    "toTaskId" TEXT,
+    "runId" TEXT,
+    "payload" TEXT,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "ActivityEvent_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+-- CreateTable
+CREATE TABLE "RateLimit" (
+    "key" TEXT NOT NULL PRIMARY KEY,
+    "count" INTEGER NOT NULL DEFAULT 0,
+    "expiresAt" DATETIME NOT NULL
 );
 
 -- CreateTable
@@ -108,3 +147,13 @@ CREATE UNIQUE INDEX "Session_tokenHash_key" ON "Session"("tokenHash");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "UsageDay_userId_day_key" ON "UsageDay"("userId", "day");
+
+-- CreateIndex
+CREATE INDEX "TaskRun_projectId_idx" ON "TaskRun"("projectId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "TaskRun_taskId_attempt_key" ON "TaskRun"("taskId", "attempt");
+
+-- CreateIndex
+CREATE INDEX "RateLimit_expiresAt_idx" ON "RateLimit"("expiresAt");
+

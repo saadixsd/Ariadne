@@ -14,7 +14,8 @@
     {
       "binding": "DB",
       "database_name": "ariadne",
-      "database_id": "4c3b880c-68e7-427b-af68-43710ec3f863"
+      "database_id": "4c3b880c-68e7-427b-af68-43710ec3f863",
+      "migrations_dir": "migrations"
     }
   ],
   "services": [
@@ -46,7 +47,8 @@
       {
         "binding": "DB",
         "database_name": "ariadne",
-        "database_id": "4c3b880c-68e7-427b-af68-43710ec3f863"
+        "database_id": "4c3b880c-68e7-427b-af68-43710ec3f863",
+        "migrations_dir": "migrations"
       }
     ],
     "services": [

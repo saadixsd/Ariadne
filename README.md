@@ -17,3 +17,13 @@ This is the phase 1 prototype: Scout (Claude) and Maker (GPT) share one project 
 5. `npm run dev`
 
 Open [http://localhost:3000](http://localhost:3000).
+
+## Database migrations
+
+- Local dev uses SQLite (`prisma/dev.db`) and `npm run db:push` straight from `prisma/schema.prisma`.
+- Production D1 changes go through `migrations/` in wrangler's format:
+  `npx wrangler d1 migrations list ariadne --remote`, then `npx wrangler d1 migrations apply ariadne --remote`.
+  Apply migrations **before** deploying code that needs them (every migration here is additive).
+- When you change `schema.prisma`, add the next `migrations/000N_*.sql` with
+  `npx prisma migrate diff --from-schema-datamodel <previous schema> --to-schema-datamodel prisma/schema.prisma --script`,
+  and regenerate `prisma/d1.sql` (fresh-database snapshot only, never applied to an existing DB).

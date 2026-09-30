@@ -93,16 +93,62 @@ model Task {
   startedAt        DateTime?
   completedAt      DateTime?
   createdAt        DateTime  @default(now())
+  runs             TaskRun[]
+}
+
+/// Immutable run history. One row per logical run attempt (model call, human
+/// gate packaging, reclaimed or discarded attempt). Application code only ever
+/// INSERTs into this table; rows disappear only when their task is deleted
+/// (project reset / delete) via the FK cascade.
+model TaskRun {
+  id           String    @id @default(cuid())
+  taskId       String
+  task         Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  projectId    String
+  /// 1-based ordinal per task.
+  attempt      Int
+  /// succeeded | failed | reclaimed | discarded | legacy
+  outcome      String
+  provider     String?
+  model        String?
+  systemPrompt String?
+  prompt       String?
+  output       String?
+  error        String?
+  latencyMs    Int?
+  /// Provider-level tries inside this run (withOneRetry), not separate rows.
+  tries        Int       @default(1)
+  startedAt    DateTime?
+  completedAt  DateTime?
+  createdAt    DateTime  @default(now())
+
+  @@unique([taskId, attempt])
+  @@index([projectId])
 }
 
 model ActivityEvent {
-  id        String   @id @default(cuid())
-  projectId String
-  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  type      String
-  message   String
-  taskId    String?
-  createdAt DateTime @default(now())
+  id         String   @id @default(cuid())
+  projectId  String
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  type       String
+  message    String
+  taskId     String?
+  /// Structured handoff/approval data. The message stays for humans and old clients.
+  fromTaskId String?
+  toTaskId   String?
+  runId      String?
+  /// JSON object as text (SQLite/D1), e.g. {"fromAgent":"Scout","toAgent":"Maker"}.
+  payload    String?
+  createdAt  DateTime @default(now())
+}
+
+/// Fixed-window IP rate limit counters for auth endpoints. key = "<action>:<ip>:<windowStart>".
+model RateLimit {
+  key       String   @id
+  count     Int      @default(0)
+  expiresAt DateTime
+
+  @@index([expiresAt])
 }
 
 model Feedback {
