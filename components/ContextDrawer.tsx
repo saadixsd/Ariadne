@@ -158,7 +158,7 @@ export function ContextDrawer({
           className="account-scrim absolute inset-0 bg-canvas/60 opacity-100 backdrop-blur-md"
           onMouseDown={onClose}
         />
-        <div className="absolute inset-0 flex items-end justify-center p-4 sm:items-center">
+        <div className="modal-safe absolute inset-0 flex items-end justify-center sm:items-center">
           <aside
             ref={panelRef}
             role="dialog"
@@ -183,7 +183,7 @@ export function ContextDrawer({
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={error ? errorId : undefined}
-        className="flex h-full w-full max-w-md flex-col border-l border-line bg-raised"
+        className="drawer-safe flex h-full w-full max-w-md flex-col border-l border-line bg-raised"
         onMouseDown={(event) => event.stopPropagation()}
       >
         {body}

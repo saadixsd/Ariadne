@@ -88,6 +88,11 @@ function Eyelet({ state }: { state: ThreadState }) {
 
 type Peek = { taskId: string; left: number; top: number };
 
+/** Large monitors zoom the page (globals.css); layout boxes come back zoomed, CSS px do not. */
+function pageZoom() {
+  return Number.parseFloat(getComputedStyle(document.documentElement).zoom || "1") || 1;
+}
+
 export function TaskColumn({
   project,
   expandedId,
@@ -142,12 +147,13 @@ export function TaskColumn({
     function measure() {
       const box = root?.getBoundingClientRect();
       if (!box || !root) return;
+      const zoom = pageZoom();
       const found = [...root.querySelectorAll<HTMLElement>("[data-step]")].map((step) => {
         const rect = step.getBoundingClientRect();
         return {
           id: step.dataset.step ?? "",
-          x: rect.left - box.left - 19,
-          y: rect.top - box.top + 26,
+          x: (rect.left - box.left) / zoom - 19,
+          y: (rect.top - box.top) / zoom + 26,
           state: (step.dataset.state ?? "unspun") as ThreadState,
         };
       });
@@ -184,10 +190,11 @@ export function TaskColumn({
   const knot = eyes.find((eye) => eye.state === "knot");
 
   function showPeek(taskId: string, element: HTMLElement) {
+    const zoom = pageZoom();
     const rect = element.getBoundingClientRect();
     const width = 330;
-    const left = Math.min(window.innerWidth - width - 16, rect.right + 12);
-    setPeek({ taskId, left, top: rect.top - 6 });
+    const left = Math.min(window.innerWidth / zoom - width - 16, rect.right / zoom + 12);
+    setPeek({ taskId, left, top: rect.top / zoom - 6 });
   }
 
   const peekTask = peek ? tasks.find((task) => task.id === peek.taskId) : undefined;

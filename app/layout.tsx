@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 
@@ -32,6 +32,17 @@ const dmMono = localFont({
 export const metadata: Metadata = {
   title: "Ariadne",
   description: "Ariadne coordinates the AI workforce teams already use.",
+};
+
+// viewport-fit=cover lets the app paint under notches; the edges pad themselves with
+// env(safe-area-inset-*) (globals.css). resizes-content makes Android shrink the layout
+// viewport (and dvh) for the keyboard, so pinned footers stay above it.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  interactiveWidget: "resizes-content",
+  themeColor: "#f2ece1",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

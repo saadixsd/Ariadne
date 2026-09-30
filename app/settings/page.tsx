@@ -1,9 +1,13 @@
 import { BrandMark } from "@/components/BrandMark";
 import { Monogram } from "@/components/ThreadBits";
+import { NameForm } from "@/components/NameForm";
+import { ProjectsManager } from "@/components/ProjectsManager";
 import { SignOutButton } from "@/components/SignOutButton";
 import { accountDisplay } from "@/lib/account";
 import { currentUser } from "@/lib/auth";
 import { HANDS } from "@/lib/hands";
+import { MAX_PROJECT_NAME_CHARS } from "@/lib/limits";
+import { getPrisma } from "@/lib/prisma";
 import { DAILY_MODEL_RUNS, modelRunsToday } from "@/lib/usage";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -20,43 +24,63 @@ const HAND_COLORS: Record<string, string> = {
   human: "var(--color-gate)",
 };
 
-export default async function SettingsPage() {
+export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ project?: string }> }) {
   const user = await currentUser();
   if (!user) redirect("/sign-in");
   if (!user.emailVerified) redirect("/verify");
   const account = accountDisplay(user);
   const used = Math.min(DAILY_MODEL_RUNS, await modelRunsToday(user.id));
   const left = Math.max(0, DAILY_MODEL_RUNS - used);
+  const prisma = await getPrisma();
+  const owned = await prisma.project.findMany({
+    where: { userId: user.id },
+    orderBy: { createdAt: "asc" },
+    select: { id: true, name: true, createdAt: true, tasks: { select: { status: true } } },
+  });
+  const projects = owned.map((project) => ({
+    id: project.id,
+    name: project.name,
+    createdAt: project.createdAt.toISOString(),
+    done: project.tasks.filter((task) => task.status === "done").length,
+    total: project.tasks.length,
+  }));
+  // Back to the project the user came from, while it still exists; otherwise the board
+  // opens their next project (or the new-project intro when none are left).
+  const { project: from } = await searchParams;
+  const back = from && projects.some((project) => project.id === from) ? `/?project=${encodeURIComponent(from)}` : "/";
 
   return (
     <div className="min-h-full text-ink">
-      <header className="flex min-h-14 items-center gap-4 border-b border-line bg-raised/60 px-4 py-2 backdrop-blur-md sm:px-7">
-        <Link href="/" aria-label="Back to the board">
+      <header className="bar-safe flex min-h-14 items-center gap-4 border-b border-line bg-raised/60 pb-2 backdrop-blur-md">
+        <Link href={back} aria-label="Back to the board" className="touch-min">
           <BrandMark className="max-sm:text-[0px]" />
         </Link>
         <div className="flex-1" />
-        <Link href="/" className="rt-btn rt-btn-ghost">
+        <Link href={back} className="rt-btn rt-btn-ghost">
           ← Back to the thread
         </Link>
       </header>
-      <main className="mx-auto grid max-w-2xl gap-6 px-5 pt-10 pb-20 sm:px-7">
+      <main className="gutter-safe mx-auto grid max-w-2xl gap-6 pt-8 pb-[calc(5rem+env(safe-area-inset-bottom))] sm:pt-10 lg:max-w-3xl">
         <div>
           <p className="eyebrow">Settings</p>
-          <h1 className="mt-1 font-serif text-[46px] leading-none tracking-[-0.015em]">{account.firstName || "Your account"}</h1>
+          <h1 className="mt-1 font-serif text-[40px] leading-none tracking-[-0.015em] break-words sm:text-[46px]">{account.firstName || account.lastName || "Your account"}</h1>
         </div>
 
         <section aria-labelledby="you-title" className="rt-card px-5 py-4">
           <h2 id="you-title" className="font-serif text-[24px] leading-tight">
             You
           </h2>
-          <dl className="mt-3 grid grid-cols-[8rem_minmax(0,1fr)] gap-x-4 gap-y-2 text-[13.5px]">
-            <dt className="text-ink-faint">First name</dt>
-            <dd>{account.firstName || <span className="text-ink-faint">Not set</span>}</dd>
-            <dt className="text-ink-faint">Last name</dt>
-            <dd>{account.lastName || <span className="text-ink-faint">Not set</span>}</dd>
-            <dt className="text-ink-faint">Email</dt>
-            <dd className="truncate font-mono text-[12.5px]">{user.email}</dd>
-          </dl>
+          <NameForm firstName={account.firstName} lastName={account.lastName} email={user.email} />
+        </section>
+
+        <section id="projects" aria-labelledby="projects-title" className="rt-card scroll-mt-4 px-5 py-4">
+          <div className="flex items-baseline justify-between gap-3">
+            <h2 id="projects-title" className="font-serif text-[24px] leading-tight">
+              Projects
+            </h2>
+            <p className="font-mono text-[11.5px] text-ink-faint tnum">{projects.length} {projects.length === 1 ? "project" : "projects"}</p>
+          </div>
+          <ProjectsManager projects={projects} maxName={MAX_PROJECT_NAME_CHARS} />
         </section>
 
         <section aria-labelledby="budget-title" className="rt-card px-5 py-4">
@@ -101,7 +125,7 @@ export default async function SettingsPage() {
           </ul>
         </section>
 
-        <section className="flex items-center justify-between gap-3 px-1">
+        <section className="flex flex-wrap items-center justify-between gap-3 px-1">
           <p className="text-[13px] text-ink-dim">Signing out ends this session on this device.</p>
           <SignOutButton />
         </section>

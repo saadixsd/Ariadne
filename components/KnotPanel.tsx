@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useImperativeHandle, useRef, useState, useSyncExternalStore, type Ref } from "react";
+import { useEffect, useImperativeHandle, useRef, useState, useSyncExternalStore, type Ref, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { OutputView } from "@/components/OutputView";
 import { ContextBar, Monogram } from "@/components/ThreadBits";
@@ -178,6 +178,8 @@ function KnotBody({
   }));
 
   const client = useSyncExternalStore(noopSubscribe, () => true, () => false);
+  const backdropRef = useRef<HTMLDivElement>(null);
+  useVisualViewportBox(backdropRef, open && client);
 
   useEffect(() => {
     if (!open || !client) return;
@@ -215,6 +217,7 @@ function KnotBody({
   if (!open || !client) return null;
   return createPortal(
     <div
+      ref={backdropRef}
       className="knot-sheet-backdrop fixed inset-0 z-40 flex items-stretch justify-center bg-ink/35 sm:items-center sm:p-4"
       role="presentation"
       onMouseDown={onClose}
@@ -230,7 +233,7 @@ function KnotBody({
             onClose();
           }
         }}
-        className="enter flex h-full w-full flex-col overflow-hidden bg-raised sm:h-auto sm:max-h-[94vh] sm:w-[92vw] sm:max-w-[1100px] sm:rounded-[18px] sm:border sm:border-gate-line sm:shadow-[0_30px_60px_-30px_rgba(120,80,10,.45),0_6px_18px_-8px_rgba(31,26,20,.25)]"
+        className="knot-sheet-dialog enter flex h-full w-full flex-col overflow-hidden bg-raised sm:h-auto sm:w-[92vw] sm:max-w-[1100px] sm:rounded-[18px] sm:border sm:border-gate-line sm:shadow-[0_30px_60px_-30px_rgba(120,80,10,.45),0_6px_18px_-8px_rgba(31,26,20,.25)]"
       >
         <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[#f0ddb0] bg-[linear-gradient(180deg,#fcf1d6,#fbf6ea)] px-4 pt-3 pb-2.5 sm:px-6 sm:pt-4 sm:pb-3">
           <div className="min-w-0">
@@ -244,7 +247,7 @@ function KnotBody({
             <h2 id="knot-title" className="mt-1 font-serif text-[24px] leading-[1.05] sm:text-[30px]">
               {task.title}
             </h2>
-            <p className="mt-0.5 text-[12.5px] text-ink-dim max-sm:hidden">Nothing moves past here until you decide.</p>
+            <p className="mt-0.5 text-[12.5px] text-ink-dim max-sm:hidden" data-knot-sub>Nothing moves past here until you decide.</p>
           </div>
           <button type="button" onClick={onClose} className="rt-btn rt-btn-ghost h-8 shrink-0 px-2.5 text-xs" aria-label="Close the knot">
             Close ✕
@@ -286,7 +289,7 @@ function KnotBody({
             Read the full packet
           </button>
         </div>
-        <div className="shrink-0 border-t border-gate-line/60 bg-gate-bg/50 px-4 pt-2.5 pb-3 sm:px-6">
+        <div className="foot-safe shrink-0 border-t border-gate-line/60 bg-gate-bg/50 px-4 pt-2.5 sm:px-6">
           <p className="font-serif text-[15px] leading-snug text-gate-ink italic sm:text-[16px]" data-socratic>
             Before you tie off: {question}
           </p>
@@ -306,7 +309,7 @@ function KnotBody({
                 aria-invalid={needNote}
                 aria-describedby="knot-note-hint"
               />
-              <span id="knot-note-hint" className={`block truncate font-mono text-[11px] ${needNote ? "text-danger" : "text-ink-faint"}`}>
+              <span id="knot-note-hint" data-knot-hint={needNote ? undefined : ""} className={`block truncate font-mono text-[11px] ${needNote ? "text-danger" : "text-ink-faint"}`}>
                 {needNote
                   ? "Add a note first, so the hands know what to change."
                   : rewinds.length > 0
@@ -329,7 +332,7 @@ function KnotBody({
                   {busy === "changes" ? "Sending back…" : "Ask for changes"}
                 </button>
               </div>
-              <p className="truncate text-[11.5px] text-ink-faint max-sm:hidden">
+              <p className="truncate text-[11.5px] text-ink-faint max-sm:hidden" data-knot-hint>
                 {unlock ? (
                   <>
                     ↳ Unlocks{" "}
@@ -349,6 +352,33 @@ function KnotBody({
     </div>,
     document.body,
   );
+}
+
+/**
+ * Pins a full-screen overlay to the *visual* viewport. With the phone keyboard up, iOS
+ * Safari keeps fixed elements on the layout viewport (and 100dvh ignores the keyboard),
+ * so the sheet's decision footer would sit under the keys. Writing the visible height and
+ * offset into --vvh/--vvt keeps the footer above them; without visualViewport the CSS
+ * falls back to 100dvh.
+ */
+function useVisualViewportBox(ref: RefObject<HTMLElement | null>, active: boolean) {
+  useEffect(() => {
+    const viewport = typeof window === "undefined" ? null : window.visualViewport;
+    const element = ref.current;
+    if (!active || !viewport || !element) return;
+    const zoom = Number.parseFloat(getComputedStyle(document.documentElement).zoom || "1") || 1;
+    const sync = () => {
+      element.style.setProperty("--vvh", `${viewport.height / zoom}px`);
+      element.style.setProperty("--vvt", `${viewport.offsetTop / zoom}px`);
+    };
+    sync();
+    viewport.addEventListener("resize", sync);
+    viewport.addEventListener("scroll", sync);
+    return () => {
+      viewport.removeEventListener("resize", sync);
+      viewport.removeEventListener("scroll", sync);
+    };
+  }, [ref, active]);
 }
 
 /** The column card while the knot sheet is closed: what is waiting, and a way back in. */

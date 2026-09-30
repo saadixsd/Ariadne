@@ -41,7 +41,7 @@ export function FeedbackModal({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex items-end justify-center bg-ink/30 p-4 sm:items-center" role="presentation">
+    <div className="modal-safe modal-flush fixed inset-0 z-40 flex items-end justify-center bg-ink/30 sm:items-center" role="presentation">
       <div
         role="dialog"
         aria-modal="true"

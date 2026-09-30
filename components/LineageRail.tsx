@@ -233,7 +233,7 @@ export function LineageRail({
         aria-modal="true"
         aria-labelledby="lineage-title"
         data-lineage-rail
-        className="enter flex h-full w-full max-w-md flex-col border-l border-line bg-raised"
+        className="drawer-safe enter flex h-full w-full max-w-md flex-col border-l border-line bg-raised"
         onMouseDown={(event) => event.stopPropagation()}
       >
         <div className="border-b border-line px-5 py-4">

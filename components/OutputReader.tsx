@@ -72,12 +72,12 @@ export function OutputReader({ task, project, onClose }: { task: TaskDTO; projec
   const output = run ? (run.output ?? null) : task.output;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/30 p-3 sm:items-center" role="presentation" onMouseDown={onClose}>
+    <div className="modal-safe fixed inset-0 z-50 flex items-end justify-center bg-ink/30 sm:items-center" role="presentation" onMouseDown={onClose}>
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="reader-title"
-        className="enter flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-line bg-raised"
+        className="enter flex vh-cap-92 w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-line bg-raised"
         onMouseDown={(event) => event.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-3 border-b border-line px-4 pt-4 pb-3 sm:px-6 sm:pt-5 sm:pb-4">

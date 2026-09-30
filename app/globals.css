@@ -6,6 +6,10 @@
   in Tailwind v4 a token called --color-base turns `text-base` into a colour as well as
   a size, which is how the Board's task titles went invisible. The ground is "canvas".
 */
+/* Board columns lock to the viewport and scroll on their own only when the screen is
+   both wide and tall enough; on short laptops (e.g. 1280x650) the page scrolls instead. */
+@custom-variant tall-xl (@media (min-width: 80rem) and (min-height: 46rem));
+
 @theme inline {
   --font-sans: var(--font-instrument-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-serif: var(--font-instrument-serif), "Iowan Old Style", Georgia, serif;
@@ -51,6 +55,28 @@
 
 html {
   color-scheme: light;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  /* --z mirrors the page zoom below so viewport-unit sizes can undo it (vh is zoomed too). */
+  --z: 1;
+}
+
+/*
+  Large monitors: scale the whole Red Thread page up instead of stretching it. 1920x1080
+  lays out like ~1700px, 2560x1440 like 1920x1080, so type and spacing grow together.
+  Short-but-wide windows keep 1:1 so nothing gets cramped vertically.
+*/
+@media (min-width: 1800px) and (min-height: 860px) {
+  html {
+    zoom: 1.125;
+    --z: 1.125;
+  }
+}
+@media (min-width: 2300px) and (min-height: 1200px) {
+  html {
+    zoom: 1.3333;
+    --z: 1.3333;
+  }
 }
 
 body {
@@ -607,4 +633,220 @@ a[href] {
     opacity: 1 !important;
     transform: none !important;
   }
+}
+
+/* ---------- Responsive: touch, safe areas, short screens ---------- */
+
+/* Touch screens: every control is at least 40px tall (and 40px wide unless it has a
+   text label). Inline links inside sentences are left alone (WCAG 2.5.8 exemption). */
+@media (pointer: coarse) {
+  button:not(.rt-inline),
+  select,
+  summary,
+  [role="tab"],
+  [role="menuitem"],
+  .rt-btn {
+    min-height: 40px;
+  }
+  button:not(.rt-inline),
+  .rt-btn {
+    min-width: 40px;
+  }
+  a.rt-btn,
+  [role="menuitem"] {
+    display: flex;
+    align-items: center;
+  }
+  label:has(> input[type="checkbox"]) {
+    min-height: 40px;
+    display: flex;
+    align-items: center;
+  }
+  /* text-style buttons and links that sit in a line of copy get a taller hit area
+     without moving the line: padding plus an equal negative margin */
+  .touch-pad {
+    display: inline-flex;
+    align-items: center;
+    min-height: 40px;
+    padding-block: 10px;
+    margin-block: -10px;
+  }
+  summary {
+    display: flex;
+    align-items: center;
+  }
+  .door-links {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    column-gap: 0.3em;
+    white-space: pre-wrap;
+  }
+  .door-links .touch-pad {
+    margin-block: 0;
+    padding-block: 0;
+  }
+  .touch-min {
+    display: flex;
+    align-items: center;
+    min-height: 40px;
+  }
+  textarea,
+  input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) {
+    min-height: 40px;
+  }
+}
+
+/* Phones with notches/home indicators: viewport-fit=cover is set in the layout, so every
+   edge that touches the screen pads itself by the inset (env() is 0 everywhere else). */
+.bar-safe {
+  padding-top: calc(0.5rem + env(safe-area-inset-top));
+  padding-left: max(1rem, env(safe-area-inset-left));
+  padding-right: max(1rem, env(safe-area-inset-right));
+}
+@media (min-width: 640px) {
+  .bar-safe {
+    padding-left: max(1.75rem, env(safe-area-inset-left));
+    padding-right: max(1.75rem, env(safe-area-inset-right));
+  }
+}
+.gutter-safe {
+  padding-left: max(1.25rem, env(safe-area-inset-left));
+  padding-right: max(1.25rem, env(safe-area-inset-right));
+}
+@media (min-width: 640px) {
+  .gutter-safe {
+    padding-left: max(1.75rem, env(safe-area-inset-left));
+    padding-right: max(1.75rem, env(safe-area-inset-right));
+  }
+}
+.modal-safe {
+  padding: max(0.75rem, env(safe-area-inset-top)) max(0.75rem, env(safe-area-inset-right)) max(0.75rem, env(safe-area-inset-bottom))
+    max(0.75rem, env(safe-area-inset-left));
+}
+@media (min-width: 640px) {
+  .modal-safe {
+    padding: 1rem;
+  }
+}
+/* bottom sheets on phones sit flush with the bottom edge */
+@media (max-width: 639.98px) {
+  .modal-safe.modal-flush {
+    padding: env(safe-area-inset-top) 0 0;
+  }
+  .modal-flush > [role="dialog"],
+  .modal-flush > [role="alertdialog"],
+  .modal-flush > form {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    padding-bottom: calc(1.25rem + env(safe-area-inset-bottom));
+  }
+}
+.drawer-safe {
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-right: env(safe-area-inset-right);
+}
+.foot-safe {
+  padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
+}
+.door-page {
+  padding-top: calc(48px + env(safe-area-inset-top));
+  padding-left: max(20px, env(safe-area-inset-left));
+  padding-right: max(20px, env(safe-area-inset-right));
+}
+
+/* Viewport-height caps that stay right under the large-screen zoom (vh is zoomed too). */
+.vh-cap-88 {
+  max-height: calc(88dvh / var(--z));
+}
+.vh-cap-90 {
+  max-height: calc(90dvh / var(--z));
+}
+.vh-cap-92 {
+  max-height: calc(92dvh / var(--z));
+}
+
+/* The knot sheet: a full-height sheet on phones that follows the visual viewport, so the
+   pinned decision footer rides above the on-screen keyboard (KnotPanel sets --vvh/--vvt
+   from window.visualViewport; dvh is the fallback). */
+.knot-sheet-backdrop {
+  height: var(--vvh, 100dvh);
+  top: var(--vvt, 0px);
+  bottom: auto;
+}
+@media (min-width: 640px) {
+  .knot-sheet-dialog {
+    max-height: calc(94dvh / var(--z));
+  }
+}
+@media (max-width: 639.98px) {
+  .knot-sheet-dialog > :first-child {
+    padding-top: calc(0.75rem + env(safe-area-inset-top));
+  }
+  .knot-sheet-dialog > :first-child,
+  .knot-sheet-dialog > :last-child {
+    padding-left: max(1rem, env(safe-area-inset-left));
+    padding-right: max(1rem, env(safe-area-inset-right));
+  }
+}
+/* Short screens (landscape phones, keyboard up, 1280x650 laptops): the footer keeps the
+   buttons and the note, and gives up the prompt's second line and the hints. */
+@media (max-height: 640px) {
+  .knot-sheet-dialog [data-socratic] {
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    font-size: 14px;
+  }
+}
+@media (max-height: 480px) {
+  .knot-sheet-dialog [data-socratic],
+  .knot-sheet-dialog [data-knot-hint] {
+    display: none;
+  }
+  .knot-sheet-dialog [data-knot-sub] {
+    display: none;
+  }
+}
+
+/* Settings: label/value pairs stack on narrow phones */
+.settings-dl {
+  display: grid;
+  grid-template-columns: 8rem minmax(0, 1fr);
+  column-gap: 1rem;
+  row-gap: 0.5rem;
+}
+@media (max-width: 380px) {
+  .settings-dl {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 0.1rem;
+  }
+  .settings-dl dd {
+    margin-bottom: 0.4rem;
+  }
+}
+.project-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+}
+
+.rt-btn-danger {
+  color: var(--color-danger);
+  border-color: color-mix(in srgb, var(--color-danger) 35%, var(--color-line-strong));
+  background: var(--color-raised);
+}
+.rt-btn-danger:not(:disabled):hover {
+  background: color-mix(in srgb, var(--color-danger) 8%, var(--color-raised));
+}
+.rt-btn-danger-solid {
+  color: var(--color-raised);
+  background: var(--color-danger);
+  border-color: var(--color-danger);
+}
+.rt-btn-danger-solid:disabled {
+  opacity: 0.45;
 }

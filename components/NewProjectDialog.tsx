@@ -54,7 +54,7 @@ export function NewProjectDialog({
   return (
     <div className="fixed inset-0 z-50">
       <div className="account-scrim absolute inset-0 bg-canvas/60 opacity-100 backdrop-blur-md" onMouseDown={onClose} />
-      <div className="absolute inset-0 flex items-end justify-center p-4 sm:items-center">
+      <div className="modal-safe modal-flush absolute inset-0 flex items-end justify-center sm:items-center">
         <form
           ref={panelRef}
           role="dialog"

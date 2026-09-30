@@ -300,7 +300,7 @@ export function LiveTree({
           : "border-line bg-raised text-ink-dim";
 
   return (
-    <div className="flex h-full min-h-0 flex-col text-ink">
+    <div className="flex h-full min-h-0 flex-col pb-[env(safe-area-inset-bottom)] text-ink">
       <TopBar
         view="tree"
         projectId={data.id}
@@ -310,14 +310,17 @@ export function LiveTree({
         }}
         runsLeft={remaining}
       >
-        <button type="button" onClick={() => setDetailId("root")} className="rt-btn">
+        <button type="button" onClick={() => setDetailId("root")} className="rt-btn max-sm:hidden">
           Brief
         </button>
         <div ref={menuRef} className="relative">
           <AccountButton initial={accountInitial} label="Account menu" expanded={menu} onClick={() => setMenu((value) => !value)} />
           {menu ? (
             <div role="menu" className="absolute right-0 z-40 mt-2 w-52 rounded-xl border border-line bg-raised p-1 shadow-[0_18px_40px_-16px_rgba(31,26,20,.35)]">
-              <a role="menuitem" href="/settings" className="block rounded-lg px-3 py-2 text-sm hover:bg-panel">
+              <a role="menuitem" href={`/settings?project=${encodeURIComponent(data.id)}#projects`} className="block rounded-lg px-3 py-2 text-sm hover:bg-panel">
+                Manage projects
+              </a>
+              <a role="menuitem" href={`/settings?project=${encodeURIComponent(data.id)}`} className="block rounded-lg px-3 py-2 text-sm hover:bg-panel">
                 Settings
               </a>
               <button
@@ -337,7 +340,7 @@ export function LiveTree({
           ) : null}
         </div>
       </TopBar>
-      <div data-next-action className="flex min-h-12 flex-wrap items-center gap-x-3.5 gap-y-1 border-b border-line px-7 py-2 text-[13.5px] text-ink-dim">
+      <div data-next-action className="flex min-h-12 flex-wrap items-center gap-x-3.5 gap-y-1 gutter-safe border-b border-line py-2 text-[13.5px] text-ink-dim">
         <span className={`rounded-full border px-[9px] py-[3px] font-mono text-[11.5px] ${pillTone}`}>{next.pill}</span>
         <span className="min-w-0">{next.text}</span>
         {next.action ? (
@@ -405,7 +408,7 @@ export function LiveTree({
         />
       ) : null}
       {rerunId ? (
-        <div className="fixed inset-0 z-[60] flex items-end justify-center bg-ink/30 p-4 sm:items-center" role="presentation">
+        <div className="modal-safe fixed inset-0 z-[60] flex items-end justify-center bg-ink/30 sm:items-center" role="presentation">
           <div
             role="dialog"
             aria-modal="true"

@@ -31,12 +31,12 @@ export function ApprovalModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/30 p-4 sm:items-center" role="presentation">
+    <div className="modal-safe fixed inset-0 z-50 flex items-end justify-center bg-ink/30 sm:items-center" role="presentation">
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="approval-title"
-        className="flex max-h-[90vh] w-full max-w-2xl flex-col border-t-2 border-gate bg-raised rounded-2xl ring-1 ring-line"
+        className="flex vh-cap-90 w-full max-w-2xl flex-col border-t-2 border-gate bg-raised rounded-2xl ring-1 ring-line"
       >
         <div className="px-5 py-5">
           <p className="text-xs font-semibold tracking-[0.16em] text-gate-ink">APPROVAL GATE</p>

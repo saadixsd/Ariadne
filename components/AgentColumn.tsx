@@ -98,9 +98,9 @@ export function AgentColumn({
   }, [expandedId, onToggle]);
 
   return (
-    <aside ref={panel} aria-label="Agents and ledger" className="flex min-h-0 flex-col gap-1 pt-1 xl:overflow-y-auto">
+    <aside ref={panel} aria-label="Agents and ledger" className="flex min-h-0 flex-col gap-1 pt-1 max-lg:order-3 tall-xl:overflow-y-auto">
       <h2 className="eyebrow pl-3">Hands on the thread</h2>
-      <ul className="grid gap-1">
+      <ul className="grid gap-1 md:max-lg:grid-cols-3">
         {agents.map((agent, index) => {
           const tone = agentTone(agent, agents);
           const open = expandedId === agent.id;

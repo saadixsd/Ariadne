@@ -65,6 +65,7 @@ export default async function Home({
       missingSetup={missingSetup()}
       email={user.email}
       accountInitial={account.initial}
+      accountName={user.firstName?.trim() || user.lastName?.trim() ? account.name : ""}
       runsLeft={runsLeft}
     />
   );

@@ -35,7 +35,7 @@ export function WelcomeOverlay({
   }
 
   return (
-    <aside className="enter mx-7 mt-3 shrink-0 rounded-2xl border border-thread-soft bg-raised p-4">
+    <aside className="enter mx-4 mt-3 shrink-0 sm:mx-7 xl:mx-auto xl:w-[calc(100%-3.5rem)] xl:max-w-[1864px] rounded-2xl border border-thread-soft bg-raised p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-xs font-semibold tracking-[0.16em] text-thread">Onboarding</p>

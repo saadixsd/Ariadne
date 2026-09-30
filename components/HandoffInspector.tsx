@@ -46,12 +46,12 @@ export function HandoffInspector({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/30 p-4 sm:items-center" role="presentation" onMouseDown={onClose}>
+    <div className="modal-safe fixed inset-0 z-50 flex items-end justify-center bg-ink/30 sm:items-center" role="presentation" onMouseDown={onClose}>
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="handoff-title"
-        className="enter flex max-h-[88vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-line bg-raised"
+        className="enter flex vh-cap-88 w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-line bg-raised"
         onMouseDown={(event) => event.stopPropagation()}
       >
         <div className="border-b border-line px-6 pt-5 pb-4">

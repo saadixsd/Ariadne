@@ -156,29 +156,29 @@ export function AuthForm({
                 {busy ? "Working" : mode === "sign-up" ? "Create account" : mode === "verify" ? "Verify" : "Sign in"}
               </button>
             </form>
-            <p className="text-[13px] text-ink-dim">
+            <p className="door-links text-[13px] text-ink-dim">
               {mode === "verify" ? (
                 <>
                   Nothing arrived?{" "}
-                  <button type="button" onClick={() => void resend()} disabled={busy} className="text-thread hover:text-thread-bright">
+                  <button type="button" onClick={() => void resend()} disabled={busy} className="touch-pad text-thread hover:text-thread-bright">
                     Send another code
                   </button>
                   {" · "}
-                  <Link href="/sign-in" className="text-thread hover:text-thread-bright">
+                  <Link href="/sign-in" className="touch-pad text-thread hover:text-thread-bright">
                     Use a different email
                   </Link>
                 </>
               ) : mode === "sign-in" ? (
                 <>
                   New here?{" "}
-                  <Link href="/sign-up" className="text-thread hover:text-thread-bright">
+                  <Link href="/sign-up" className="touch-pad text-thread hover:text-thread-bright">
                     Create an account
                   </Link>
                 </>
               ) : (
                 <>
                   Already have an account?{" "}
-                  <Link href="/sign-in" className="text-thread hover:text-thread-bright">
+                  <Link href="/sign-in" className="touch-pad text-thread hover:text-thread-bright">
                     Sign in
                   </Link>
                 </>

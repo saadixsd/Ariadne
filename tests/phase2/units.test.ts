@@ -164,3 +164,17 @@ test("errors: failed requests show the server's error, never a dev-server hint",
   assert.equal(await serverError(Response.json({ error: "Sign in required" }, { status: 401 })), "Sign in required");
   assert.equal(await serverError(new Response("<html>Worker threw exception</html>", { status: 500 })), null);
 });
+
+test("account: names are trimmed, collapsed, capped at 60, and empty clears", async () => {
+  const { readPersonName, MAX_PERSON_NAME_CHARS } = await import("../../lib/account");
+  assert.equal(MAX_PERSON_NAME_CHARS, 60);
+  assert.equal(readPersonName("  Saad  "), "Saad");
+  assert.equal(readPersonName("Mary   Ann"), "Mary Ann");
+  assert.equal(readPersonName(""), null);
+  assert.equal(readPersonName("   "), null);
+  assert.equal(readPersonName(null), null);
+  assert.equal(readPersonName("x".repeat(60)), "x".repeat(60));
+  assert.equal(readPersonName("x".repeat(61)), undefined);
+  assert.equal(readPersonName(42), undefined);
+  assert.equal(readPersonName("a\u0000b"), undefined);
+});

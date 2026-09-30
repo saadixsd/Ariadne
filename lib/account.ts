@@ -33,3 +33,19 @@ export function accountDisplay(account: AccountIdentity): AccountDisplay {
     lastName: "",
   };
 }
+
+export const MAX_PERSON_NAME_CHARS = 60;
+
+/**
+ * A first or last name from a request body: trimmed, inner whitespace collapsed,
+ * control characters refused. Empty (or null) clears the name and returns null.
+ * Returns undefined when the value is unusable (not text, or too long).
+ */
+export function readPersonName(value: unknown): string | null | undefined {
+  if (value === null) return null;
+  if (typeof value !== "string") return undefined;
+  if (/[\u0000-\u001f\u007f]/.test(value)) return undefined;
+  const name = value.trim().replace(/\s+/g, " ");
+  if (name.length > MAX_PERSON_NAME_CHARS) return undefined;
+  return name || null;
+}

@@ -114,6 +114,7 @@ export function Dashboard({
   missingSetup,
   email,
   accountInitial,
+  accountName = "",
   runsLeft,
 }: {
   initial: ProjectDTO;
@@ -121,6 +122,7 @@ export function Dashboard({
   missingSetup: string[];
   email: string;
   accountInitial: string;
+  accountName?: string;
   runsLeft: number;
 }) {
   const { clock } = useClocks();
@@ -511,13 +513,15 @@ export function Dashboard({
           />
           {menu === "account" ? (
             <div role="menu" className="absolute right-0 z-40 mt-2 w-60 rounded-xl border border-line bg-raised p-1 shadow-[0_18px_40px_-16px_rgba(31,26,20,.35)]">
+              {accountName ? <p className="truncate px-3 pt-2 font-serif text-[17px] leading-tight">{accountName}</p> : null}
               <p className="truncate px-3 pt-2 pb-1.5 font-mono text-[11px] text-ink-faint" title={email}>
                 {email}
               </p>
               {[
                 { label: "Shared context", run: () => setContextOpen(true) },
                 { label: "New project", run: () => setNewProjectOpen(true) },
-                { label: "Settings", run: () => void router.push("/settings") },
+                { label: "Manage projects", run: () => void router.push(`/settings?project=${encodeURIComponent(data.id)}#projects`) },
+                { label: "Settings", run: () => void router.push(`/settings?project=${encodeURIComponent(data.id)}`) },
                 { label: "Give feedback", run: () => setFeedbackOpen(true) },
                 {
                   label: "Sign out",
@@ -544,7 +548,7 @@ export function Dashboard({
           ) : null}
         </div>
       </TopBar>
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto xl:overflow-hidden">
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto pb-[env(safe-area-inset-bottom)] tall-xl:overflow-hidden">
         <WelcomeOverlay
           metAgents={metAgents}
           ranTask={ranTask}
@@ -552,10 +556,10 @@ export function Dashboard({
           canHighlightRun={first?.status === "pending"}
           onRunDemo={highlightFirstRun}
         />
-        <section className="grid shrink-0 grid-cols-1 items-end gap-x-10 gap-y-4 px-7 pt-[22px] pb-[18px] md:grid-cols-[minmax(0,1fr)_auto]">
+        <section className="gutter-safe mx-auto grid w-full max-w-[1920px] shrink-0 grid-cols-1 items-end gap-x-10 gap-y-4 pt-[22px] pb-[18px] md:grid-cols-[minmax(0,1fr)_auto]">
           <div className="min-w-0">
             <p className="eyebrow">Project{clock(data.createdAt) ? ` · started ${clock(data.createdAt)}` : ""}</p>
-            <h1 className="mt-1 font-serif text-[46px] leading-none tracking-[-0.015em]">{data.name}</h1>
+            <h1 className="mt-1 font-serif text-[38px] leading-none tracking-[-0.015em] break-words sm:text-[46px]">{data.name}</h1>
             <div className="mt-2.5 flex max-w-[780px] flex-wrap items-baseline gap-x-3 gap-y-1">
               {data.brief.trim() ? (
                 <p className="line-clamp-2 min-w-0 flex-1 font-serif text-[17px] leading-[1.35] text-ink-dim italic">
@@ -575,7 +579,7 @@ export function Dashboard({
           </div>
           <HeroStatus data={data} />
         </section>
-        <main className="grid flex-none grid-cols-1 xl:min-h-0 xl:flex-1 gap-[22px] px-7 lg:grid-cols-[236px_minmax(0,1fr)] xl:grid-cols-[236px_minmax(0,1fr)_436px]">
+        <main className="gutter-safe mx-auto grid w-full max-w-[1920px] flex-none grid-cols-1 gap-[22px] lg:grid-cols-[236px_minmax(0,1fr)] xl:grid-cols-[236px_minmax(0,1fr)_400px] 2xl:grid-cols-[252px_minmax(0,1fr)_436px] tall-xl:min-h-0 tall-xl:flex-1">
           <AgentColumn
             project={data}
             expandedId={expandedAgentId}
@@ -608,7 +612,7 @@ export function Dashboard({
             />
           </RegionBoundary>
           <RegionBoundary name="Decision">
-            <div className="flex min-h-0 flex-col lg:col-span-2 xl:col-span-1">
+            <div className="flex min-h-0 flex-col max-lg:order-2 lg:col-span-2 xl:col-span-1">
               <KnotPanel
                 project={data}
                 selectedId={expandedTaskId}
@@ -660,7 +664,7 @@ export function Dashboard({
         />
       ) : null}
       {rerunId ? (
-        <div className="fixed inset-0 z-40 flex items-end justify-center bg-ink/30 p-4 sm:items-center" role="presentation">
+        <div className="modal-safe fixed inset-0 z-40 flex items-end justify-center bg-ink/30 sm:items-center" role="presentation">
           <div role="dialog" aria-modal="true" aria-labelledby="rerun-title" className="w-full max-w-md bg-raised rounded-2xl p-5 ring-1 ring-thread/50">
             <h2 id="rerun-title" className="font-serif text-[26px] font-normal leading-tight">
               Re-run this task
