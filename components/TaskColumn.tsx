@@ -460,7 +460,7 @@ export function TaskColumn({
                     ) : null}
                   </article>
                   {bead ? (
-                    <div className="relative ml-[78px] flex h-[38px] items-center">
+                    <div className="relative ml-[78px] flex h-[38px] min-w-0 items-center">
                       <button
                         type="button"
                         onClick={() => onOpenHandoff(next.id)}
@@ -479,8 +479,8 @@ export function TaskColumn({
                         <span aria-hidden className={beadLive ? "text-thread" : ""}>
                           ↳
                         </span>
-                        <span className="truncate">{bead.lead}</span>
-                        <span className={`shrink-0 font-mono text-[11px] tnum ${beadLive ? "text-thread" : ""}`}>{bead.label}</span>
+                        <span className="min-w-0 truncate">{bead.lead}</span>
+                        <span className={`min-w-0 truncate font-mono text-[11px] tnum ${beadLive ? "text-thread" : ""}`}>{bead.label}</span>
                       </button>
                     </div>
                   ) : null}

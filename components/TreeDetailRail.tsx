@@ -283,7 +283,7 @@ export function TreeDetailRail({
           ))}
         </div>
       ) : null}
-      <div id="tree-detail-panel" role={tabs.length > 0 ? "tabpanel" : undefined} aria-labelledby={tabs.length > 0 ? `tree-tab-${tab}` : undefined} className="grid min-h-0 flex-1 content-start gap-3.5 overflow-y-auto px-[22px] py-4">
+      <div id="tree-detail-panel" role={tabs.length > 0 ? "tabpanel" : undefined} aria-labelledby={tabs.length > 0 ? `tree-tab-${tab}` : undefined} className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] content-start gap-3.5 overflow-x-hidden overflow-y-auto px-[22px] py-4">
         {tab === "brief" ? (
           project.brief.trim() ? (
             <blockquote className="rounded-xl border border-line bg-panel px-4 py-3.5 font-serif text-[19px] leading-[1.35] text-ink-dim italic">

@@ -103,8 +103,13 @@ export const OutputView = memo(function OutputView({
     return (
       <div className="space-y-3">
         {tools}
-        <iframe title="Page preview" sandbox="" srcDoc={html} className="h-80 w-full rounded-lg border border-line bg-white" />
-        <pre className="max-h-48 overflow-auto rounded-lg bg-canvas p-3 font-mono text-xs leading-normal text-ink ring-1 ring-line">{html}</pre>
+        <iframe title="Page preview" sandbox="" srcDoc={html} className="block h-[min(28rem,60vh)] w-full max-w-full rounded-lg border border-line bg-white" />
+        <details className="rounded-lg bg-canvas ring-1 ring-line">
+          <summary className="cursor-pointer px-3 py-2 text-xs font-[560] text-ink-dim">
+            Page source · {html.split("\n").length} lines
+          </summary>
+          <pre className="border-t border-line p-3 font-mono text-xs leading-normal break-words whitespace-pre-wrap text-ink [overflow-wrap:anywhere]">{html}</pre>
+        </details>
       </div>
     );
   }

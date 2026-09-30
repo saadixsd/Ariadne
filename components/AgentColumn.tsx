@@ -174,7 +174,7 @@ export function AgentColumn({
             </p>
           </>
         ) : (
-          <ol className={`mt-2.5 grid gap-[9px] ${fullLog ? "max-h-72 overflow-y-auto pr-1" : ""}`} role="log" aria-live="polite">
+          <ol className={"mt-2.5 grid gap-[9px]"} role="log" aria-live="polite">
             {shown.map((entry) => (
               <li
                 key={entry.id}

@@ -477,7 +477,7 @@ export function reviewFlags(reviewers: TaskDTO[], agents: AgentDTO[]): ReviewFla
   const flags = listItems(reviewer.output).map(plainText);
   return {
     reviewer: agentOf(reviewer, agents)?.name ?? "The reviewer",
-    verdict: verdictLine ? plainText(verdictLine.replace(/^(\*\*)?verdict(\*\*)?\s*[:—-]?\s*/i, "")) : null,
+    verdict: verdictLine ? plainText(verdictLine.replace(/^(\*\*)?verdict(\*\*)?\s*[:—-]?\s*(\*\*)?\s*/i, "")) : null,
     flags,
   };
 }

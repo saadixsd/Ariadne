@@ -80,7 +80,7 @@ export function OutputReader({ task, project, onClose }: { task: TaskDTO; projec
         className="enter flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-line bg-raised"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-line px-6 pt-5 pb-4">
+        <div className="flex items-start justify-between gap-3 border-b border-line px-4 pt-4 pb-3 sm:px-6 sm:pt-5 sm:pb-4">
           <div className="min-w-0">
             <p className="eyebrow">The reader · {hand}</p>
             <h2 id="reader-title" className="mt-1 font-serif text-[30px] leading-[1.05]">
@@ -93,7 +93,7 @@ export function OutputReader({ task, project, onClose }: { task: TaskDTO; projec
           </button>
         </div>
         {runs.length > 1 ? (
-          <div className="flex gap-1.5 overflow-x-auto border-b border-line px-6 py-2" role="tablist" aria-label="Attempts">
+          <div className="flex flex-wrap gap-1.5 border-b border-line px-4 py-2 sm:px-6" role="tablist" aria-label="Attempts">
             {runs.map((item) => (
               <button
                 key={item.id}
@@ -111,8 +111,8 @@ export function OutputReader({ task, project, onClose }: { task: TaskDTO; projec
             ))}
           </div>
         ) : null}
-        <div className="grid min-h-0 flex-1 grid-cols-1 overflow-y-auto md:grid-cols-2 md:overflow-hidden">
-          <section aria-label="What it was given" className="min-h-0 border-b border-line bg-panel/60 px-6 py-4 md:overflow-y-auto md:border-r md:border-b-0">
+        <div className="grid min-h-0 flex-1 grid-cols-1 overflow-x-hidden overflow-y-auto overscroll-contain md:grid-cols-2">
+          <section aria-label="What it was given" className="min-w-0 border-b border-line bg-panel/60 px-4 py-4 sm:px-6 md:border-r md:border-b-0">
             <div className="mb-2 flex items-center justify-between gap-2">
               <p className="eyebrow">Given{run?.attempt ? ` · attempt ${run.attempt}` : ""}</p>
               {given ? <CopyButton text={given} label="Copy inputs" /> : null}
@@ -134,7 +134,7 @@ export function OutputReader({ task, project, onClose }: { task: TaskDTO; projec
               <p className="text-[13px] text-ink-dim">Every finished step upstream, packaged for your decision. Open the packet from the knot to read it section by section.</p>
             )}
           </section>
-          <section aria-label="What came back" className="min-h-0 px-6 py-4 md:overflow-y-auto">
+          <section aria-label="What came back" className="min-w-0 px-4 py-4 sm:px-6">
             <div className="mb-2 flex items-center justify-between gap-2">
               <p className="eyebrow">
                 Handed on{run ? ` · ${OUTCOME[run.outcome] ?? run.outcome}` : ""}

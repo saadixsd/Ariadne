@@ -31,7 +31,7 @@ export function ApprovalModal({
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex items-end justify-center bg-ink/30 p-4 sm:items-center" role="presentation">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/30 p-4 sm:items-center" role="presentation">
       <div
         role="dialog"
         aria-modal="true"

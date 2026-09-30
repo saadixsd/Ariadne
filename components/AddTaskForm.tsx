@@ -73,7 +73,7 @@ export function AddTaskForm({
   return (
     <form
       ref={formRef}
-      className="rt-card mt-3 mb-4 ml-[78px] max-h-[min(32rem,55vh)] overflow-y-auto px-5 py-4"
+      className="rt-card mt-3 mb-4 ml-[78px] px-5 py-4 max-sm:ml-0"
       onSubmit={async (event) => {
         event.preventDefault();
         if (!ready || saving) return;
@@ -142,7 +142,7 @@ export function AddTaskForm({
         {tasks.length === 0 ? (
           <p className="mt-1 text-xs leading-normal text-ink-dim">No earlier tasks on this project.</p>
         ) : (
-          <ul className="mt-1 max-h-32 space-y-1 overflow-y-auto">
+          <ul className="mt-1 space-y-1">
             {tasks.map((task, index) => (
               <li key={task.id}>
                 <label className="flex items-start gap-2 text-sm leading-normal">

@@ -411,8 +411,18 @@ a[href] {
   border-top: 1px solid var(--color-line);
 }
 
+.markdown img,
+.markdown iframe,
+.markdown video {
+  max-width: 100%;
+  height: auto;
+}
+
 .markdown pre {
-  overflow: auto;
+  /* wrap long lines: no inner scroll box, never a page-level x-scroll */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  overflow: visible;
   margin: 0.7em 0;
   background: var(--color-canvas);
   color: var(--color-ink);
@@ -437,10 +447,13 @@ a[href] {
 
 .markdown .md-table {
   margin: 0.8em 0;
+  /* the one allowed contained x-scroll, only if a table truly cannot fit */
   overflow-x: auto;
+  max-width: 100%;
 }
 
 .markdown table {
+  width: 100%;
   border-collapse: collapse;
   font-size: 13px;
   font-feature-settings: "tnum";
@@ -448,6 +461,7 @@ a[href] {
 
 .markdown th,
 .markdown td {
+  overflow-wrap: anywhere;
   border-bottom: 1px solid var(--color-line);
   padding: 0.35rem 0.7rem 0.35rem 0;
   text-align: left;
@@ -462,4 +476,135 @@ a[href] {
   text-transform: uppercase;
   color: var(--color-ink-faint);
   border-bottom-color: var(--color-line-strong);
+}
+
+/* ---------- The Door: sign-in, sign-up, verify ---------- */
+.door-page {
+  min-height: 100%;
+  display: grid;
+  place-items: center;
+  padding: 48px 20px 72px;
+  overflow-x: hidden;
+}
+.door {
+  position: relative;
+  width: min(440px, 100%);
+  padding: 96px 44px 52px;
+  border: 1px solid var(--color-line-strong);
+  border-bottom: 0;
+  border-radius: 220px 220px 0 0;
+  background: linear-gradient(var(--color-raised), rgba(251, 248, 242, 0.55));
+}
+.door::before {
+  content: "";
+  position: absolute;
+  inset: 10px 10px 0;
+  border: 1px solid var(--color-line);
+  border-bottom: 0;
+  border-radius: 210px 210px 0 0;
+  pointer-events: none;
+}
+.door-threshold {
+  position: absolute;
+  left: -40px;
+  right: -40px;
+  bottom: 0;
+  height: 1px;
+  background: var(--color-line-strong);
+}
+.door-thread {
+  position: absolute;
+  bottom: -3px;
+  right: 50%;
+  width: 760px;
+  height: 300px;
+  pointer-events: none;
+  overflow: visible;
+}
+.door-thread-m {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  width: 120px;
+  height: 140px;
+  margin-left: -60px;
+  overflow: visible;
+  pointer-events: none;
+}
+.door-label {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--color-ink-dim);
+}
+.door-input {
+  width: 100%;
+  height: 40px;
+  padding: 0 12px;
+  font-size: 14px;
+  color: var(--color-ink);
+  background: var(--color-raised);
+  border: 1px solid var(--color-line-strong);
+  border-radius: 9px;
+  outline: none;
+}
+.door-input:focus {
+  border-color: var(--color-thread);
+  box-shadow: 0 0 0 3px var(--color-thread-soft);
+}
+.door-input::placeholder {
+  color: var(--color-ink-faint);
+  letter-spacing: normal;
+  font-family: var(--font-sans);
+}
+@media (max-width: 520px) {
+  .door {
+    padding: 84px 26px 40px;
+  }
+  .door-thread {
+    display: none;
+  }
+  .door-thread-m {
+    display: block;
+  }
+  .door-page {
+    padding-bottom: 150px;
+  }
+}
+/* draws once: stroke-dashoffset / opacity / transform only, no loops */
+.door-draw {
+  stroke-dasharray: var(--len, 1000);
+  stroke-dashoffset: var(--len, 1000);
+  animation: thread-draw var(--dur, 2.4s) cubic-bezier(0.6, 0.05, 0.3, 1) var(--delay, 0s) forwards;
+}
+.door-fade {
+  opacity: 0;
+  animation: door-fade 0.7s ease var(--delay, 0s) forwards;
+}
+.door-rise {
+  opacity: 0;
+  transform: translateY(6px);
+  animation: door-rise 0.7s ease var(--delay, 0s) forwards;
+}
+@keyframes door-fade {
+  to {
+    opacity: 1;
+  }
+}
+@keyframes door-rise {
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .door-draw,
+  .door-fade,
+  .door-rise {
+    animation: none !important;
+    stroke-dashoffset: 0 !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
 }

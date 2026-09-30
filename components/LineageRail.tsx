@@ -81,9 +81,7 @@ function Excerpt({
   return (
     <div className="mt-2">
       {open ? (
-        <div className="max-h-64 overflow-auto">
-          <OutputView output={body} foldable={false} />
-        </div>
+        <OutputView output={body} />
       ) : (
         <p className="font-mono text-xs leading-normal text-ink-dim">{excerptText(body)}</p>
       )}

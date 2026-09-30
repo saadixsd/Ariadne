@@ -1,6 +1,7 @@
 "use client";
 
-import { useImperativeHandle, useRef, useState, type Ref } from "react";
+import { useEffect, useImperativeHandle, useRef, useState, useSyncExternalStore, type Ref } from "react";
+import { createPortal } from "react-dom";
 import { OutputView } from "@/components/OutputView";
 import { ContextBar, Monogram } from "@/components/ThreadBits";
 import { useClocks, useNow } from "@/components/use-now";
@@ -98,10 +99,57 @@ function Waited({ openedAt }: { openedAt: string | null }) {
   return waited !== null ? <>{` · ${stopwatch(waited)}`}</> : null;
 }
 
+const NOTES_SHOWN = 8;
+const noopSubscribe = () => () => {};
+
+/** Every review point, in full. A very long list folds behind "Read more"; nothing is clipped. */
+function ReviewNotes({ flags }: { flags: NonNullable<ReturnType<typeof reviewFlags>> }) {
+  const [open, setOpen] = useState(false);
+  const points = flags.flags.map((flag) => flag.replace(/[.;:,]+\s*$/, ""));
+  const shown = open ? points : points.slice(0, NOTES_SHOWN);
+  const hidden = points.length - shown.length;
+  return (
+    <section aria-label="Review notes" className="rounded-xl border border-line bg-tint px-4 py-3.5 text-[13px] leading-normal text-ink-dim">
+      <p className="flex items-baseline gap-2">
+        <span aria-hidden>⚑</span>
+        <b className="text-ink">
+          {flags.reviewer} noted {points.length} {points.length === 1 ? "point" : "points"}
+          {points.length > 0 ? ":" : "."}
+        </b>
+      </p>
+      {flags.verdict ? <p className="mt-1.5 text-ink">Verdict: {flags.verdict}</p> : null}
+      {points.length > 0 ? (
+        <ol className="mt-2 grid list-decimal gap-1.5 pl-5 marker:font-mono marker:text-[11px] marker:text-ink-faint [overflow-wrap:anywhere]">
+          {shown.map((point, index) => (
+            <li key={index}>{point}</li>
+          ))}
+        </ol>
+      ) : null}
+      {points.length > NOTES_SHOWN ? (
+        <button
+          type="button"
+          aria-expanded={open}
+          onClick={() => setOpen((value) => !value)}
+          className="mt-2 text-xs font-[560] text-thread hover:text-thread-bright"
+        >
+          {open ? "Fold it back" : `Read more · ${hidden} more ${hidden === 1 ? "point" : "points"}`}
+        </button>
+      ) : null}
+    </section>
+  );
+}
+
+/**
+ * The knot, opened: a wide reading sheet over the dimmed board. One scroll area (the
+ * body); the header and the decision footer stay put so the question, the note and
+ * the two buttons are always in view.
+ */
 function KnotBody({
   knot,
   project,
   handle,
+  open,
+  onClose,
   onDecide,
   onOpenPacket,
   onOpenHandoff,
@@ -110,6 +158,8 @@ function KnotBody({
   knot: Knot;
   project: ProjectDTO;
   handle: Ref<KnotPanelHandle>;
+  open: boolean;
+  onClose: () => void;
   onDecide: (taskId: string, approved: boolean, note: string) => Promise<void>;
   onOpenPacket: (taskId: string) => void;
   onOpenHandoff: (taskId: string) => void;
@@ -124,11 +174,17 @@ function KnotBody({
   const [busy, setBusy] = useState<"approve" | "changes" | null>(null);
   const [needNote, setNeedNote] = useState(false);
   useImperativeHandle(handle, () => ({
-    focusDecision: () => {
-      approveRef.current?.scrollIntoView({ block: "nearest" });
-      approveRef.current?.focus();
-    },
+    focusDecision: () => approveRef.current?.focus(),
   }));
+
+  const client = useSyncExternalStore(noopSubscribe, () => true, () => false);
+
+  useEffect(() => {
+    if (!open || !client) return;
+    const previous = document.activeElement as HTMLElement | null;
+    approveRef.current?.focus({ preventScroll: true });
+    return () => previous?.focus?.({ preventScroll: true });
+  }, [open, client]);
 
   const flags = reviewFlags(knot.reviewers, agents);
   const judged = knot.artifact?.output ? knot.artifact : null;
@@ -140,6 +196,7 @@ function KnotBody({
   const rewinds = knot.resets.filter((item) => item.id !== task.id);
   const rounds = changeNotesFor(task.id, project).length;
   const question = socraticQuestion(task.id, rounds);
+  const hasNotes = !!flags && (flags.flags.length > 0 || !!flags.verdict);
 
   async function submit(approved: boolean) {
     if (!approved && note.trim().length === 0) {
@@ -155,65 +212,86 @@ function KnotBody({
     }
   }
 
-  return (
-    <>
-      <div className="border-b border-[#f0ddb0] bg-[linear-gradient(180deg,#fcf1d6,#fbf6ea)] px-5 pt-4 pb-3.5">
-        <div className="flex items-center justify-between gap-3">
-          <p className="eyebrow text-gate-ink">
-            ● The knot · step {number} of {total}
-          </p>
-          <p className="font-mono text-[11.5px] text-gate-ink tnum">
-            {clock(knot.openedAt) ? `opened ${clock(knot.openedAt)}` : null}
-            <Waited openedAt={knot.openedAt} />
-          </p>
-        </div>
-        <h2 id="knot-title" className="mt-1.5 font-serif text-[30px] leading-[1.05]">
-          {task.title}
-        </h2>
-        <p className="mt-1 text-[13px] text-ink-dim">Nothing moves past here until you decide.</p>
-      </div>
-      <div className="grid min-h-0 flex-1 content-start gap-3 overflow-y-auto px-5 py-3.5">
-        <MergeThreads knot={knot} project={project} />
-        <p className="-mt-1 flex justify-between text-[11.5px] text-ink-faint">
-          <span>Threads drawn to scale by context carried</span>
-          <button type="button" onClick={() => onOpenHandoff(task.id)} className="font-[560] text-thread hover:text-thread-bright">
-            {charsLabel(inputChars(knot.carried))} reach you →
-          </button>
-        </p>
-        <section aria-label="What you are judging" className="rounded-xl border border-gate-line/70 bg-raised">
-          <div className="border-b border-line px-3.5 pt-3 pb-2.5">
-            <p className="eyebrow text-[10px]">
-              What you&apos;re judging{judged ? ` · ${objectOf(judged.title)}` : ""}
-              {judged && artifactAgent ? ` · by ${artifactAgent.name}` : ""}
+  if (!open || !client) return null;
+  return createPortal(
+    <div
+      className="knot-sheet-backdrop fixed inset-0 z-40 flex items-stretch justify-center bg-ink/35 sm:items-center sm:p-4"
+      role="presentation"
+      onMouseDown={onClose}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="knot-title"
+        onMouseDown={(event) => event.stopPropagation()}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            event.stopPropagation();
+            onClose();
+          }
+        }}
+        className="enter flex h-full w-full flex-col overflow-hidden bg-raised sm:h-auto sm:max-h-[94vh] sm:w-[92vw] sm:max-w-[1100px] sm:rounded-[18px] sm:border sm:border-gate-line sm:shadow-[0_30px_60px_-30px_rgba(120,80,10,.45),0_6px_18px_-8px_rgba(31,26,20,.25)]"
+      >
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[#f0ddb0] bg-[linear-gradient(180deg,#fcf1d6,#fbf6ea)] px-4 pt-3 pb-2.5 sm:px-6 sm:pt-4 sm:pb-3">
+          <div className="min-w-0">
+            <p className="eyebrow text-gate-ink">
+              ● The knot · step {number} of {total}
+              <span className="ml-2 font-mono text-[11px] tracking-normal normal-case tnum max-sm:hidden">
+                {clock(knot.openedAt) ? `opened ${clock(knot.openedAt)}` : null}
+                <Waited openedAt={knot.openedAt} />
+              </span>
             </p>
+            <h2 id="knot-title" className="mt-1 font-serif text-[24px] leading-[1.05] sm:text-[30px]">
+              {task.title}
+            </h2>
+            <p className="mt-0.5 text-[12.5px] text-ink-dim max-sm:hidden">Nothing moves past here until you decide.</p>
           </div>
-          <div className="px-3.5 py-3">
-            {judged?.output ? (
-              <OutputView output={judged.output} onCompare={() => onOpenReader(judged.id)} />
-            ) : task.output ? (
-              <OutputView output={task.output} />
-            ) : (
-              <p className="text-[13px] text-ink-dim">Nothing was handed to this knot yet.</p>
-            )}
-            {flags && (flags.flags.length > 0 || flags.verdict) ? (
-              <div className="mt-3 grid grid-cols-[20px_minmax(0,1fr)] gap-2 rounded-[10px] bg-tint px-3 py-2.5 text-[12.5px] text-ink-dim">
-                <span aria-hidden>⚑</span>
-                <p>
-                  <b className="text-ink">
-                    {flags.reviewer} noted {flags.flags.length} {flags.flags.length === 1 ? "point" : "points"}
-                    {flags.flags.length > 0 ? ":" : "."}
-                  </b>{" "}
-                  <span className="line-clamp-3 inline">{flags.flags.slice(0, 3).map((flag) => flag.replace(/[.;:,]+\s*$/, "")).join("; ")}</span>
-                  {flags.verdict ? <span className="mt-1 block text-ink">Verdict: {flags.verdict}</span> : null}
-                </p>
+          <button type="button" onClick={onClose} className="rt-btn rt-btn-ghost h-8 shrink-0 px-2.5 text-xs" aria-label="Close the knot">
+            Close ✕
+          </button>
+        </div>
+        <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-4 py-4 sm:px-6" data-knot-scroll>
+          <details className="mb-4 rounded-xl border border-line bg-panel/50 px-3.5 py-2">
+            <summary className="cursor-pointer text-[11.5px] text-ink-faint">
+              <span className="eyebrow text-[10px]">What reaches you · {knot.inputs.length + 1} threads · {charsLabel(inputChars(knot.carried))} · show</span>
+            </summary>
+            <div className="mt-2">
+              <MergeThreads knot={knot} project={project} />
+            </div>
+            <button type="button" onClick={() => onOpenHandoff(task.id)} className="mt-1.5 text-[11.5px] font-[560] text-thread hover:text-thread-bright">
+              {charsLabel(inputChars(knot.carried))} reach you →
+            </button>
+          </details>
+          <div className={`grid gap-5 ${hasNotes ? "lg:grid-cols-[minmax(0,1fr)_minmax(0,340px)]" : ""}`}>
+            <section aria-label="What you are judging" className="min-w-0">
+              <p className="eyebrow mb-2 text-[10px]">
+                What you&apos;re judging{judged ? ` · ${objectOf(judged.title)}` : ""}
+                {judged && artifactAgent ? ` · by ${artifactAgent.name}` : ""}
+              </p>
+              {judged?.output ? (
+                <OutputView output={judged.output} foldable={false} onCompare={() => onOpenReader(judged.id)} />
+              ) : task.output ? (
+                <OutputView output={task.output} foldable={false} />
+              ) : (
+                <p className="text-[13px] text-ink-dim">Nothing was handed to this knot yet.</p>
+              )}
+            </section>
+            {hasNotes && flags ? (
+              <div className="min-w-0">
+                <ReviewNotes flags={flags} />
               </div>
             ) : null}
           </div>
-          <div className="grid gap-2.5 border-t border-gate-line/60 bg-gate-bg/40 px-3.5 pt-3 pb-3.5">
-            <p className="font-serif text-[17px] leading-snug text-gate-ink italic" data-socratic>
-              Before you tie off: {question}
-            </p>
-            <label className="block rounded-[10px] border border-dashed border-line-strong bg-raised px-3 py-2 focus-within:border-thread">
+          <button type="button" onClick={() => onOpenPacket(task.id)} className="mt-4 text-xs font-[560] text-ink-dim underline decoration-line-strong underline-offset-4 hover:text-ink">
+            Read the full packet
+          </button>
+        </div>
+        <div className="shrink-0 border-t border-gate-line/60 bg-gate-bg/50 px-4 pt-2.5 pb-3 sm:px-6">
+          <p className="font-serif text-[15px] leading-snug text-gate-ink italic sm:text-[16px]" data-socratic>
+            Before you tie off: {question}
+          </p>
+          <div className="mt-2 grid grid-cols-[minmax(0,1fr)] gap-2 md:grid-cols-[minmax(0,1fr)_auto] md:items-start">
+            <label className="block rounded-[10px] border border-dashed border-line-strong bg-raised px-3 py-1.5 focus-within:border-thread">
               <span className="sr-only">Your note, if you ask for changes</span>
               <textarea
                 ref={noteRef}
@@ -228,7 +306,7 @@ function KnotBody({
                 aria-invalid={needNote}
                 aria-describedby="knot-note-hint"
               />
-              <span id="knot-note-hint" className={`block font-mono text-[11px] ${needNote ? "text-danger" : "text-ink-faint"}`}>
+              <span id="knot-note-hint" className={`block truncate font-mono text-[11px] ${needNote ? "text-danger" : "text-ink-faint"}`}>
                 {needNote
                   ? "Add a note first, so the hands know what to change."
                   : rewinds.length > 0
@@ -236,43 +314,77 @@ function KnotBody({
                     : "↺ sends this step back with your note"}
               </span>
             </label>
-            <div className="flex flex-wrap gap-2">
-              <button
-                ref={approveRef}
-                type="button"
-                disabled={busy !== null}
-                onClick={() => void submit(true)}
-                className="rt-btn rt-btn-knot h-10 flex-1 text-sm"
-              >
-                {busy === "approve" ? "Tying off…" : "Tie off (Approve)"}
-              </button>
-              <button type="button" disabled={busy !== null} onClick={() => void submit(false)} className="rt-btn h-10 flex-1 text-sm">
-                {busy === "changes" ? "Sending back…" : "Ask for changes"}
-              </button>
+            <div className="grid gap-1.5">
+              <div className="flex gap-2">
+                <button
+                  ref={approveRef}
+                  type="button"
+                  disabled={busy !== null}
+                  onClick={() => void submit(true)}
+                  className="rt-btn rt-btn-knot h-10 flex-1 px-4 text-sm whitespace-nowrap"
+                >
+                  {busy === "approve" ? "Tying off…" : "Tie off (Approve)"}
+                </button>
+                <button type="button" disabled={busy !== null} onClick={() => void submit(false)} className="rt-btn h-10 flex-1 px-4 text-sm whitespace-nowrap">
+                  {busy === "changes" ? "Sending back…" : "Ask for changes"}
+                </button>
+              </div>
+              <p className="truncate text-[11.5px] text-ink-faint max-sm:hidden">
+                {unlock ? (
+                  <>
+                    ↳ Unlocks{" "}
+                    <b className="font-semibold text-ink-dim">
+                      {taskNumber(unlock.id, project.tasks)} · {unlock.title}
+                    </b>{" "}
+                    for {unlockAgent?.name ?? "the next step"}
+                  </>
+                ) : (
+                  "↳ Tying off marks this step done."
+                )}
+              </p>
             </div>
-            <p className="flex items-center gap-1.5 text-xs text-ink-faint">
-              {unlock ? (
-                <>
-                  ↳ Tying off unlocks{" "}
-                  <b className="font-semibold text-ink-dim">
-                    {taskNumber(unlock.id, project.tasks)} · {unlock.title}
-                  </b>{" "}
-                  for {unlockAgent?.name ?? "the next step"}
-                </>
-              ) : (
-                "↳ Tying off marks this step done."
-              )}
-            </p>
           </div>
-        </section>
-        <button type="button" onClick={() => onOpenPacket(task.id)} className="justify-self-start text-xs font-[560] text-ink-dim underline decoration-line-strong underline-offset-4 hover:text-ink">
-          Read the full packet
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+/** The column card while the knot sheet is closed: what is waiting, and a way back in. */
+function KnotSummary({ knot, project, onOpen }: { knot: Knot; project: ProjectDTO; onOpen: () => void }) {
+  const { clock } = useClocks();
+  const flags = reviewFlags(knot.reviewers, project.agents);
+  const artifactAgent = agentOf(knot.artifact ?? undefined, project.agents);
+  return (
+    <>
+      <div className="border-b border-[#f0ddb0] bg-[linear-gradient(180deg,#fcf1d6,#fbf6ea)] px-5 pt-4 pb-3.5">
+        <div className="flex items-center justify-between gap-3">
+          <p className="eyebrow text-gate-ink">
+            ● The knot · step {taskNumber(knot.task.id, project.tasks)} of {project.tasks.length}
+          </p>
+          <p className="font-mono text-[11.5px] text-gate-ink tnum">
+            {clock(knot.openedAt) ? `opened ${clock(knot.openedAt)}` : null}
+            <Waited openedAt={knot.openedAt} />
+          </p>
+        </div>
+        <h2 id="knot-title-card" className="mt-1.5 font-serif text-[30px] leading-[1.05]">
+          {knot.task.title}
+        </h2>
+        <p className="mt-1 text-[13px] text-ink-dim">Nothing moves past here until you decide.</p>
+      </div>
+      <div className="grid content-start gap-3 px-5 py-4">
+        <p className="text-[13px] leading-normal text-ink-dim">
+          {knot.artifact?.output ? `${artifactAgent?.name ?? "The hands"}’s work is ready for you to judge` : "The work upstream is ready for you"}
+          {flags && flags.flags.length > 0 ? `, with ${flags.flags.length} review ${flags.flags.length === 1 ? "point" : "points"} from ${flags.reviewer}.` : "."}
+        </p>
+        <button type="button" onClick={onOpen} className="rt-btn rt-btn-knot h-10 text-sm">
+          Open the knot
         </button>
       </div>
     </>
   );
 }
-
 function SpinningLine({ name, startedAt }: { name: string; startedAt: string | null }) {
   const now = useNow();
   const seconds = since(startedAt, now);
@@ -339,7 +451,7 @@ function StepBody({
           {line ?? <SpinningLine name={tone.name} startedAt={task.startedAt} />}
         </p>
       </div>
-      <div className="grid min-h-0 flex-1 content-start gap-3 overflow-y-auto px-5 py-3.5">
+      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] content-start gap-3 overflow-x-hidden overflow-y-auto px-5 py-3.5">
         {task.status === "failed" ? (
           <p className="rounded-xl border border-danger/30 bg-danger/5 px-3 py-2.5 font-mono text-[12px] text-danger">
             {failure ? hideModelIds(failure) : "No error text was stored."}
@@ -420,29 +532,49 @@ export function KnotPanel({
     tasks.find((task) => canRunTask(task, tasks)) ??
     [...tasks].reverse().find((task) => task.status === "done") ??
     null;
+  // The sheet opens by itself for each new knot; Close tucks it into the column card.
+  const [closedFor, setClosedFor] = useState<string | null>(null);
+  const [reopenTick, setReopenTick] = useState(0);
+  const sheetRef = useRef<KnotPanelHandle>(null);
+  const sheetOpen = !!knot && closedFor !== knot.task.id;
+  useImperativeHandle(handle, () => ({
+    focusDecision: () => {
+      setClosedFor(null);
+      setReopenTick((tick) => tick + 1);
+    },
+  }));
+  useEffect(() => {
+    if (reopenTick > 0) sheetRef.current?.focusDecision();
+  }, [reopenTick]);
 
   return (
     <aside
-      aria-labelledby={knot ? "knot-title" : undefined}
+      aria-labelledby={knot ? "knot-title-card" : undefined}
       aria-label={knot ? undefined : "Step detail"}
-      className={`mb-[18px] flex min-h-[420px] flex-col overflow-hidden rounded-[18px] border bg-raised ${
+      className={`mb-[18px] flex flex-col ${knot ? "" : "min-h-[420px]"} overflow-hidden rounded-[18px] border bg-raised ${
         knot
           ? "border-gate-line shadow-[0_30px_60px_-30px_rgba(120,80,10,.35),0_6px_18px_-8px_rgba(31,26,20,.18)]"
           : "border-line shadow-[0_6px_18px_-8px_rgba(31,26,20,.18)]"
       }`}
     >
       {knot ? (
+        <KnotSummary knot={knot} project={project} onOpen={() => setClosedFor(null)} />
+      ) : null}
+      {knot ? (
         <KnotBody
           key={knot.task.id}
           knot={knot}
           project={project}
-          handle={handle}
+          handle={sheetRef}
+          open={sheetOpen}
+          onClose={() => setClosedFor(knot.task.id)}
           onDecide={onDecide}
           onOpenPacket={onOpenPacket}
           onOpenHandoff={onOpenHandoff}
           onOpenReader={onOpenReader}
         />
-      ) : focus ? (
+      ) : null}
+      {knot ? null : focus ? (
         <StepBody
           key={focus.id}
           task={focus}
