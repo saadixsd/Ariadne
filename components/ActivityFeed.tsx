@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { parseHandoffMessage, previewChips } from "@/lib/handoff-preview";
+import { handoffFromEvent, previewChips } from "@/lib/handoff-preview";
 import { hideModelIds } from "@/lib/model-label";
 import { canRunTask } from "@/lib/task-rules";
 import type { ActivityEventDTO, TaskDTO } from "@/lib/types";
@@ -86,9 +86,9 @@ export function ActivityFeed({
               const message = hideModelIds(event.message);
 
               if (event.type === "handoff") {
-                const parsed = parseHandoffMessage(event.message);
+                const parsed = handoffFromEvent(event, tasks);
                 const source = parsed
-                  ? tasks.find((item) => item.title === parsed.title)
+                  ? tasks.find((item) => item.id === parsed.fromTaskId)
                   : undefined;
                 const chips = previewChips(source?.output ?? "");
                 const open = openDocId === event.id;

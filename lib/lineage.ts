@@ -104,9 +104,11 @@ function approvalFromEvents(taskId: string, events: ActivityEventDTO[]): Lineage
   const requested = latestEvent(events, taskId, "approval_requested");
   const event = approved ?? requested;
   if (!event) return null;
-  const match = approved ? event.message.match(/^(.+?) approved "/) : null;
+  // Structured column, not message parsing. Events written before the payload
+  // column existed (and not backfilled) simply show the message instead.
+  const approver = approved && typeof event.payload?.approver === "string" ? event.payload.approver : null;
   return {
-    approver: match?.[1] ?? null,
+    approver,
     message: hideModelIds(event.message),
     at: event.createdAt,
   };

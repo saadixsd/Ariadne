@@ -6,7 +6,6 @@ import { OutputView } from "@/components/OutputView";
 import { buildLineage, handoffConnector } from "@/lib/lineage";
 import type { TreeNode } from "@/lib/live-tree";
 import { hideModelIds } from "@/lib/model-label";
-import { parseHandoffMessage } from "@/lib/handoff-preview";
 import { nextTask, taskNumber } from "@/lib/task-rules";
 import type { ProjectDTO, TaskDTO } from "@/lib/types";
 
@@ -36,10 +35,7 @@ function HandoffLists({ task, project }: { task: TaskDTO; project: ProjectDTO })
   });
   const outgoingTasks = project.tasks.filter((item) => item.dependsOn.includes(task.id));
   const recordedIn = project.events.filter((event) => event.type === "handoff" && event.taskId === task.id);
-  const recordedOut = project.events.filter((event) => {
-    if (event.type !== "handoff") return false;
-    return parseHandoffMessage(event.message)?.title === task.title;
-  });
+  const recordedOut = project.events.filter((event) => event.type === "handoff" && event.fromTaskId === task.id);
 
   return (
     <div className="mt-4 grid gap-3">
