@@ -143,7 +143,7 @@ export function AccountPanel({
   return (
     <div className={`fixed inset-0 z-40 ${visible ? "" : "pointer-events-none"}`}>
       <div
-        className={`account-scrim absolute inset-0 bg-base/60 backdrop-blur-md ${shown}`}
+        className={`account-scrim absolute inset-0 bg-canvas/60 backdrop-blur-md ${shown}`}
         onMouseDown={onClose}
       />
       <div
@@ -157,7 +157,7 @@ export function AccountPanel({
       >
         <div className="flex items-start justify-between gap-3 border-b border-line px-4 py-3">
           <div className="min-w-0">
-            <h2 id={titleId} className="text-lg font-semibold leading-tight">
+            <h2 id={titleId} className="font-serif text-[26px] font-normal leading-tight">
               Settings
             </h2>
             <p className="mt-1 text-sm leading-normal text-ink-dim">
@@ -177,7 +177,7 @@ export function AccountPanel({
           <div className="flex items-center gap-3">
             <span
               aria-hidden
-              className="flex h-10 w-10 shrink-0 items-center justify-center bg-base text-sm font-semibold text-thread ring-1 ring-thread/40"
+              className="flex h-10 w-10 shrink-0 items-center justify-center bg-canvas text-sm font-semibold text-thread ring-1 ring-thread/40"
             >
               {initial}
             </span>
@@ -220,7 +220,7 @@ export function AccountPanel({
                   setBriefSaved(false);
                 }}
                 maxLength={120}
-                className="mt-1 w-full bg-base px-3 py-2 text-sm ring-1 ring-line"
+                className="mt-1 w-full bg-canvas px-3 py-2 text-sm ring-1 ring-line"
                 aria-label="Project name"
               />
             </label>
@@ -232,7 +232,7 @@ export function AccountPanel({
                   setDraftBrief(event.target.value);
                   setBriefSaved(false);
                 }}
-                className="mt-1 min-h-28 w-full bg-base px-3 py-2 text-sm leading-normal ring-1 ring-line"
+                className="mt-1 min-h-28 w-full bg-canvas px-3 py-2 text-sm leading-normal ring-1 ring-line"
                 aria-label="Project brief"
               />
             </label>
@@ -249,7 +249,7 @@ export function AccountPanel({
             <button
               type="submit"
               disabled={savingBrief}
-              className="bg-thread px-3 py-2 text-sm font-medium text-(--color-base) disabled:opacity-50"
+              className="bg-thread px-3 py-2 text-sm font-medium text-raised disabled:opacity-50"
             >
               {savingBrief ? "Saving" : "Save shared context"}
             </button>

@@ -1,3 +1,4 @@
+import { BrandMark } from "@/components/BrandMark";
 import { Dashboard } from "@/components/Dashboard";
 import { ProjectIntro } from "@/components/ProjectIntro";
 import { accountDisplay, isDemoAccount } from "@/lib/account";
@@ -33,8 +34,8 @@ export default async function Home({
   if (!existing) {
     return (
       <main className="mx-auto flex min-h-full max-w-lg flex-col justify-center px-6 py-16">
-        <p className="text-xs font-semibold tracking-[0.22em] text-thread">ARIADNE</p>
-        <h1 className="mt-2 text-2xl font-semibold leading-tight">No project yet</h1>
+        <BrandMark />
+        <h1 className="mt-6 font-serif text-[44px] font-normal leading-none tracking-[-0.015em]">No project yet</h1>
         <p className="mt-3 text-sm leading-normal text-ink-dim">
           Sign out and sign in again to name your project. That does not call Claude or GPT.
         </p>
@@ -48,7 +49,7 @@ export default async function Home({
   if (!project) {
     return (
       <main className="mx-auto flex min-h-full max-w-lg flex-col justify-center px-6">
-        <h1 className="text-2xl font-semibold leading-tight">Project unavailable</h1>
+        <h1 className="font-serif text-[40px] font-normal leading-none tracking-[-0.015em]">Project unavailable</h1>
         <p className="mt-3 text-sm leading-normal text-ink-dim">
           Refresh the page. If it stays empty, run the seed again. Nothing is sent to a model from
           this screen.

@@ -1,3 +1,4 @@
+import { BrandMark } from "@/components/BrandMark";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -24,9 +25,9 @@ export default async function FeedbackInbox() {
 
   return (
     <main className="mx-auto min-h-full max-w-2xl px-4 py-8">
-      <p className="text-xs font-semibold tracking-[0.22em] text-thread">ARIADNE</p>
+      <BrandMark />
       <div className="mt-2 flex items-end justify-between gap-4">
-        <h1 className="text-2xl font-semibold leading-tight">Feedback</h1>
+        <h1 className="font-serif text-[40px] font-normal leading-none tracking-[-0.015em]">Feedback</h1>
         <Link href="/" className="text-sm text-thread hover:text-thread-bright">
           Back to workspace
         </Link>

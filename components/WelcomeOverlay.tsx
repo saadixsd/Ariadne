@@ -35,11 +35,11 @@ export function WelcomeOverlay({
   }
 
   return (
-    <aside className="enter mx-3 mt-3 bg-raised p-4 ring-1 ring-thread/40">
+    <aside className="enter mx-7 mt-3 shrink-0 rounded-2xl border border-thread-soft bg-raised p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-xs font-semibold tracking-[0.16em] text-thread">Onboarding</p>
-          <h2 className="mt-1 text-lg font-semibold leading-tight">You&apos;re the conductor now.</h2>
+          <h2 className="mt-1 font-serif text-[26px] font-normal leading-tight">You&apos;re the conductor now.</h2>
         </div>
         <button type="button" onClick={() => writeFlag(DISMISS_KEY, true)} className="shrink-0 text-sm text-ink-dim hover:text-ink">
           Dismiss
@@ -71,7 +71,7 @@ export function WelcomeOverlay({
       <button
         type="button"
         onClick={onRunDemo}
-        className="mt-4 bg-thread px-3 py-2 text-sm font-medium text-(--color-base) hover:bg-thread-bright"
+        className="mt-4 bg-thread px-3 py-2 text-sm font-medium text-raised hover:bg-thread-bright"
       >
         {canHighlightRun ? "Run the demo" : "Review the workflow"}
       </button>

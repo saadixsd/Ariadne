@@ -53,7 +53,7 @@ export function NewProjectDialog({
 
   return (
     <div className="fixed inset-0 z-50">
-      <div className="account-scrim absolute inset-0 bg-base/60 opacity-100 backdrop-blur-md" onMouseDown={onClose} />
+      <div className="account-scrim absolute inset-0 bg-canvas/60 opacity-100 backdrop-blur-md" onMouseDown={onClose} />
       <div className="absolute inset-0 flex items-end justify-center p-4 sm:items-center">
         <form
           ref={panelRef}
@@ -61,7 +61,7 @@ export function NewProjectDialog({
           aria-modal="true"
           aria-labelledby={titleId}
           aria-describedby={error ? errorId : undefined}
-          className="enter w-full max-w-lg bg-raised p-5 ring-1 ring-line"
+          className="enter w-full max-w-lg bg-raised rounded-2xl p-5 ring-1 ring-line"
           onMouseDown={(event) => event.stopPropagation()}
           onSubmit={async (event) => {
             event.preventDefault();
@@ -83,7 +83,7 @@ export function NewProjectDialog({
             }
           }}
         >
-          <h2 id={titleId} className="text-lg font-semibold leading-tight">
+          <h2 id={titleId} className="font-serif text-[26px] font-normal leading-tight">
             New project
           </h2>
           <p className="mt-2 text-sm leading-normal text-ink-dim">
@@ -96,7 +96,7 @@ export function NewProjectDialog({
               value={name}
               onChange={(event) => setName(event.target.value)}
               maxLength={120}
-              className="mt-1 w-full bg-base px-3 py-2 text-sm ring-1 ring-line"
+              className="mt-1 w-full bg-canvas px-3 py-2 text-sm ring-1 ring-line"
               aria-label="Project name"
             />
           </label>
@@ -105,7 +105,7 @@ export function NewProjectDialog({
             <textarea
               value={brief}
               onChange={(event) => setBrief(event.target.value)}
-              className="mt-1 min-h-28 w-full bg-base px-3 py-2 text-sm leading-normal ring-1 ring-line"
+              className="mt-1 min-h-28 w-full bg-canvas px-3 py-2 text-sm leading-normal ring-1 ring-line"
               aria-label="Project brief"
             />
           </label>
@@ -121,7 +121,7 @@ export function NewProjectDialog({
             <button
               type="submit"
               disabled={saving}
-              className="bg-thread px-3 py-2 text-sm font-medium text-(--color-base) disabled:opacity-50"
+              className="bg-thread px-3 py-2 text-sm font-medium text-raised disabled:opacity-50"
             >
               {saving ? "Creating" : "Create project"}
             </button>

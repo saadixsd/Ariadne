@@ -56,14 +56,15 @@ export function AddTaskForm({
 
   if (!open) {
     return (
-      <div className="border-t border-line px-4 py-3">
+      <div className="py-3 pl-[78px]">
         <button
           type="button"
+          data-add-step
           onClick={() => setOpen(true)}
           disabled={agents.length === 0}
-          className="px-3 py-1.5 text-sm text-thread-bright ring-1 ring-thread/60 hover:bg-thread/10 disabled:cursor-not-allowed disabled:text-ink-dim disabled:ring-line"
+          className="flex h-11 w-full items-center gap-2 rounded-[14px] border border-dashed border-line-strong px-4 text-left text-[13px] font-[550] text-ink-dim hover:border-thread hover:text-thread disabled:cursor-not-allowed disabled:opacity-50"
         >
-          + Add task
+          <span aria-hidden className="text-thread">＋</span> Add a step to the thread
         </button>
       </div>
     );
@@ -72,7 +73,7 @@ export function AddTaskForm({
   return (
     <form
       ref={formRef}
-      className="max-h-[min(32rem,55vh)] overflow-y-auto border-t border-line px-4 py-3"
+      className="rt-card mt-3 mb-4 ml-[78px] max-h-[min(32rem,55vh)] overflow-y-auto px-5 py-4"
       onSubmit={async (event) => {
         event.preventDefault();
         if (!ready || saving) return;
@@ -96,7 +97,7 @@ export function AddTaskForm({
         }
       }}
     >
-      <h3 className="text-sm font-semibold leading-tight">Add a task</h3>
+      <h3 className="font-serif text-[23px] leading-tight">Add a step</h3>
       <p className="mt-1 text-xs leading-normal text-ink-dim">
         This adds one step to the board. It does not call Claude or GPT.
       </p>
@@ -106,7 +107,7 @@ export function AddTaskForm({
           value={title}
           onChange={(event) => setTitle(event.target.value)}
           required
-          className="mt-1 w-full bg-base px-3 py-2 text-sm ring-1 ring-line"
+          className="mt-1 w-full bg-raised px-3 py-2 text-sm ring-1 ring-line"
           aria-label="Task title"
         />
       </label>
@@ -115,7 +116,7 @@ export function AddTaskForm({
         <select
           value={agentId}
           onChange={(event) => setAgentId(event.target.value)}
-          className="mt-1 w-full bg-base px-3 py-2 text-sm ring-1 ring-line"
+          className="mt-1 w-full bg-raised px-3 py-2 text-sm ring-1 ring-line"
           aria-label="Agent"
         >
           {agents.map((agent) => (
@@ -132,7 +133,7 @@ export function AddTaskForm({
           onChange={(event) => setInstructions(event.target.value)}
           required
           rows={4}
-          className="mt-1 w-full bg-base px-3 py-2 text-sm leading-normal ring-1 ring-line"
+          className="mt-1 w-full bg-raised px-3 py-2 text-sm leading-normal ring-1 ring-line"
           aria-label="Task instructions"
         />
       </label>
@@ -171,23 +172,23 @@ export function AddTaskForm({
           aria-checked={requiresApproval}
           aria-labelledby="requires-approval-label"
           onClick={() => setRequiresApproval((current) => !current)}
-          className={`relative h-5 w-9 shrink-0 ring-1 ring-line ${requiresApproval ? "bg-gate" : "bg-thread-dim"}`}
+          className={`relative h-5 w-9 shrink-0 ring-1 ring-line rounded-full ${requiresApproval ? "bg-ink" : "bg-thread-dim"}`}
         >
           <span
             aria-hidden
-            className={`absolute top-0.5 h-4 w-4 bg-white shadow-sm transition-transform ${requiresApproval ? "translate-x-4" : "translate-x-0.5"}`}
+            className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${requiresApproval ? "translate-x-4" : "translate-x-0.5"}`}
           />
         </button>
       </div>
       {error ? <p className="mt-3 text-sm leading-normal text-danger">{error}</p> : null}
       <div className="mt-4 flex justify-end gap-2">
-        <button type="button" onClick={close} className="px-3 py-2 text-sm text-ink-dim hover:text-ink">
+        <button type="button" onClick={close} className="rt-btn rt-btn-ghost">
           Cancel
         </button>
         <button
           type="submit"
           disabled={!ready || saving}
-          className="bg-thread px-3 py-2 text-sm font-medium text-(--color-base) disabled:opacity-50"
+          className="rt-btn rt-btn-thread"
         >
           {saving ? "Adding" : "Add task"}
         </button>

@@ -1,15 +1,32 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 
-const inter = Inter({
-  variable: "--font-inter",
-  subsets: ["latin"],
+const instrumentSerif = localFont({
+  variable: "--font-instrument-serif",
+  display: "swap",
+  src: [
+    { path: "./fonts/InstrumentSerif-Regular.ttf", weight: "400", style: "normal" },
+    { path: "./fonts/InstrumentSerif-Italic.ttf", weight: "400", style: "italic" },
+  ],
+  fallback: ["Iowan Old Style", "Georgia", "serif"],
 });
 
-const jetbrains = JetBrains_Mono({
-  variable: "--font-jetbrains",
-  subsets: ["latin"],
+const instrumentSans = localFont({
+  variable: "--font-instrument-sans",
+  display: "swap",
+  src: [{ path: "./fonts/InstrumentSans.ttf", weight: "400 700", style: "normal" }],
+  fallback: ["ui-sans-serif", "system-ui", "sans-serif"],
+});
+
+const dmMono = localFont({
+  variable: "--font-dm-mono",
+  display: "swap",
+  src: [
+    { path: "./fonts/DMMono-Regular.ttf", weight: "400", style: "normal" },
+    { path: "./fonts/DMMono-Medium.ttf", weight: "500", style: "normal" },
+  ],
+  fallback: ["ui-monospace", "Menlo", "monospace"],
 });
 
 export const metadata: Metadata = {
@@ -19,8 +36,11 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${inter.variable} ${jetbrains.variable} h-full antialiased`}>
-      <body className="h-full bg-base font-sans text-ink">{children}</body>
+    <html
+      lang="en"
+      className={`${instrumentSerif.variable} ${instrumentSans.variable} ${dmMono.variable} h-full antialiased`}
+    >
+      <body className="h-full font-sans text-ink">{children}</body>
     </html>
   );
 }

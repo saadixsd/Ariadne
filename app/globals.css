@@ -1,25 +1,52 @@
 @import "tailwindcss";
 
+/*
+  Red Thread theme.
+  Colour tokens deliberately avoid Tailwind's type-scale names (xs, sm, base, lg, …):
+  in Tailwind v4 a token called --color-base turns `text-base` into a colour as well as
+  a size, which is how the Board's task titles went invisible. The ground is "canvas".
+*/
 @theme inline {
-  --font-sans: var(--font-inter), ui-sans-serif, sans-serif;
-  --font-mono: var(--font-jetbrains), ui-monospace, monospace;
+  --font-sans: var(--font-instrument-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-serif: var(--font-instrument-serif), "Iowan Old Style", Georgia, serif;
+  --font-mono: var(--font-dm-mono), ui-monospace, "SF Mono", Menlo, monospace;
 
-  --color-base: #f6faf6;
-  --color-panel: #fbfdfb;
-  --color-raised: #ffffff;
-  --color-line: #dfe9e1;
-  --color-tint: #eef6f0;
-  --color-thread: #0e5c36;
-  --color-thread-bright: #15804c;
-  --color-thread-dim: #e6ebe7;
-  --color-ink: #101812;
-  --color-ink-dim: #5c6f61;
-  --color-ok: #10b981;
-  --color-working: #10b981;
-  --color-danger: #dc2626;
-  --color-gate: #f59e0b;
-  --color-gate-bright: #fbbf24;
-  --color-gate-ink: #b45309;
+  /* ground + surfaces */
+  --color-canvas: #f2ece1; /* linen */
+  --color-panel: #f7f2e8; /* paper-2 */
+  --color-raised: #fbf8f2; /* paper */
+  --color-tint: #f6efe2;
+  --color-line: #e1d7c6;
+  --color-line-strong: #cfc2ad;
+
+  /* ink */
+  --color-ink: #1f1a14;
+  --color-ink-dim: #5e554a;
+  --color-ink-faint: #857a6a;
+
+  /* the thread: work that has flowed */
+  --color-thread: #b3302a;
+  --color-thread-bright: #962620; /* hover / pressed */
+  --color-thread-soft: #f3d9d2;
+  --color-thread-dim: #b9ae9c; /* graphite: unspun */
+
+  /* the knot: waiting on you, and nothing else */
+  --color-gate: #c98a12;
+  --color-gate-bright: #b07808;
+  --color-gate-ink: #8a5b06;
+  --color-gate-bg: #fbefd2;
+  --color-gate-line: #ebc36c;
+
+  /* states */
+  --color-ok: #5f7f4e;
+  --color-working: #b3302a;
+  --color-danger: #8e2119;
+
+  /* agent identity */
+  --color-agent-1: #2f3b4c; /* slate */
+  --color-agent-2: #6b4f2a; /* umber */
+  --color-agent-3: #3f5a4a; /* moss */
+  --color-agent-4: #5b3f5e; /* plum */
 }
 
 html {
@@ -28,8 +55,22 @@ html {
 
 body {
   font-family: var(--font-sans);
-  background: var(--color-base);
+  font-size: 14px;
+  line-height: 1.45;
+  background-color: var(--color-canvas);
+  background-image: radial-gradient(rgba(120, 95, 60, 0.07) 1px, transparent 1px);
+  background-size: 5px 5px;
   color: var(--color-ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+@layer base {
+  button,
+  input:not([type="checkbox"]):not([type="radio"]),
+  textarea,
+  select {
+    border-radius: 9px;
+  }
 }
 
 :focus-visible {
@@ -43,13 +84,102 @@ a[href] {
 }
 
 [role="dialog"] {
-  box-shadow: 0 12px 40px rgba(16, 24, 18, 0.14);
+  box-shadow: 0 30px 60px -30px rgba(31, 26, 20, 0.45), 0 6px 18px -8px rgba(31, 26, 20, 0.18);
 }
 
 .ink-on-thread {
-  color: var(--color-base);
+  color: var(--color-raised);
 }
 
+.tnum {
+  font-feature-settings: "tnum";
+}
+
+/* shared primitives (in the components layer so utilities can override) */
+@layer components {
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-ink-faint);
+}
+
+.rt-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 13px;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 560;
+  white-space: nowrap;
+  border: 1px solid var(--color-line-strong);
+  background: var(--color-raised);
+  color: var(--color-ink);
+  transition: transform 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
+}
+.rt-btn:not(:disabled):hover {
+  box-shadow: 0 1px 0 rgba(31, 26, 20, 0.04), 0 6px 18px -8px rgba(31, 26, 20, 0.18);
+  transform: translateY(-1px);
+}
+.rt-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.rt-btn-ink {
+  background: var(--color-ink);
+  border-color: var(--color-ink);
+  color: var(--color-raised);
+}
+.rt-btn-thread {
+  background: var(--color-thread);
+  border-color: var(--color-thread-bright);
+  color: var(--color-raised);
+}
+.rt-btn-thread:not(:disabled):hover {
+  background: var(--color-thread-bright);
+}
+.rt-btn-knot {
+  background: var(--color-gate);
+  border-color: var(--color-gate-bright);
+  color: #fff;
+  box-shadow: 0 6px 16px -8px rgba(201, 138, 18, 0.9);
+}
+.rt-btn-knot:not(:disabled):hover {
+  background: var(--color-gate-bright);
+}
+.rt-btn-ghost {
+  border-color: transparent;
+  background: transparent;
+  color: var(--color-ink-dim);
+}
+.rt-btn-ghost:not(:disabled):hover {
+  background: var(--color-panel);
+  box-shadow: none;
+}
+
+.rt-card {
+  background: var(--color-raised);
+  border: 1px solid var(--color-line);
+  border-radius: 14px;
+  box-shadow: 0 1px 0 rgba(31, 26, 20, 0.04), 0 6px 18px -8px rgba(31, 26, 20, 0.18);
+}
+
+.monogram {
+  display: grid;
+  place-items: center;
+  flex: none;
+  border-radius: 999px;
+  color: var(--color-raised);
+  font-weight: 700;
+}
+
+}
+
+/* motion: only where work is moving */
 .enter {
   animation: fade-up 320ms ease both;
 }
@@ -64,9 +194,26 @@ a[href] {
   animation: status-pulse 1.5s ease-in-out infinite;
 }
 
-.thread-flow {
-  transform-origin: top;
-  animation: thread-light 900ms ease both;
+.thread-draw {
+  /* paths using this set pathLength="1" */
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: thread-draw 600ms ease-out forwards;
+}
+
+.thread-spin {
+  stroke-dasharray: 6 4;
+  animation: shimmer 1s linear infinite;
+}
+
+.knot-breathe {
+  animation: knot-breathe 2.4s ease-in-out infinite;
+}
+
+.spindle {
+  animation: spin 1.4s linear infinite;
+  transform-box: fill-box;
+  transform-origin: center;
 }
 
 @keyframes fade-up {
@@ -90,14 +237,31 @@ a[href] {
   }
 }
 
-@keyframes thread-light {
-  from {
-    opacity: 0.3;
-    transform: scaleY(0.15);
-  }
+@keyframes thread-draw {
   to {
-    opacity: 1;
-    transform: scaleY(1);
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes shimmer {
+  to {
+    stroke-dashoffset: -40;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes knot-breathe {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(201, 138, 18, 0.35), 0 6px 18px -8px rgba(31, 26, 20, 0.18);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(201, 138, 18, 0), 0 6px 18px -8px rgba(31, 26, 20, 0.18);
   }
 }
 
@@ -105,14 +269,27 @@ a[href] {
   .enter,
   .pulse-status,
   .pulse-run,
-  .thread-flow,
+  .thread-spin,
+  .knot-breathe,
+  .spindle,
   .animate-pulse {
     animation: none !important;
   }
 
+  .thread-draw {
+    animation: none !important;
+    stroke-dasharray: none;
+    stroke-dashoffset: 0;
+  }
+
   .account-scrim,
-  .account-panel {
+  .account-panel,
+  .rt-btn {
     transition: none;
+  }
+
+  .rt-btn:not(:disabled):hover {
+    transform: none;
   }
 }
 
@@ -123,21 +300,30 @@ a[href] {
 .markdown h1,
 .markdown h2,
 .markdown h3 {
-  font-weight: 600;
-  line-height: 1.25;
+  font-family: var(--font-serif);
+  font-weight: 400;
+  line-height: 1.15;
   margin: 0.75rem 0 0.25rem;
 }
 
 .markdown h1 {
-  font-size: 1.25rem;
+  font-size: 1.6rem;
 }
 
 .markdown h2 {
-  font-size: 1.05rem;
+  font-size: 1.3rem;
+}
+
+.markdown h3 {
+  font-size: 1.1rem;
 }
 
 .markdown p {
   margin: 0.4rem 0;
+}
+
+.markdown strong {
+  font-weight: 600;
 }
 
 .markdown ul,
@@ -154,12 +340,17 @@ a[href] {
   list-style: decimal;
 }
 
+.markdown li::marker {
+  color: var(--color-thread);
+}
+
 .markdown pre {
   overflow: auto;
-  background: var(--color-base);
+  background: var(--color-canvas);
   color: var(--color-ink);
   padding: 0.75rem;
   font-size: 0.75rem;
+  border-radius: 10px;
 }
 
 .markdown code {
@@ -170,4 +361,5 @@ a[href] {
 .markdown p code {
   background: var(--color-tint);
   padding: 0.1rem 0.3rem;
+  border-radius: 5px;
 }

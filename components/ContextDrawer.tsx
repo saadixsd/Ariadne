@@ -83,7 +83,7 @@ export function ContextDrawer({
   const header = (
     <div className="flex items-start justify-between gap-3 border-b border-line px-5 py-4">
       <div className="min-w-0">
-        <h2 id={titleId} className="text-lg font-semibold leading-tight">
+        <h2 id={titleId} className="font-serif text-[26px] font-normal leading-tight">
           Shared context
         </h2>
         <p className="mt-1 text-sm leading-normal text-ink-dim">
@@ -113,7 +113,7 @@ export function ContextDrawer({
             value={draftName}
             onChange={(event) => setDraftName(event.target.value)}
             maxLength={120}
-            className="mt-1 w-full bg-base px-3 py-2 text-sm ring-1 ring-line"
+            className="mt-1 w-full bg-canvas px-3 py-2 text-sm ring-1 ring-line"
             aria-label="Project name"
           />
         </label>
@@ -122,7 +122,7 @@ export function ContextDrawer({
           <textarea
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
-            className="mt-1 min-h-64 w-full flex-1 bg-base px-3 py-2 text-sm leading-normal ring-1 ring-line"
+            className="mt-1 min-h-64 w-full flex-1 bg-canvas px-3 py-2 text-sm leading-normal ring-1 ring-line"
             aria-label="Project brief"
           />
         </label>
@@ -143,7 +143,7 @@ export function ContextDrawer({
           type="button"
           disabled={saving || unchanged || draft.trim().length === 0 || draftName.trim().length === 0}
           onClick={() => void save()}
-          className="bg-thread px-3 py-2 text-sm font-medium text-(--color-base) disabled:opacity-50"
+          className="bg-thread px-3 py-2 text-sm font-medium text-raised disabled:opacity-50"
         >
           {saving ? "Saving" : "Save"}
         </button>
@@ -155,7 +155,7 @@ export function ContextDrawer({
     return (
       <div className="fixed inset-0 z-50">
         <div
-          className="account-scrim absolute inset-0 bg-base/60 opacity-100 backdrop-blur-md"
+          className="account-scrim absolute inset-0 bg-canvas/60 opacity-100 backdrop-blur-md"
           onMouseDown={onClose}
         />
         <div className="absolute inset-0 flex items-end justify-center p-4 sm:items-center">
@@ -165,7 +165,7 @@ export function ContextDrawer({
             aria-modal="true"
             aria-labelledby={titleId}
             aria-describedby={error ? errorId : undefined}
-            className="enter flex max-h-[min(40rem,calc(100%-2rem))] w-full max-w-lg flex-col bg-raised ring-1 ring-line"
+            className="enter flex max-h-[min(40rem,calc(100%-2rem))] w-full max-w-lg flex-col bg-raised rounded-2xl ring-1 ring-line"
             onMouseDown={(event) => event.stopPropagation()}
           >
             {body}
@@ -183,7 +183,7 @@ export function ContextDrawer({
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={error ? errorId : undefined}
-        className="flex h-full w-full max-w-md flex-col bg-raised ring-1 ring-line"
+        className="flex h-full w-full max-w-md flex-col border-l border-line bg-raised"
         onMouseDown={(event) => event.stopPropagation()}
       >
         {body}

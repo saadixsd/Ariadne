@@ -81,7 +81,7 @@ export function ProjectIntro() {
         <button
           type="submit"
           disabled={saving}
-          className="mt-8 h-12 w-full rounded-full bg-thread text-[17px] font-medium text-(--color-base) disabled:opacity-50"
+          className="mt-8 h-12 w-full rounded-full bg-thread text-[17px] font-medium text-raised disabled:opacity-50"
         >
           {saving ? "Starting" : "Continue"}
         </button>

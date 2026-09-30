@@ -12,7 +12,7 @@ export function OutputView({ output }: { output: string }) {
           srcDoc={html}
           className="h-80 w-full border border-line bg-white"
         />
-        <pre className="max-h-48 overflow-auto bg-base p-3 font-mono text-xs leading-normal text-ink ring-1 ring-line">
+        <pre className="max-h-48 overflow-auto bg-canvas p-3 font-mono text-xs leading-normal text-ink ring-1 ring-line">
           {html}
         </pre>
       </div>

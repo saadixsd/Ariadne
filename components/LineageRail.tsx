@@ -37,7 +37,7 @@ function Mark({ node }: { node: LineageStep["node"] }) {
   }
   if (node.status === "done") {
     return (
-      <span className="font-mono text-lg leading-none text-ok" aria-label="done">
+      <span className="font-mono text-lg leading-none text-thread" aria-label="done">
         ●
       </span>
     );
@@ -146,7 +146,7 @@ function LineageList({ steps }: { steps: LineageStep[] }) {
                 </span>
               </div>
               <article
-                className={`mb-1 px-3 py-3 ring-1 ${
+                className={`mb-1 rounded-xl px-3 py-3 ring-1 ${
                   decision
                     ? "bg-thread/10 ring-thread"
                     : node.kind !== "brief" && node.selected
@@ -155,11 +155,11 @@ function LineageList({ steps }: { steps: LineageStep[] }) {
                 }`}
               >
                 {node.kind === "brief" ? (
-                  <p className="text-xs font-semibold tracking-[0.16em] text-thread-bright">BRIEF</p>
+                  <p className="eyebrow text-thread">BRIEF</p>
                 ) : decision ? (
-                  <p className="text-xs font-semibold tracking-[0.16em] text-gate-ink">DECISION</p>
+                  <p className="eyebrow text-gate-ink">DECISION</p>
                 ) : null}
-                <p className="font-semibold leading-tight">
+                <p className="font-serif text-[19px] leading-tight">
                   {node.kind === "brief" ? null : (
                     <span className="mr-2 font-mono text-xs text-ink-dim">#{node.number}</span>
                   )}
@@ -167,7 +167,7 @@ function LineageList({ steps }: { steps: LineageStep[] }) {
                 </p>
                 {node.kind === "brief" ? null : (
                   <p className="mt-1">
-                    <span className="bg-base px-1.5 py-0.5 font-mono text-[11px] text-thread-bright ring-1 ring-line">
+                    <span className="rounded-md bg-canvas px-1.5 py-0.5 font-mono text-[11px] text-ink-dim ring-1 ring-line">
                       {node.badge}
                     </span>
                   </p>
@@ -222,13 +222,13 @@ export function LineageRail({
         aria-modal="true"
         aria-labelledby="lineage-title"
         data-lineage-rail
-        className="enter flex h-full w-full max-w-md flex-col bg-raised ring-1 ring-line"
+        className="enter flex h-full w-full max-w-md flex-col border-l border-line bg-raised"
         onMouseDown={(event) => event.stopPropagation()}
       >
         <div className="border-b border-line px-5 py-4">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h2 id="lineage-title" className="text-lg font-semibold leading-tight">
+              <h2 id="lineage-title" className="font-serif text-[26px] font-normal leading-tight">
                 Lineage
               </h2>
               {selected && selected.kind !== "brief" ? (

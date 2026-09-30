@@ -36,11 +36,11 @@ export function ApprovalModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="approval-title"
-        className="flex max-h-[90vh] w-full max-w-2xl flex-col border-t-2 border-gate bg-raised ring-1 ring-line"
+        className="flex max-h-[90vh] w-full max-w-2xl flex-col border-t-2 border-gate bg-raised rounded-2xl ring-1 ring-line"
       >
         <div className="px-5 py-5">
           <p className="text-xs font-semibold tracking-[0.16em] text-gate-ink">APPROVAL GATE</p>
-          <h2 id="approval-title" className="mt-1 text-xl font-semibold leading-tight">
+          <h2 id="approval-title" className="mt-1 font-serif text-[30px] font-normal leading-tight">
             {task.title}
           </h2>
           <p className="mt-2 text-sm leading-normal text-gate-ink">
@@ -67,7 +67,7 @@ export function ApprovalModal({
               onChange={(event) => setNote(event.target.value)}
               rows={3}
               placeholder="What should change?"
-              className="mt-1 w-full bg-base px-3 py-2 text-sm leading-normal ring-1 ring-line"
+              className="mt-1 w-full bg-canvas px-3 py-2 text-sm leading-normal ring-1 ring-line"
             />
           </label>
           <div className="flex flex-wrap justify-end gap-2">

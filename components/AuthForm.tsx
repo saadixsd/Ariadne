@@ -1,5 +1,6 @@
 "use client";
 
+import { BrandMark } from "@/components/BrandMark";
 import Link from "next/link";
 import { useState } from "react";
 import { DAILY_MODEL_RUNS } from "@/lib/limits";
@@ -90,8 +91,8 @@ export function AuthForm({
 
   return (
     <main className="mx-auto flex min-h-full max-w-md flex-col justify-center px-6 py-16">
-      <p className="text-xs font-semibold tracking-[0.22em] text-thread">ARIADNE</p>
-      <h1 className="mt-2 text-2xl font-semibold leading-tight">{title}</h1>
+      <BrandMark />
+      <h1 className="mt-6 font-serif text-[44px] font-normal leading-none tracking-[-0.015em]">{title}</h1>
       <p className="mt-2 text-sm leading-normal text-ink-dim">
         {mode === "verify"
           ? "Enter the 6-digit code. It expires in 15 minutes."
@@ -106,7 +107,7 @@ export function AuthForm({
             required
             value={address}
             onChange={(event) => setAddress(event.target.value)}
-            className="mt-1 w-full bg-base px-3 py-2 text-sm ring-1 ring-line"
+            className="mt-1 w-full bg-canvas px-3 py-2 text-sm ring-1 ring-line"
           />
         </label>
         {mode === "verify" ? (
@@ -118,7 +119,7 @@ export function AuthForm({
               required
               value={code}
               onChange={(event) => setCode(event.target.value)}
-              className="mt-1 w-full bg-base px-3 py-2 font-mono text-sm ring-1 ring-line"
+              className="mt-1 w-full bg-canvas px-3 py-2 font-mono text-sm ring-1 ring-line"
             />
           </label>
         ) : (
@@ -131,7 +132,7 @@ export function AuthForm({
               minLength={8}
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              className="mt-1 w-full bg-base px-3 py-2 text-sm ring-1 ring-line"
+              className="mt-1 w-full bg-canvas px-3 py-2 text-sm ring-1 ring-line"
             />
           </label>
         )}
@@ -140,7 +141,7 @@ export function AuthForm({
         <button
           type="submit"
           disabled={busy}
-          className="bg-thread px-3 py-2 text-sm font-medium text-(--color-base) disabled:opacity-50"
+          className="bg-thread px-3 py-2 text-sm font-medium text-raised disabled:opacity-50"
         >
           {busy ? "Working" : mode === "sign-up" ? "Create account" : mode === "verify" ? "Verify" : "Sign in"}
         </button>

@@ -23,7 +23,7 @@ export class RegionBoundary extends Component<
           <button
             type="button"
             onClick={() => this.setState({ error: null })}
-            className="mt-3 bg-thread px-3 py-1.5 text-sm font-medium text-(--color-base) hover:bg-thread-bright"
+            className="mt-3 bg-thread px-3 py-1.5 text-sm font-medium text-raised hover:bg-thread-bright"
           >
             Try again
           </button>

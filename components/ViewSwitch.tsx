@@ -2,10 +2,11 @@ export function ViewSwitch({ view, projectId }: { view: "board" | "tree"; projec
   const query = `project=${encodeURIComponent(projectId)}`;
   const board = `/?${query}`;
   const tree = `/tree?${query}`;
-  const active = "bg-thread px-2 py-1 font-medium text-raised";
-  const idle = "px-2 py-1 text-ink-dim hover:text-ink";
+  const base = "rounded-full px-3.5 py-[5px] text-[13px] font-[550] transition-colors";
+  const active = `${base} bg-ink text-raised`;
+  const idle = `${base} text-ink-dim hover:text-ink`;
   return (
-    <nav aria-label="View" className="flex overflow-hidden rounded-md bg-raised text-sm ring-1 ring-line">
+    <nav aria-label="View" className="flex rounded-full border border-line bg-panel p-[3px]">
       <a href={board} aria-current={view === "board" ? "page" : undefined} className={view === "board" ? active : idle}>
         Board
       </a>
