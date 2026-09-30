@@ -3,9 +3,9 @@
   task and event data the Board and Tree already load. Nothing calls a model.
 */
 import { directDependencies } from "@/lib/depends";
-import { previewChips } from "@/lib/handoff-preview";
+import { handoffFromEvent, previewChips } from "@/lib/handoff-preview";
 import { orderedLineageTasks } from "@/lib/lineage";
-import { displayModel } from "@/lib/model-label";
+import { displayModel, hideModelIds } from "@/lib/model-label";
 import { composeUserPrompt, packageDependencyOutputs, type HandoffInput } from "@/lib/prompt";
 import { dependenciesMet, taskNumber } from "@/lib/task-rules";
 import type { ActivityEventDTO, AgentDTO, ProjectDTO, TaskDTO } from "@/lib/types";
@@ -508,8 +508,9 @@ export function stepRange(tasks: TaskDTO[], all: TaskDTO[]): string {
 
 export type LedgerEntry = { id: string; at: string; text: string; tone: "knot" | "fail" | "plain" | "thread"; taskId: string | null };
 
-function quoted(message: string): string | null {
-  return message.match(/"(.+)"/)?.[1] ?? null;
+function payloadText(event: ActivityEventDTO, key: string): string | null {
+  const value = event.payload?.[key];
+  return typeof value === "string" && value.length > 0 ? value : null;
 }
 
 export function ledgerEntries(project: ProjectDTO): LedgerEntry[] {
@@ -520,23 +521,29 @@ export function ledgerEntries(project: ProjectDTO): LedgerEntry[] {
   for (let index = 0; index < events.length; index += 1) {
     const event = events[index];
     const target = task(event);
-    const title = quoted(event.message) ?? target?.title ?? "";
+    const title = target?.title ?? "";
     if (event.type === "handoff") {
       const group = [event];
       while (events[index + 1]?.type === "handoff" && events[index + 1]?.taskId === event.taskId) {
         group.push(events[index + 1]);
         index += 1;
       }
-      const parsed = group.map((item) => item.message.match(/^Handoff: (.+) handed "(.+)" to (.+)$/)).filter(Boolean) as RegExpMatchArray[];
-      const from = [...new Set(parsed.map((match) => match[1]))].reverse().join(", ");
-      const to = parsed[0]?.[3] ?? target?.title ?? "";
-      const source = parsed.length === 1 ? project.tasks.find((item) => item.title === parsed[0][2]) : undefined;
-      const what = parsed.length > 1 ? `${parsed.length} inputs` : source ? carriedNoun(source, agents) : (parsed[0]?.[2] ?? "");
-      entries.push({ id: event.id, at: event.createdAt, text: `${from} → ${to} · ${what}`, tone: "thread", taskId: event.taskId });
+      const details = group.map((item) => handoffFromEvent(item, project.tasks, agents)).filter((item) => item !== null);
+      const from = [...new Set(details.map((item) => item.from))].reverse().join(", ");
+      const to = details[0]?.to ?? agentOf(target, agents)?.name ?? title;
+      const source = details.length === 1 ? project.tasks.find((item) => item.id === details[0].fromTaskId) : undefined;
+      const what = details.length > 1 ? `${details.length} inputs` : source ? carriedNoun(source, agents) : (details[0]?.title ?? "");
+      entries.push({
+        id: event.id,
+        at: event.createdAt,
+        text: details.length > 0 ? `${from} → ${to} · ${what}` : hideModelIds(event.message),
+        tone: "thread",
+        taskId: event.taskId,
+      });
       continue;
     }
-    const who = agentOf(target, agents)?.name ?? event.message.split(" ")[0];
-    let text = event.message;
+    const who = agentOf(target, agents)?.name ?? payloadText(event, "agent") ?? "An agent";
+    let text = hideModelIds(event.message);
     let tone: LedgerEntry["tone"] = "plain";
     if (event.type === "approval_requested") {
       text = `Knot opened for You · ${title}`;
@@ -550,10 +557,12 @@ export function ledgerEntries(project: ProjectDTO): LedgerEntry[] {
       text = `You tied off ${title}`;
       tone = "thread";
     } else if (event.type === "failed") {
-      text = `Frayed: ${title || event.message}`;
+      text = title ? `Frayed: ${title}` : text;
       tone = "fail";
-    } else if (event.type === "note") {
-      text = `You asked for changes on ${title}`;
+    } else if (event.type === "note" && event.payload?.decision === "changes_requested") {
+      text = `${payloadText(event, "approver") ?? "You"} asked for changes on ${title}`;
+    } else if (event.type === "note" && event.payload?.kind === "rerun_cleared") {
+      text = `Rerun cleared what came after ${title}`;
     }
     entries.push({ id: event.id, at: event.createdAt, text, tone, taskId: event.taskId });
   }
@@ -561,11 +570,11 @@ export function ledgerEntries(project: ProjectDTO): LedgerEntry[] {
 }
 
 /**
- * The stored failure text for a task, without the "Scout failed "Title": " lead-in the
- * activity event carries, since the card around it already names the agent and step.
+ * Why a task's latest run failed, from the failed event's structured payload. Events
+ * written before the payload column existed fall back to their plain message.
  */
 export function failureReason(taskId: string, events: ActivityEventDTO[]): string | null {
-  const message = events.find((event) => event.type === "failed" && event.taskId === taskId)?.message;
-  if (!message) return null;
-  return message.replace(/^[^\n]{1,80}? failed "[^"\n]*": /, "") || message;
+  const event = events.find((item) => item.type === "failed" && item.taskId === taskId);
+  if (!event) return null;
+  return payloadText(event, "error") ?? event.message;
 }
