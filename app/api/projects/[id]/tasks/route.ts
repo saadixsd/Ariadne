@@ -1,5 +1,7 @@
 import { requireUser } from "@/lib/auth";
 import { errorResponse } from "@/lib/errors";
+import { assertMaxLength } from "@/lib/input-caps";
+import { MAX_INSTRUCTIONS_CHARS, MAX_TASK_TITLE_CHARS } from "@/lib/limits";
 import { prisma } from "@/lib/prisma";
 import { getProject } from "@/lib/project";
 import { serializeTask } from "@/lib/serialize";
@@ -33,6 +35,8 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
         { status: 400 },
       );
     }
+    assertMaxLength("Title", title, MAX_TASK_TITLE_CHARS);
+    assertMaxLength("Instructions", instructions, MAX_INSTRUCTIONS_CHARS);
 
     const agent = await prisma.agent.findFirst({ where: { id: agentId, projectId: id } });
     if (!agent) return Response.json({ error: "Agent not found on this project" }, { status: 400 });

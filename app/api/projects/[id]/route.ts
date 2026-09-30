@@ -1,5 +1,7 @@
 import { requireUser } from "@/lib/auth";
 import { errorResponse } from "@/lib/errors";
+import { assertMaxLength } from "@/lib/input-caps";
+import { MAX_BRIEF_CHARS, MAX_PROJECT_NAME_CHARS } from "@/lib/limits";
 import { prisma } from "@/lib/prisma";
 import { getProject } from "@/lib/project";
 
@@ -34,12 +36,13 @@ export async function PATCH(request: Request, context: Context) {
     if (typeof body?.name === "string") {
       const name = body.name.trim();
       if (!name) return Response.json({ error: "Name is required" }, { status: 400 });
-      if (name.length > 120) return Response.json({ error: "Name is too long" }, { status: 400 });
+      assertMaxLength("Name", name, MAX_PROJECT_NAME_CHARS);
       data.name = name;
     }
     if (typeof body?.brief === "string") {
       const brief = body.brief.trim();
       if (!brief) return Response.json({ error: "Brief is required" }, { status: 400 });
+      assertMaxLength("Brief", brief, MAX_BRIEF_CHARS);
       data.brief = brief;
     }
     if (!data.name && !data.brief) {

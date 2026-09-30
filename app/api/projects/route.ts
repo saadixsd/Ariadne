@@ -1,6 +1,8 @@
 import { requireUser } from "@/lib/auth";
 import { createUserProject } from "@/lib/demo";
 import { errorResponse } from "@/lib/errors";
+import { assertMaxLength } from "@/lib/input-caps";
+import { MAX_BRIEF_CHARS, MAX_PROJECT_NAME_CHARS } from "@/lib/limits";
 import { prisma } from "@/lib/prisma";
 import { getProject } from "@/lib/project";
 
@@ -36,9 +38,8 @@ export async function POST(request: Request) {
     if (!name || !brief) {
       return Response.json({ error: "Name and brief are required" }, { status: 400 });
     }
-    if (name.length > 120) {
-      return Response.json({ error: "Name is too long" }, { status: 400 });
-    }
+    assertMaxLength("Name", name, MAX_PROJECT_NAME_CHARS);
+    assertMaxLength("Brief", brief, MAX_BRIEF_CHARS);
     const user = await requireUser();
     const projectId = await createUserProject(user.id, name, brief);
     const created = await getProject(projectId, user.id);
