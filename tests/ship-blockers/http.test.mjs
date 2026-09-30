@@ -1,0 +1,209 @@
+// HTTP-level acceptance checks against a running `next dev` server (local SQLite,
+// mock LLM). Start them first, e.g.:
+//   node tests/ship-blockers/mock-llm.mjs 4197 &
+//   ANTHROPIC_API_KEY=test OPENAI_API_KEY=test ANTHROPIC_BASE_URL=http://127.0.0.1:4197 \
+//   OPENAI_BASE_URL=http://127.0.0.1:4197/v1 npx next dev -p 3197 &
+//   BASE_URL=http://127.0.0.1:3197 node --test tests/ship-blockers/http.test.mjs
+// Requests carry `cf-connecting-ip`, the header Cloudflare's edge sets in prod.
+import assert from "node:assert/strict";
+import path from "node:path";
+import { before, test } from "node:test";
+import { fileURLToPath } from "node:url";
+import { DatabaseSync } from "node:sqlite";
+
+const BASE = process.env.BASE_URL ?? "http://127.0.0.1:3197";
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+const dbFile = path.join(root, "prisma/dev.db");
+const run = Date.now().toString(36);
+// Fresh /24 per test run, so re-running within the hour is not throttled by the last run.
+const subnet = Math.floor(Math.random() * 250) + 1;
+const ip = (n) => `198.51.${subnet}.${n}`;
+
+async function call(method, url, { body, cookie, from = ip(200) } = {}) {
+  const response = await fetch(`${BASE}${url}`, {
+    method,
+    redirect: "manual",
+    headers: {
+      "content-type": "application/json",
+      "cf-connecting-ip": from,
+      ...(cookie ? { cookie } : {}),
+    },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const text = await response.text();
+  let json = null;
+  try {
+    json = JSON.parse(text);
+  } catch {}
+  const setCookie = response.headers.get("set-cookie") ?? "";
+  const session = setCookie.match(/ariadne_session=([^;]+)/)?.[1];
+  return { status: response.status, json, text, headers: response.headers, cookie: session ? `ariadne_session=${session}` : undefined };
+}
+
+function sql(query, ...params) {
+  const db = new DatabaseSync(dbFile);
+  try {
+    const stmt = db.prepare(query);
+    return /^\s*select/i.test(query) ? stmt.all(...params) : stmt.run(...params);
+  } finally {
+    db.close();
+  }
+}
+
+const state = {};
+
+before(async () => {
+  // Warm up the dev server (first compile is slow).
+  await call("GET", "/sign-in");
+  // Safety: make sure BASE_URL is THIS checkout (the runs route only exists here),
+  // not some other dev server on the shared machine.
+  const probe = await call("GET", "/api/tasks/probe/runs");
+  if (probe.status !== 401) throw new Error(`BASE_URL ${BASE} is not this ship-blockers checkout (probe got ${probe.status})`);
+  // Fixtures for the ownership check: an orphan project (userId NULL) and a project owned by someone else.
+  sql(`INSERT INTO "User" (id,email,passwordHash,passwordSalt,emailVerified,createdAt) VALUES (?,?,?,?,1,?)`, `owner-${run}`, `owner-${run}@test.dev`, "h", "s", new Date().toISOString());
+  sql(`INSERT INTO "Project" (id,userId,name,brief,template,createdAt) VALUES (?,NULL,'Orphan','b','own',?)`, `orphan-${run}`, new Date().toISOString());
+  sql(`INSERT INTO "Project" (id,userId,name,brief,template,createdAt) VALUES (?,?,'Owned','b','own',?)`, `owned-${run}`, `owner-${run}`, new Date().toISOString());
+});
+
+test("1a. 6 rapid signups from one IP: 5 succeed, the 6th is throttled (429 + Retry-After)", async () => {
+  const statuses = [];
+  let last;
+  for (let i = 1; i <= 6; i++) {
+    last = await call("POST", "/api/auth/sign-up", { body: { email: `burst${i}-${run}@test.dev`, password: "password123" }, from: ip(7) });
+    statuses.push(last.status);
+  }
+  assert.deepEqual(statuses, [201, 201, 201, 201, 201, 429]);
+  assert.match(last.json.error, /Too many sign-up attempts/);
+  assert.ok(Number(last.headers.get("retry-after")) > 0);
+  const created = sql(`SELECT count(*) AS n FROM "User" WHERE email LIKE ?`, `burst%-${run}@test.dev`)[0].n;
+  assert.equal(created, 5, "the throttled attempt created no user");
+  state.burst = statuses;
+});
+
+test("1b. legitimate signup from another IP still works and gets a session", async () => {
+  const res = await call("POST", "/api/auth/sign-up", { body: { email: `legit-${run}@test.dev`, password: "password123" }, from: ip(8) });
+  assert.equal(res.status, 201);
+  assert.ok(res.cookie);
+  state.cookie = res.cookie;
+});
+
+test("1c. sign-in: 10 attempts per hour per IP, the 11th is throttled even with the right password", async () => {
+  const statuses = [];
+  for (let i = 0; i < 10; i++) {
+    statuses.push((await call("POST", "/api/auth/sign-in", { body: { email: `legit-${run}@test.dev`, password: "wrong-password" }, from: ip(9) })).status);
+  }
+  const eleventh = await call("POST", "/api/auth/sign-in", { body: { email: `legit-${run}@test.dev`, password: "password123" }, from: ip(9) });
+  assert.deepEqual(statuses, Array(10).fill(401));
+  assert.equal(eleventh.status, 429);
+  const elsewhere = await call("POST", "/api/auth/sign-in", { body: { email: `legit-${run}@test.dev`, password: "password123" }, from: ip(10) });
+  assert.equal(elsewhere.status, 200, "correct password from another IP works");
+  assert.ok(elsewhere.cookie);
+});
+
+test("2. no project changes owners on sign-up / sign-in", () => {
+  const rows = Object.fromEntries(sql(`SELECT id, userId FROM "Project" WHERE id IN (?,?)`, `orphan-${run}`, `owned-${run}`).map((r) => [r.id, r.userId]));
+  assert.equal(rows[`orphan-${run}`], null, "orphan project was NOT claimed");
+  assert.equal(rows[`owned-${run}`], `owner-${run}`, "owned project untouched");
+});
+
+test("board + tree pages load for a signed-in user; onboarding creates the project", async () => {
+  const intro = await call("GET", "/", { cookie: state.cookie });
+  assert.equal(intro.status, 200);
+  const created = await call("POST", "/api/onboarding", { cookie: state.cookie, body: { name: "Coffee cart", brief: "Landing page for a coffee cart." } });
+  assert.equal(created.status, 201);
+  state.projectId = created.json.id;
+  const board = await call("GET", `/?project=${state.projectId}`, { cookie: state.cookie });
+  assert.equal(board.status, 200);
+  assert.match(board.text, /Coffee cart/);
+  const tree = await call("GET", `/tree?project=${state.projectId}`, { cookie: state.cookie });
+  assert.equal(tree.status, 200);
+  const project = await call("GET", `/api/projects/${state.projectId}`, { cookie: state.cookie });
+  state.tasks = project.json.tasks;
+  state.agents = project.json.agents;
+  assert.equal(state.tasks.length, 5);
+});
+
+test("8. over-long brief / title / instructions / note rejected server-side with a clear error", async () => {
+  const pid = state.projectId;
+  const c = state.cookie;
+  let res = await call("PATCH", `/api/projects/${pid}`, { cookie: c, body: { brief: "b".repeat(5001) } });
+  assert.equal(res.status, 400);
+  assert.equal(res.json.error, "Brief is too long (5,001 characters). The limit is 5,000.");
+  res = await call("PATCH", `/api/projects/${pid}`, { cookie: c, body: { brief: "b".repeat(5000) } });
+  assert.equal(res.status, 200, "exactly at the cap is fine");
+  res = await call("PATCH", `/api/projects/${pid}`, { cookie: c, body: { brief: "Landing page for a coffee cart." } });
+  assert.equal(res.status, 200);
+  res = await call("POST", `/api/projects`, { cookie: c, body: { name: "X", brief: "b".repeat(5001) } });
+  assert.equal(res.status, 400);
+  assert.match(res.json.error, /^Brief is too long/);
+  const agentId = state.agents.find((a) => a.name === "Scout").id;
+  res = await call("POST", `/api/projects/${pid}/tasks`, { cookie: c, body: { title: "t".repeat(201), agentId, instructions: "do it" } });
+  assert.equal(res.status, 400);
+  assert.equal(res.json.error, "Title is too long (201 characters). The limit is 200.");
+  res = await call("POST", `/api/projects/${pid}/tasks`, { cookie: c, body: { title: "Extra", agentId, instructions: "i".repeat(5001) } });
+  assert.equal(res.status, 400);
+  assert.equal(res.json.error, "Instructions is too long (5,001 characters). The limit is 5,000.");
+  state.capsChecked = true;
+});
+
+test("full HTTP flow: run -> gate -> note cap -> request changes -> history kept -> approve -> build", async () => {
+  const c = state.cookie;
+  const [research, draft, review, gate, build] = state.tasks;
+  for (const t of [research, draft, review]) {
+    const res = await call("POST", `/api/tasks/${t.id}/run`, { cookie: c });
+    assert.equal(res.status, 200, res.text);
+  }
+  let project = (await call("GET", `/api/projects/${state.projectId}`, { cookie: c })).json;
+  assert.equal(project.tasks.find((t) => t.id === gate.id).status, "awaiting_approval");
+  const firstDraftOutput = project.tasks.find((t) => t.id === draft.id).output;
+
+  let res = await call("POST", `/api/tasks/${gate.id}/approve`, { cookie: c, body: { approved: false, note: "n".repeat(2001) } });
+  assert.equal(res.status, 400);
+  assert.equal(res.json.error, "Note is too long (2,001 characters). The limit is 2,000.");
+
+  res = await call("POST", `/api/tasks/${gate.id}/approve`, { cookie: c, body: { approved: false, note: "Shorter hero." } });
+  assert.equal(res.status, 200, res.text);
+  const history = await call("GET", `/api/tasks/${draft.id}/runs`, { cookie: c });
+  assert.equal(history.status, 200);
+  assert.equal(history.json.output, null, "task is pending again");
+  assert.equal(history.json.runs.length, 1);
+  assert.equal(history.json.runs[0].output, firstDraftOutput, "prior output preserved as a run row");
+
+  for (const t of [draft, review]) assert.equal((await call("POST", `/api/tasks/${t.id}/run`, { cookie: c })).status, 200);
+  res = await call("POST", `/api/tasks/${gate.id}/approve`, { cookie: c, body: { approved: true } });
+  assert.equal(res.status, 200);
+  assert.equal((await call("POST", `/api/tasks/${build.id}/run`, { cookie: c })).status, 200);
+  project = (await call("GET", `/api/projects/${state.projectId}`, { cookie: c })).json;
+  assert.deepEqual(project.tasks.map((t) => t.status), ["done", "done", "done", "done", "done"]);
+  const draftRuns = (await call("GET", `/api/tasks/${draft.id}/runs`, { cookie: c })).json;
+  assert.equal(draftRuns.runs.length, 2);
+  assert.equal(draftRuns.output, draftRuns.runs[1].output, "latest shown");
+  const handoff = project.events.find((e) => e.type === "handoff" && e.taskId === draft.id);
+  assert.equal(handoff.fromTaskId, research.id);
+  assert.ok(handoff.runId && handoff.payload?.fromAgent === "Scout");
+  const approved = project.events.find((e) => e.type === "approved");
+  assert.equal(approved.payload.approver, "You");
+
+  // The board (server-rendered) shows handoff cards built from the structured columns.
+  const board = await call("GET", `/?project=${state.projectId}`, { cookie: c });
+  assert.equal(board.status, 200);
+  assert.match(board.text, /Scout → Maker/, "handoff card rendered from fromTaskId/payload");
+  assert.match(board.text, /Maker → Scout/);
+
+  // Runs are private.
+  const stranger = await call("POST", "/api/auth/sign-up", { body: { email: `stranger-${run}@test.dev`, password: "password123" }, from: ip(11) });
+  assert.equal((await call("GET", `/api/tasks/${draft.id}/runs`, { cookie: stranger.cookie })).status, 404);
+});
+
+test("3. stuck running task is recovered on the next poll and can run again", async () => {
+  const c = state.cookie;
+  const research = state.tasks[0];
+  sql(`UPDATE "Task" SET status='running', startedAt=? WHERE id=?`, new Date(Date.now() - 10 * 60 * 1000).toISOString().replace("Z", "+00:00"), research.id);
+  const events = await call("GET", `/api/projects/${state.projectId}/events`, { cookie: c });
+  assert.equal(events.status, 200);
+  const recovery = events.json.find((e) => e.taskId === research.id && e.payload?.reason === "stuck_run_reclaimed");
+  assert.ok(recovery, "recovery event on the poll");
+  const project = (await call("GET", `/api/projects/${state.projectId}`, { cookie: c })).json;
+  assert.equal(project.tasks.find((t) => t.id === research.id).status, "pending");
+  assert.equal((await call("POST", `/api/tasks/${research.id}/run`, { cookie: c })).status, 200);
+});
