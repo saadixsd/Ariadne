@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useClocks } from "@/components/use-now";
+import { useVisualViewportBox } from "@/components/KnotPanel";
 import { OutputView } from "@/components/OutputView";
 import { ContextBar, PacketSections } from "@/components/ThreadBits";
 import { changeNotesFor, orderedLineageTasks } from "@/lib/lineage";
@@ -177,6 +178,10 @@ export function TreeDetailRail({
 }) {
   const { clock } = useClocks();
   const closeRef = useRef<HTMLButtonElement>(null);
+  const railRef = useRef<HTMLElement>(null);
+  // Below lg the rail is a full-screen sheet (globals.css .tree-rail); this keeps its
+  // pinned footer above the phone keyboard, the same way the board's knot sheet does.
+  useVisualViewportBox(railRef, true);
   const sink = [...project.tasks].reverse().find((task) => !project.tasks.some((other) => other.dependsOn.includes(task.id))) ?? project.tasks.at(-1);
   const taskId = node.kind === "output" ? sink?.id : node.taskId;
   const task = project.tasks.find((item) => item.id === taskId) ?? null;
@@ -242,9 +247,10 @@ export function TreeDetailRail({
 
   return (
     <aside
+      ref={railRef}
       aria-labelledby="tree-detail-title"
       data-tree-rail
-      className="flex min-h-0 flex-col overflow-hidden border-l border-line bg-raised shadow-[-20px_0_40px_-30px_rgba(31,26,20,.25)]"
+      className="tree-rail flex min-h-0 flex-col overflow-hidden border-l border-line bg-raised shadow-[-20px_0_40px_-30px_rgba(31,26,20,.25)]"
     >
       <div className={`border-b border-line px-[22px] pt-[18px] pb-3.5 ${knot ? "bg-[linear-gradient(180deg,#fcf1d6,var(--color-raised))]" : ""}`}>
         <div className="flex items-center justify-between gap-3">

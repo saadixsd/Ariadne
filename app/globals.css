@@ -768,6 +768,22 @@ a[href] {
 /* The knot sheet: a full-height sheet on phones that follows the visual viewport, so the
    pinned decision footer rides above the on-screen keyboard (KnotPanel sets --vvh/--vvt
    from window.visualViewport; dvh is the fallback). */
+/* The Tree's detail rail: a column beside the canvas from lg up; below that a full-screen
+   sheet, so its header, tabs and pinned decision footer always fit on a phone. */
+@media (max-width: 63.99rem) {
+  .tree-rail {
+    position: fixed;
+    left: 0;
+    right: 0;
+    top: var(--vvt, 0px);
+    height: var(--vvh, 100dvh);
+    z-index: 50;
+    border-left: 0;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
 .knot-sheet-backdrop {
   height: var(--vvh, 100dvh);
   top: var(--vvt, 0px);

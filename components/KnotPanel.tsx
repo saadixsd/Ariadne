@@ -361,7 +361,7 @@ function KnotBody({
  * offset into --vvh/--vvt keeps the footer above them; without visualViewport the CSS
  * falls back to 100dvh.
  */
-function useVisualViewportBox(ref: RefObject<HTMLElement | null>, active: boolean) {
+export function useVisualViewportBox(ref: RefObject<HTMLElement | null>, active: boolean) {
   useEffect(() => {
     const viewport = typeof window === "undefined" ? null : window.visualViewport;
     const element = ref.current;

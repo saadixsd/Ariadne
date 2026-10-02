@@ -153,4 +153,18 @@ Untouched: the run pipeline (`lib/agents.ts`), board and tree logic, quota seman
 - Email verification: when there is company email, onboard `ariadneagents.si` to Cloudflare Email Service (Workers Paid is required for arbitrary recipients), then add `"send_email": [{ "name": "EMAIL" }]` and `EMAIL_FROM` to `wrangler.jsonc` (production and previews).
 - The repo lives under iCloud-synced `~/Documents`, which leaves " 2" conflict copies in `.next/cache/turbopack` and breaks `next build` until that folder is deleted. Moving the repo out of iCloud (or excluding `.next`) fixes it for good.
 - Two smoke-test accounts (`smoke-test-v1-…@ariadneagents.si`) are in production D1; the first has a frayed step from the keyless preview run. Delete them when convenient.
-- Not checked in this pass: layouts at ~390px, and the midnight-UTC edge case in the stuck-run test.
+- Not fixed in this pass: the midnight-UTC edge case in the stuck-run test.
+
+## 2026-10-02 — 390px layout pass
+
+### What changed
+
+- **The Tree's detail rail is a full-screen sheet below `lg` (1024px).** At 390px it was stacked under the canvas and squeezed into the bottom of the screen, which cut its pinned footer in half: "Tie off (Approve)" and "Ask for changes" sat partly off-screen, so a knot could not be decided from the Tree on a phone. It now covers the screen like the board's knot sheet, follows the visual viewport so the footer stays above the phone keyboard (the knot sheet's `useVisualViewportBox`, now exported), and closes with Esc ✕. From `lg` up it is the same side rail as before.
+
+### What was verified
+
+- A headless-Chromium check at 390×844 (iPhone 13 emulation) covers sign-up, "What are you making?", the board (fresh, with a spun step expanded, and with the knot tucked into the column card), the knot sheet (top, scrolled to the end, note focused), the Tree, the Tree rail on a knot, and Settings. On each screen it checks for sideways page scroll, for anything cut off at the screen edge outside an intentional scroller, and for visible controls drawn over each other. It also checks that the Tree rail's Tie off button is fully on screen and that Esc closes the sheet.
+- Before the fix, on the deployed preview with real models: everything passed except the Tree rail. Its footer was cut off (confirmed by screenshot); the other overlaps the first check reported were controls hidden under a sheet or scrolled under the header, and the check now ignores those.
+- After the fix (local, mock models): 38/38 at 390px, and 38/38 at 1440px, where the rail is unchanged.
+- lib 13/13, Phase 2 17/17, migrations 4/4; lint 0 errors with the same 9 baseline warnings; build with zero warnings.
+- Each push to an existing branch preview creates a deployment without that preview's secrets (Workers Previews, open beta); only new previews start from the base config. Re-run `wrangler preview secret put <KEY> --name <branch>` after a push when a preview needs to call the models.
