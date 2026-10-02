@@ -1,8 +1,12 @@
 # Claude Code brief — Ariadne cleanup pass
 
+> **Status: done.** Merged to `main` Oct 1 2026 (`9b0d2a0`, then `34cdc97`). Kept
+> as a record; see `docs/PROJECT_LOG.md` for what was actually changed.
+
 ## 0. Read this first
 
-Before touching anything, read `workspace/ariadne-prototype/16_ARIADNE_EXPLAINER_GROK.md`.
+Before touching anything, read `16_ARIADNE_EXPLAINER_GROK.md` (not in this repo;
+until it is, `CLAUDE.md` at the repo root carries its essentials).
 It is the standing orientation doc: the one-liner, the three problems, the thread
 vocabulary (spun / spinning / knot / unspun / tie off / the door / the labyrinth —
 do NOT invent synonyms), the committed cream/serif/red-thread design language,
@@ -18,7 +22,7 @@ Everything below assumes you've read it.
 - Auth: email/password, hashed passwords, 30-day HttpOnly sessions. Signed-out users
   redirect to `/sign-in`.
 - 10 provider/model calls per account per UTC day. Human approvals/tasks don't count.
-- Live: https://ariadne.sr-labs.workers.dev
+- Live: https://ariadneagents.si (also https://ariadne.sr-labs.workers.dev)
 
 ## 2. What you're doing (and NOT doing)
 
@@ -34,7 +38,7 @@ feedback dialog, tooltips, and the shipped JS bundles) found **zero occurrences*
 of "beta" (case-insensitive). Your job:
 
 1. Confirm with a case-insensitive repo-wide grep that no user-visible string
-   contains "beta" (historical docs under `workspace/ariadne-prototype/` are
+   contains "beta" (historical docs under `docs/muse/` are
    exempt — they're not shipped).
 2. If you find any the QA missed, delete or rewrite with neutral copy.
 3. Report the grep command and result. Expected: zero hits in shipped code.
@@ -108,7 +112,7 @@ until creation actually starts.
 3. Board ⇄ Tree toggle still works both ways.
 4. Confirm with a case-insensitive repo-wide grep for "beta" that zero
    user-visible occurrences remain (historical docs under
-   `workspace/ariadne-prototype/` are fine to leave — they're not shipped).
+   `docs/muse/` are fine to leave — they're not shipped).
 
 ## 4. If something is ambiguous
 
