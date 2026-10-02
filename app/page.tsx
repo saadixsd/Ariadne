@@ -4,7 +4,7 @@ import { ProjectIntro } from "@/components/ProjectIntro";
 import { accountDisplay } from "@/lib/account";
 import { currentUser } from "@/lib/auth";
 import { pickBoardProject } from "@/lib/board-project";
-import { needsProjectIntro } from "@/lib/demo";
+import { needsProjectIntroFor } from "@/lib/demo";
 import { missingSetup } from "@/lib/setup";
 import { DAILY_MODEL_RUNS, modelRunsToday } from "@/lib/usage";
 import { getPrisma } from "@/lib/prisma";
@@ -23,13 +23,13 @@ export default async function Home({
   if (!user) redirect("/sign-in");
   if (!user.emailVerified) redirect("/verify");
   const { project: requested } = await searchParams;
-  if (await needsProjectIntro(user.id)) return <ProjectIntro />;
   const prisma = await getPrisma();
   const projects = await prisma.project.findMany({
     where: { userId: user.id },
     orderBy: { createdAt: "asc" },
     select: { id: true, name: true, brief: true, template: true },
   });
+  if (await needsProjectIntroFor(user.id, projects)) return <ProjectIntro />;
   const existing = pickBoardProject(projects, requested);
 
   if (!existing) {

@@ -178,14 +178,14 @@ export function useCritique(text: string | null | undefined): Critique | null {
 
 type RunsState = { status: "idle" } | { status: "loading" } | { status: "ready"; versions: Version[] } | { status: "error"; message: string };
 
-/** Versions of a step from GET /api/tasks/:id/runs. Read-only; refetches when `key` changes. */
+/** Versions of a step from GET /api/tasks/:id/runs?view=versions (no prompts). Read-only; refetches when `key` changes. */
 export function useVersions(taskId: string | null, key: string): RunsState {
   const [state, setState] = useState<{ for: string; value: RunsState }>({ for: "", value: { status: "idle" } });
   const id = taskId ? `${taskId}\n${key}` : "";
   useEffect(() => {
     if (!taskId) return;
     let cancelled = false;
-    void fetch(`/api/tasks/${taskId}/runs`, { cache: "no-store" })
+    void fetch(`/api/tasks/${taskId}/runs?view=versions`, { cache: "no-store" })
       .then(async (response) => {
         const body = (await response.json().catch(() => null)) as { runs?: TaskRunDTO[]; error?: string } | null;
         if (cancelled) return;

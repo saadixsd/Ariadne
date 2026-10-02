@@ -148,6 +148,25 @@ export async function createUserProject(userId: string, name: string, brief: str
   return project.id;
 }
 
+/**
+ * needsProjectIntro, answered from the project list the page has already loaded
+ * (every project of this user, with template and brief), so the board load skips two
+ * queries. Same rules: a named own project means no intro; no projects means intro;
+ * otherwise intro until any task has started.
+ */
+export async function needsProjectIntroFor(
+  userId: string,
+  projects: readonly { template: string; brief: string }[],
+) {
+  if (projects.some((project) => project.template === "own" && project.brief !== "")) return false;
+  if (projects.length === 0) return true;
+  const started = await prisma.task.findFirst({
+    where: { status: { not: "pending" }, project: { userId } },
+    select: { id: true },
+  });
+  return !started;
+}
+
 export async function needsProjectIntro(userId: string) {
   const named = await prisma.project.findFirst({
     where: { userId, template: "own", NOT: { brief: "" } },

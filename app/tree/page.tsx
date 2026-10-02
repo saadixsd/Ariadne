@@ -2,7 +2,7 @@ import { LiveTree } from "@/components/LiveTree";
 import { accountDisplay } from "@/lib/account";
 import { currentUser } from "@/lib/auth";
 import { pickBoardProject } from "@/lib/board-project";
-import { needsProjectIntro } from "@/lib/demo";
+import { needsProjectIntroFor } from "@/lib/demo";
 import { DAILY_MODEL_RUNS, modelRunsToday } from "@/lib/usage";
 import { getPrisma } from "@/lib/prisma";
 import { getProject } from "@/lib/project";
@@ -22,7 +22,6 @@ export default async function TreePage({
   const user = await currentUser();
   if (!user) redirect("/sign-in");
   if (!user.emailVerified) redirect("/verify");
-  if (await needsProjectIntro(user.id)) redirect("/");
   const { project: requested } = await searchParams;
   const prisma = await getPrisma();
   const projects = await prisma.project.findMany({
@@ -30,6 +29,7 @@ export default async function TreePage({
     orderBy: { createdAt: "asc" },
     select: { id: true, name: true, brief: true, template: true },
   });
+  if (await needsProjectIntroFor(user.id, projects)) redirect("/");
   const existing = pickBoardProject(projects, requested);
   if (!existing) redirect("/");
   const project = await getProject(existing.id, user.id);

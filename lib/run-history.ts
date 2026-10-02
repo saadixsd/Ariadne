@@ -144,3 +144,34 @@ export async function listRuns(taskId: string) {
   const prisma = await getPrisma();
   return prisma.taskRun.findMany({ where: { taskId }, orderBy: { attempt: "asc" } });
 }
+
+/**
+ * The light read behind v1 → v2: only runs that can be versions (succeeded or legacy,
+ * with output), and only the columns the comparison reads. The prompts (which carry
+ * every upstream output) stay out, so the payload and the Worker's JSON work are small.
+ * The reader still uses listRuns for the full attempt-by-attempt view.
+ */
+export async function listVersionRuns(taskId: string) {
+  const prisma = await getPrisma();
+  const rows = await prisma.taskRun.findMany({
+    where: { taskId, outcome: { in: ["succeeded", "legacy"] }, output: { not: null } },
+    orderBy: { attempt: "asc" },
+    select: {
+      id: true,
+      taskId: true,
+      projectId: true,
+      attempt: true,
+      outcome: true,
+      provider: true,
+      model: true,
+      output: true,
+      error: true,
+      latencyMs: true,
+      tries: true,
+      startedAt: true,
+      completedAt: true,
+      createdAt: true,
+    },
+  });
+  return rows.map((row) => ({ ...row, systemPrompt: null, prompt: null }));
+}

@@ -1,11 +1,8 @@
 import { AuthForm } from "@/components/AuthForm";
-import { currentUser } from "@/lib/auth";
-import { redirect } from "next/navigation";
 
-export const dynamic = "force-dynamic";
-
-export default async function SignInPage() {
-  const user = await currentUser();
-  if (user?.emailVerified) redirect("/");
+// Static: built once at deploy, so the door costs the Worker almost no CPU. A visitor
+// who already holds a session cookie is rewritten by proxy.ts to ./session, which
+// checks the session and sends a signed-in, verified account to the board as before.
+export default function SignInPage() {
   return <AuthForm mode="sign-in" />;
 }

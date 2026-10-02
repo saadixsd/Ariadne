@@ -1,51 +1,35 @@
 "use client";
 
-import { memo, useState, type ComponentProps, type ReactNode } from "react";
-import ReactMarkdown, { defaultUrlTransform, type Components } from "react-markdown";
-import remarkGfm from "remark-gfm";
+import { lazy, memo, Suspense, useState, type ReactNode } from "react";
+import { useHydrated } from "@/components/use-now";
 import { extractHtmlDocument } from "@/lib/html-preview";
 import { foldPlan } from "@/lib/text-fold";
 
 /*
-  Agent output, typeset. Markdown (GFM: headings, lists, code, tables, links) is
-  rendered by react-markdown WITHOUT raw HTML, so model text can never inject markup
-  or scripts. Links keep only http(s)/mailto targets and open in a new tab without
-  a referrer; images are shown as links instead of being fetched.
+  Agent output, typeset (components/MarkdownBody.tsx: react-markdown + GFM, no raw HTML).
+  The markdown parser runs in the browser only. The Worker has ~10 ms of CPU per request
+  on the free plan, and parsing every visible draft during SSR was the biggest single
+  cost of the board, so the server (and the hydration pass) print the same text plainly
+  in the same box, and the browser swaps in the typeset version right after hydration.
+  The parser is a lazy chunk, so the server never even loads it.
 */
+const MarkdownBody = lazy(() => import("@/components/MarkdownBody"));
 
-function safeUrl(url: string): string {
-  const cleaned = defaultUrlTransform(url);
-  return /^(https?:|mailto:|#)/i.test(cleaned) ? cleaned : "";
+function PlainText({ text }: { text: string }) {
+  return <p className="whitespace-pre-wrap [overflow-wrap:anywhere]">{text}</p>;
 }
 
-const components: Components = {
-  a: ({ href, children }) =>
-    href ? (
-      <a href={href} target="_blank" rel="noopener noreferrer nofollow">
-        {children}
-      </a>
-    ) : (
-      <span>{children}</span>
-    ),
-  img: ({ src, alt }) =>
-    typeof src === "string" && src ? (
-      <a href={src} target="_blank" rel="noopener noreferrer nofollow">
-        [image{alt ? `: ${alt}` : ""}]
-      </a>
-    ) : null,
-  table: (props: ComponentProps<"table">) => (
-    <div className="md-table">
-      <table {...props} />
-    </div>
-  ),
-};
-
 export const Markdown = memo(function Markdown({ text }: { text: string }) {
+  const hydrated = useHydrated();
   return (
     <div className="markdown">
-      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components} urlTransform={safeUrl} skipHtml>
-        {text}
-      </ReactMarkdown>
+      {hydrated ? (
+        <Suspense fallback={<PlainText text={text} />}>
+          <MarkdownBody text={text} />
+        </Suspense>
+      ) : (
+        <PlainText text={text} />
+      )}
     </div>
   );
 });
