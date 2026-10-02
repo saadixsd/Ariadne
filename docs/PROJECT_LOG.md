@@ -140,3 +140,17 @@ Untouched: the run pipeline (`lib/agents.ts`), board and tree logic, quota seman
   - **Dead ends:** every button, link, menu item and tab on the board, Tree and Settings (fresh and finished projects) does something visible.
   - **Full workflow:** research → draft → review → knot → produce, with produce locked until you tie off.
   - **Failure paths:** model failure, quota at 10/10, offline and reconnect, expired session and deleted project all end on a readable message or the right page, never a blank screen. No console errors throughout.
+- Deployed preview (`https://cleanup-v1-hardening-ariadne.sr-labs.workers.dev`, Workers Builds, production D1), real models, 22/22:
+  - **Sign-up and board:** fresh sign-up → "What are you making?" → board with no intro card and no missing-keys banner.
+  - **Full workflow:** research, draft and review each spun with a real Claude or GPT call (about 8s each). The knot opened by itself and produce stayed locked until tie-off. Tying off used no daily run; produce spun; the meter read 6/10 (4 model runs).
+  - **Navigation and errors:** Board ⇄ Tree works both ways. No banned words; no page or console errors.
+- Previews do not inherit production secrets. `ANTHROPIC_API_KEY` and `OPENAI_API_KEY` are now set in the Previews base config (`wrangler preview base-config secret put`), so every branch preview can call the models.
+- One lib test (`3. stuck running recovery`) fails during the first 10 minutes after midnight UTC. It simulates a run that started 10 minutes earlier, so the code correctly releases that run's quota on yesterday's UTC day while the test reads today's. It passed again at 00:11 UTC. The fault is in the test, not the code.
+
+### What is left
+
+- Merge `cleanup/v1-hardening` to `main` to ship to `ariadneagents.si`.
+- Email verification: when there is company email, onboard `ariadneagents.si` to Cloudflare Email Service (Workers Paid is required for arbitrary recipients), then add `"send_email": [{ "name": "EMAIL" }]` and `EMAIL_FROM` to `wrangler.jsonc` (production and previews).
+- The repo lives under iCloud-synced `~/Documents`, which leaves " 2" conflict copies in `.next/cache/turbopack` and breaks `next build` until that folder is deleted. Moving the repo out of iCloud (or excluding `.next`) fixes it for good.
+- Two smoke-test accounts (`smoke-test-v1-…@ariadneagents.si`) are in production D1; the first has a frayed step from the keyless preview run. Delete them when convenient.
+- Not checked in this pass: layouts at ~390px, and the midnight-UTC edge case in the stuck-run test.
