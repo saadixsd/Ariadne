@@ -11,8 +11,8 @@ import { handName } from "@/lib/hands";
 import { assertMaxLength } from "@/lib/input-caps";
 import { MAX_NOTE_CHARS } from "@/lib/limits";
 import { prisma } from "@/lib/prisma";
-import { reclaimStuckTasks } from "@/lib/reclaim";
-import { emitEvent, preserveLegacyOutputs, recordRun, type EventStructure } from "@/lib/run-history";
+import { isStuck, reclaimStuckTasks } from "@/lib/reclaim";
+import { emitEvent, emitEvents, preserveLegacyOutputs, recordRun, type EventStructure } from "@/lib/run-history";
 import { releaseModelRun, reserveModelRun, utcDay } from "@/lib/usage";
 import {
   composeSystemPrompt,
@@ -148,28 +148,43 @@ async function commitIfOwned(claim: RunClaim, data: Prisma.TaskUpdateManyMutatio
   return updated.count === 1;
 }
 
-export async function runTask(taskId: string, userId: string) {
-  const owner = await prisma.task.findUnique({
-    where: { id: taskId },
-    select: { projectId: true, project: { select: { userId: true } } },
+/**
+ * The project's tasks with their agents, plus the project brief, in three queries.
+ * Ownership is part of the first query (project of this user that has this task).
+ */
+async function loadRunContext(taskId: string, userId: string) {
+  const project = await prisma.project.findFirst({
+    where: { userId, tasks: { some: { id: taskId } } },
+    select: { id: true, brief: true },
   });
-  if (!owner || owner.project.userId !== userId) throw new TaskRunError("Task not found", 404);
-  await reclaimStuckTasks(owner.projectId);
+  if (!project) return null;
+  const tasks = await prisma.task.findMany({
+    where: { projectId: project.id },
+    include: { agent: true },
+  });
+  return { project, tasks };
+}
 
-  const task = await prisma.task.findUnique({
-    where: { id: taskId },
-    include: { agent: true, project: true },
-  });
-  if (!task || task.project.userId !== userId) throw new TaskRunError("Task not found", 404);
+export async function runTask(taskId: string, userId: string) {
+  let context = await loadRunContext(taskId, userId);
+  if (!context) throw new TaskRunError("Task not found", 404);
+  // Lazy stuck-run recovery, as before, but only when a loaded task is actually
+  // `running` past the timeout (reclaimStuckTasks acts on nothing else); then reload.
+  const checkedAt = Date.now();
+  if (context.tasks.some((item) => item.status === "running" && isStuck(item, checkedAt))) {
+    await reclaimStuckTasks(context.project.id, checkedAt);
+    context = await loadRunContext(taskId, userId);
+    if (!context) throw new TaskRunError("Task not found", 404);
+  }
+  const { project, tasks } = context;
+  const found = tasks.find((item) => item.id === taskId);
+  if (!found) throw new TaskRunError("Task not found", 404);
+  const task = { ...found, project };
   if (task.status === "running") throw new TaskRunError("Task is already running", 409);
   if (task.status === "awaiting_approval") {
     throw new TaskRunError("Task is awaiting approval", 409);
   }
 
-  const tasks = await prisma.task.findMany({
-    where: { projectId: task.projectId },
-    include: { agent: true },
-  });
   const byId = new Map(tasks.map((item) => [item.id, item]));
   const unmet = unmetDependencyIds(task.dependsOn, byId);
   if (unmet.length > 0) {
@@ -203,17 +218,10 @@ export async function runTask(taskId: string, userId: string) {
     throw new TaskRunError("Task is already running", 409);
   }
 
-  await prisma.agent.update({
+  await prisma.agent.updateMany({
     where: { id: task.agentId },
     data: { status: "working" },
   });
-  await emit(
-    task.projectId,
-    "started",
-    `${handName(task.agent.name)} started "${task.title}"`,
-    task.id,
-    { runId, payload: { agent: handName(task.agent.name) } },
-  );
 
   const sourceTasks =
     task.agent.provider === "human"
@@ -221,25 +229,32 @@ export async function runTask(taskId: string, userId: string) {
       : directDependencies(task.dependsOn, byId);
   const handoffs = sourceTasks.map(toHandoff);
 
-  for (const source of sourceTasks) {
-    await emit(
-      task.projectId,
-      "handoff",
-      `Handoff: ${handName(source.agent.name)} handed "${source.title}" to ${handName(task.agent.name)}`,
-      task.id,
-      {
-        fromTaskId: source.id,
-        toTaskId: task.id,
-        runId,
-        payload: {
-          fromAgent: handName(source.agent.name),
-          toAgent: handName(task.agent.name),
-          fromTitle: source.title,
-          toTitle: task.title,
-        },
+  // "started" and every "handoff" in one INSERT, in the same order as before.
+  await emitEvents([
+    {
+      projectId: task.projectId,
+      type: "started",
+      message: `${handName(task.agent.name)} started "${task.title}"`,
+      taskId: task.id,
+      runId,
+      payload: { agent: handName(task.agent.name) },
+    },
+    ...sourceTasks.map((source) => ({
+      projectId: task.projectId,
+      type: "handoff",
+      message: `Handoff: ${handName(source.agent.name)} handed "${source.title}" to ${handName(task.agent.name)}`,
+      taskId: task.id,
+      fromTaskId: source.id,
+      toTaskId: task.id,
+      runId,
+      payload: {
+        fromAgent: handName(source.agent.name),
+        toAgent: handName(task.agent.name),
+        fromTitle: source.title,
+        toTitle: task.title,
       },
-    );
-  }
+    })),
+  ]);
 
   if (task.agent.provider === "human") {
     const note = latestChangeNote(task.instructions);
@@ -268,8 +283,9 @@ export async function runTask(taskId: string, userId: string) {
       task.id,
       { runId, payload: { gate: true } },
     );
-    await syncAgentStatus(task.agentId);
-    return serializeTask(await prisma.task.findUniqueOrThrow({ where: { id: task.id } }));
+    await syncAgentStatus(task.agentId, task.agent.provider);
+    // The row exactly as the guarded commit above wrote it (no re-read).
+    return serializeTask({ ...task, status: "awaiting_approval", output, model: "human", startedAt, completedAt: null });
   }
 
   const model = modelForProvider(task.agent.provider);
@@ -318,17 +334,18 @@ export async function runTask(taskId: string, userId: string) {
         payload: { error: message },
       });
     }
-    await syncAgentStatus(task.agentId);
+    await syncAgentStatus(task.agentId, task.agent.provider);
     throw new TaskRunError(message, 502);
   }
 
   const latencyMs = Date.now() - startedAt.getTime();
   const status = task.requiresApproval ? "awaiting_approval" : "done";
+  const completedAt = status === "done" ? new Date() : null;
   const committed = await commitIfOwned(claim, {
     output,
     status,
     model,
-    completedAt: status === "done" ? new Date() : null,
+    completedAt,
   });
   if (!committed) {
     // The task was reclaimed as stuck (and its reservation released) while this
@@ -349,10 +366,8 @@ export async function runTask(taskId: string, userId: string) {
     );
   }
   await recordRun({ ...runBase, outcome: "succeeded", output, tries, latencyMs, completedAt: new Date() });
-  await prisma.agent.update({
-    where: { id: task.agentId },
-    data: { model },
-  });
+  // The agent's model and its status in one write (was: update model, emit, then sync status).
+  await syncAgentStatus(task.agentId, task.agent.provider, { model });
   await emit(
     task.projectId,
     status === "done" ? "completed" : "approval_requested",
@@ -362,23 +377,40 @@ export async function runTask(taskId: string, userId: string) {
     task.id,
     { runId, payload: status === "done" ? { agent: handName(task.agent.name) } : { gate: false } },
   );
-  await syncAgentStatus(task.agentId);
-  if (status === "done") await openReadyHumanGates(task.projectId, userId);
-  return serializeTask(await prisma.task.findUniqueOrThrow({ where: { id: task.id } }));
+  if (status === "done") await openReadyHumanGates(task.projectId, userId, tasks);
+  // The row exactly as the guarded commit above wrote it (no re-read).
+  return serializeTask({ ...task, status, output, model, startedAt, completedAt });
 }
 
-async function openReadyHumanGates(projectId: string, userId: string) {
+async function openReadyHumanGates(projectId: string, userId: string, known: { id: string; agent: { provider: string } }[]) {
+  // Fresh statuses (another run may have finished meanwhile); providers come from the
+  // agents already loaded, since a task's agent never changes during a run.
+  const provider = new Map(known.map((item) => [item.id, item.agent.provider]));
   const tasks = await prisma.task.findMany({
     where: { projectId },
-    include: { agent: true },
+    select: { id: true, status: true, dependsOn: true, agentId: true },
   });
+  const humanAgents = new Set(
+    (await humanAgentIds(projectId, tasks.filter((item) => !provider.has(item.id)).map((item) => item.agentId))),
+  );
   const byId = new Map(tasks.map((item) => [item.id, item]));
   for (const candidate of tasks) {
-    if (candidate.agent.provider !== "human") continue;
+    const human = provider.has(candidate.id) ? provider.get(candidate.id) === "human" : humanAgents.has(candidate.agentId);
+    if (!human) continue;
     if (candidate.status !== "pending") continue;
     if (unmetDependencyIds(candidate.dependsOn, byId).length > 0) continue;
     await runTask(candidate.id, userId);
   }
+}
+
+/** Agents (of tasks added after the run loaded its context) that are the human. Usually no query. */
+async function humanAgentIds(projectId: string, agentIds: string[]): Promise<string[]> {
+  if (agentIds.length === 0) return [];
+  const agents = await prisma.agent.findMany({
+    where: { projectId, id: { in: [...new Set(agentIds)] }, provider: "human" },
+    select: { id: true },
+  });
+  return agents.map((agent) => agent.id);
 }
 
 export async function rerunTask(taskId: string, userId: string) {

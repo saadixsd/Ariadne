@@ -27,8 +27,18 @@ export async function modelRunsToday(userId: string) {
  */
 export async function reserveModelRun(userId: string, day = utcDay()) {
   const prisma = await getPrisma();
-  // Make sure today's row exists without a transaction (Prisma's upsert may open
-  // one, and neither D1 nor the local SQLite adapter handles concurrent ones).
+  const tryReserve = async () =>
+    (
+      await prisma.usageDay.updateMany({
+        where: { userId, day, runs: { lt: DAILY_MODEL_RUNS } },
+        data: { runs: { increment: 1 } },
+      })
+    ).count === 1;
+  // Usual case: today's row exists and has room, one conditional UPDATE.
+  if (await tryReserve()) return;
+  // No row yet (first run of the day) or the limit is reached. Make sure today's row
+  // exists without a transaction (Prisma's upsert may open one, and neither D1 nor the
+  // local SQLite adapter handles concurrent ones), then try the same conditional UPDATE once more.
   const existing = await prisma.usageDay.findUnique({ where: { userId_day: { userId, day } }, select: { id: true } });
   if (!existing) {
     try {
@@ -39,11 +49,7 @@ export async function reserveModelRun(userId: string, day = utcDay()) {
       if (!now) throw error;
     }
   }
-  const reserved = await prisma.usageDay.updateMany({
-    where: { userId, day, runs: { lt: DAILY_MODEL_RUNS } },
-    data: { runs: { increment: 1 } },
-  });
-  if (reserved.count !== 1) {
+  if (!(await tryReserve())) {
     throw new TaskRunError(
       `Daily limit of ${DAILY_MODEL_RUNS} model runs is used up. Nothing was sent to Claude or GPT.`,
       429,

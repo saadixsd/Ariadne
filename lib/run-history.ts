@@ -37,6 +37,36 @@ export async function emitEvent(
   });
 }
 
+export type NewEvent = EventStructure & { projectId: string; type: string; message: string; taskId: string };
+
+/**
+ * Several ActivityEvents in one INSERT (a run's "started" plus its handoffs). Each row
+ * gets its own createdAt, 1 ms apart in list order and never before now, so the feed
+ * orders them exactly as the one-by-one inserts did; then it waits (a timer, no CPU)
+ * until the clock has passed the last of them, so any event written afterwards still
+ * sorts after the batch.
+ */
+export async function emitEvents(events: NewEvent[]) {
+  if (events.length === 0) return;
+  const prisma = await getPrisma();
+  const base = Date.now();
+  await prisma.activityEvent.createMany({
+    data: events.map((event, index) => ({
+      projectId: event.projectId,
+      type: event.type,
+      message: event.message,
+      taskId: event.taskId,
+      fromTaskId: event.fromTaskId ?? null,
+      toTaskId: event.toTaskId ?? null,
+      runId: event.runId ?? null,
+      payload: event.payload ? JSON.stringify(event.payload) : null,
+      createdAt: new Date(base + index),
+    })),
+  });
+  const last = base + events.length - 1;
+  while (Date.now() <= last) await new Promise((resolve) => setTimeout(resolve, last - Date.now() + 1));
+}
+
 // D1's adapter reports unique violations as P2002; the local node:sqlite adapter
 // passes the raw SQLite message through. Accept both.
 function isUniqueViolation(error: unknown) {
