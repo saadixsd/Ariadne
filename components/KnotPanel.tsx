@@ -2,13 +2,13 @@
 
 import { useEffect, useImperativeHandle, useRef, useState, useSyncExternalStore, type Ref, type RefObject } from "react";
 import { createPortal } from "react-dom";
-import { AttributionLine, CritiqueFlags, RunCost, StepVersions, VersionsButton, versionKey } from "@/components/Critique";
+import { AttributionLine, CritiqueFlags, RunCost, StepVersions, VersionsButton, useCritique, versionKey } from "@/components/Critique";
 import { OutputView } from "@/components/OutputView";
 import { ContextBar, Monogram } from "@/components/ThreadBits";
 import { useClocks, useNow } from "@/components/use-now";
 import { attributionFor, reviewStepFor } from "@/lib/attribution";
 import { latestChangeNote } from "@/lib/change-notes";
-import { appendToNote, parseCritique } from "@/lib/critique";
+import { appendToNote } from "@/lib/critique";
 import { MAX_NOTE_CHARS } from "@/lib/limits";
 import { changeNotesFor } from "@/lib/lineage";
 import { hideModelIds } from "@/lib/model-label";
@@ -155,7 +155,7 @@ function KnotBody({
   }, [open, client]);
 
   const reviewer = knot.reviewers.find((item) => item.output) ?? null;
-  const critique = reviewer?.output ? parseCritique(reviewer.output) : null;
+  const critique = useCritique(reviewer?.output);
   const reviewerName = agentOf(reviewer ?? undefined, agents)?.name ?? "The reviewer";
   const judged = knot.artifact?.output ? knot.artifact : null;
   const respun = !!judged && mayHaveEarlierVersion(judged, project);
@@ -395,7 +395,7 @@ export function useVisualViewportBox(ref: RefObject<HTMLElement | null>, active:
 function KnotSummary({ knot, project, onOpen }: { knot: Knot; project: ProjectDTO; onOpen: () => void }) {
   const { clock } = useClocks();
   const reviewer = knot.reviewers.find((item) => item.output);
-  const flagCount = reviewer?.output ? parseCritique(reviewer.output).flags.length : 0;
+  const flagCount = useCritique(reviewer?.output)?.flags.length ?? 0;
   const reviewerName = agentOf(reviewer, project.agents)?.name ?? "the reviewer";
   const artifactAgent = agentOf(knot.artifact ?? undefined, project.agents);
   return (

@@ -101,6 +101,11 @@ export function parseFlagText(raw: string, fallbackSection: string | null = null
 
 type Item = { indent: number; text: string; heading: string | null };
 
+/** Characters of a review that are parsed for flags (the prose fallback keeps it all). */
+export const MAX_PARSE_CHARS = 20_000;
+/** At most this many flags are shown; reviews with more are lists of lists, not flags. */
+export const MAX_FLAGS = 40;
+
 /**
  * Splits a review into flags: numbered or bulleted points (nested bullets fold into
  * their parent), or, failing that, two or more "Section: issue — fix" lines. Points
@@ -108,7 +113,8 @@ type Item = { indent: number; text: string; heading: string | null };
  */
 export function parseCritique(text: string | null | undefined): Critique {
   const source = (text ?? "").replace(/\r\n?/g, "\n");
-  const lines = source.split("\n");
+  // Flags come from the head of a review; a runaway output must not cost a long parse.
+  const lines = source.slice(0, MAX_PARSE_CHARS).split("\n");
   let verdict: string | null = null;
   let heading: string | null = null;
   let inFence = false;
@@ -163,11 +169,23 @@ export function parseCritique(text: string | null | undefined): Critique {
   }
 
   const flags: CritiqueFlag[] = [];
-  for (const item of candidates) {
+  for (const item of candidates.slice(0, MAX_FLAGS)) {
     const parsed = parseFlagText(item.text, sectionFrom(item.heading));
     if (parsed) flags.push({ id: `f${flags.length + 1}`, ...parsed });
   }
   return { verdict, flags, prose: source.trim() };
+}
+
+const critiqueCache = new Map<string, Critique>();
+
+/** parseCritique, remembered for the last few review texts (renders and polls repeat them). */
+export function critiqueOf(text: string): Critique {
+  const hit = critiqueCache.get(text);
+  if (hit) return hit;
+  const value = parseCritique(text);
+  if (critiqueCache.size >= 8) critiqueCache.delete(critiqueCache.keys().next().value as string);
+  critiqueCache.set(text, value);
+  return value;
 }
 
 /** The line "Add to note" appends: the fix when there is one, else the issue to address. */
@@ -244,10 +262,13 @@ function words(value: string): Set<string> {
   return new Set(normal(value).split(" ").filter((word) => word.length > 2));
 }
 
-function similarity(a: Block, b: Block): number {
-  const x = words(a.text);
-  const y = words(b.text);
-  if (x.size === 0 && y.size === 0) return a.key === b.key ? 1 : 0;
+/** Characters of each version that are compared; the rest is left out of the before/after. */
+export const MAX_COMPARE_CHARS = 60_000;
+const MAX_LCS_CELLS = 250_000;
+const MAX_PAIRINGS = 2_500;
+
+function jaccard(x: Set<string>, y: Set<string>, sameKey: boolean): number {
+  if (x.size === 0 && y.size === 0) return sameKey ? 1 : 0;
   let shared = 0;
   for (const word of x) if (y.has(word)) shared += 1;
   return shared / (x.size + y.size - shared);
@@ -259,16 +280,24 @@ function similarity(a: Block, b: Block): number {
  * "changed" and the rest are "added" or "removed". Not a character diff.
  */
 export function compareVersions(before: string, after: string): Comparison {
-  const a = splitBlocks(before);
-  const b = splitBlocks(after);
+  const a = splitBlocks(before.slice(0, MAX_COMPARE_CHARS));
+  const b = splitBlocks(after.slice(0, MAX_COMPARE_CHARS));
   const n = a.length;
   const m = b.length;
-  const lcs: number[][] = Array.from({ length: n + 1 }, () => new Array<number>(m + 1).fill(0));
-  for (let i = n - 1; i >= 0; i -= 1) {
+  // LCS table is n×m; past the bound, anchor nothing and let the gap pass pair by position.
+  const anchored = n * m <= MAX_LCS_CELLS;
+  const lcs: number[][] = anchored ? Array.from({ length: n + 1 }, () => new Array<number>(m + 1).fill(0)) : [];
+  for (let i = anchored ? n - 1 : -1; i >= 0; i -= 1) {
     for (let j = m - 1; j >= 0; j -= 1) {
       lcs[i][j] = a[i].key === b[j].key ? lcs[i + 1][j + 1] + 1 : Math.max(lcs[i + 1][j], lcs[i][j + 1]);
     }
   }
+  const wordsOf = new Map<Block, Set<string>>();
+  const wordSet = (block: Block) => {
+    let set = wordsOf.get(block);
+    if (!set) wordsOf.set(block, (set = words(block.text)));
+    return set;
+  };
   const rows: CompareRow[] = [];
   let gapA: Block[] = [];
   let gapB: Block[] = [];
@@ -282,12 +311,20 @@ export function compareVersions(before: string, after: string): Comparison {
     }
     const usedA = new Set<number>();
     const pairs = new Map<number, number>();
-    gapB.forEach((block, j) => {
+    const positional = gapA.length * gapB.length > MAX_PAIRINGS;
+    if (positional) {
+      // Too big to pair by similarity: pair by position, the rest is new or cut.
+      for (let k = 0; k < Math.min(gapA.length, gapB.length); k += 1) {
+        usedA.add(k);
+        pairs.set(k, k);
+      }
+    }
+    if (!positional) gapB.forEach((block, j) => {
       let best = -1;
       let score = 0.3;
       gapA.forEach((old, i) => {
         if (usedA.has(i)) return;
-        const s = similarity(old, block);
+        const s = jaccard(wordSet(old), wordSet(block), old.key === block.key);
         if (s > score) {
           score = s;
           best = i;
@@ -317,7 +354,7 @@ export function compareVersions(before: string, after: string): Comparison {
       rows.push({ kind: "same", after: b[j] });
       i += 1;
       j += 1;
-    } else if (j < m && (i >= n || lcs[i][j + 1] >= lcs[i + 1][j])) {
+    } else if (j < m && (i >= n || !anchored || lcs[i][j + 1] >= lcs[i + 1][j])) {
       gapB.push(b[j]);
       j += 1;
     } else {
@@ -368,12 +405,12 @@ export type FlagMark = { flag: CritiqueFlag; status: "addressed" | "open"; evide
  * - or the passage the issue points at was rewritten and at least one fix word arrived.
  * Anything else is "not yet". It cannot judge quality, and says so in the UI.
  */
-export function markAddressed(flags: CritiqueFlag[], before: string, after: string): FlagMark[] {
+export function markAddressed(flags: CritiqueFlag[], before: string, after: string, precomputed?: Comparison): FlagMark[] {
   const oldText = ` ${normal(before)} `;
   const newText = ` ${normal(after)} `;
   const oldTerms = new Set(normal(before).split(" ").map(stem));
   const newTerms = new Set(normal(after).split(" ").map(stem));
-  const comparison = compareVersions(before, after);
+  const comparison = precomputed ?? compareVersions(before, after);
   const rewritten = comparison.rows.filter((row) => row.kind === "changed" || row.kind === "removed").map((row) => ` ${row.before.key} `);
 
   return flags.map((flag) => {

@@ -3,11 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useClocks } from "@/components/use-now";
 import { useVisualViewportBox } from "@/components/KnotPanel";
-import { AttributionLine, CritiqueFlags, RunCost, VersionsButton } from "@/components/Critique";
+import { AttributionLine, CritiqueFlags, RunCost, VersionsButton, useCritique } from "@/components/Critique";
 import { OutputView } from "@/components/OutputView";
 import { ContextBar, PacketSections } from "@/components/ThreadBits";
 import { attributionFor, attributionLine } from "@/lib/attribution";
-import { appendToNote, parseCritique } from "@/lib/critique";
+import { appendToNote } from "@/lib/critique";
 import { MAX_NOTE_CHARS } from "@/lib/limits";
 import { changeNotesFor, orderedLineageTasks } from "@/lib/lineage";
 import { socraticQuestion } from "@/lib/philosophy";
@@ -227,7 +227,7 @@ export function TreeDetailRail({
   const knotInfo = knot && task ? knotFor(task, project) : null;
   const preview = knotInfo ? artifactPreview(knotInfo.artifact, agents) : null;
   const reviewer = knotInfo?.reviewers.find((item) => item.output) ?? null;
-  const critique = reviewer?.output ? parseCritique(reviewer.output) : null;
+  const critique = useCritique(reviewer?.output);
   const [note, setNote] = useState("");
   const [writing, setWriting] = useState(false);
   const inputNames = knotInfo ? [...new Set(knotInfo.inputs.map((input) => input.agent?.name ?? ""))].filter(Boolean) : [];

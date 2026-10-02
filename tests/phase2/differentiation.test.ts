@@ -233,3 +233,37 @@ test("versions: only runs with output count; the critique between two versions i
   const sentBack = { ...p, events: [{ id: "e", projectId: "p", type: "note", message: "", taskId: "approve", fromTaskId: null, toTaskId: null, runId: null, payload: { decision: "changes_requested", clearedTaskIds: ["draft", "review", "approve"] }, createdAt: "" }] };
   assert.equal(mayHaveEarlierVersion(draft, sentBack), true);
 });
+
+// Regression (Oct 2 2026, error 1102): parsing and comparing are bounded, so a long or
+// fully rewritten output can never stall a render.
+test("bounds: a fully rewritten long draft compares in bounded time", async () => {
+  const { compareVersions: compare, markAddressed: mark, parseCritique: parse, critiqueOf, MAX_PARSE_CHARS } = await import("../../lib/critique");
+  const before = Array.from({ length: 1200 }, (_, i) => `old ${i} alpha beta gamma delta ${i * 3}`).join("\n\n");
+  const after = Array.from({ length: 1201 }, (_, i) => `new ${i} alpha beta gamma epsilon ${i * 7}`).join("\n\n");
+  const flags = parse(Array.from({ length: 20 }, (_, i) => `- issue ${i} alpha — fix: add epsilon ${i}`).join("\n")).flags;
+  const started = performance.now();
+  const comparison = compare(before, after);
+  const marks = mark(flags, before, after, comparison);
+  const elapsed = performance.now() - started;
+  assert.ok(elapsed < 500, `compare + mark took ${elapsed.toFixed(0)}ms`);
+  assert.equal(marks.length, 20);
+  assert.ok(comparison.rows.length > 0);
+
+  const huge = Array.from({ length: 4000 }, (_, i) => `- point ${i} — fix: do ${i}`).join("\n");
+  const t0 = performance.now();
+  const parsed = parse(huge);
+  assert.ok(performance.now() - t0 < 200);
+  assert.ok(parsed.flags.length <= 40);
+  assert.equal(parsed.prose, huge.trim());
+  assert.ok(MAX_PARSE_CHARS >= 10_000);
+  assert.equal(critiqueOf(huge), critiqueOf(huge));
+});
+
+test("bounds: small comparisons are unchanged by the caps", () => {
+  const before = "# Title\n\nIntro para about tools.\n\n- one\n- two";
+  const after = "# Title\n\nIntro para about tools and volunteers.\n\n- one\n- two\n- three";
+  const comparison = compareVersions(before, after);
+  assert.equal(comparison.same, 3);
+  assert.equal(comparison.changed, 1);
+  assert.equal(comparison.added, 1);
+});

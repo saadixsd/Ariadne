@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Markdown } from "@/components/OutputView";
-import { useClocks } from "@/components/use-now";
+import { useClocks, useHydrated } from "@/components/use-now";
 import { handText, reviewStepFor, type Attribution as AttributionData } from "@/lib/attribution";
-import { compareVersions, markAddressed, noteLineFor, parseCritique, type Critique, type FlagMark } from "@/lib/critique";
+import { compareVersions, critiqueOf, markAddressed, noteLineFor, parseCritique, type Critique, type FlagMark } from "@/lib/critique";
 import { foldPlan } from "@/lib/text-fold";
 import { changeNotesFor } from "@/lib/lineage";
 import { critiqueBetween, mayHaveEarlierVersion, versionsOf, type Version } from "@/lib/versions";
@@ -164,6 +164,16 @@ export function CritiqueFlags({
   );
 }
 
+/**
+ * The review parsed into flags, on the client only. The Worker renders the first page
+ * under a tight CPU budget, so the knot's flags fill in after hydration instead of
+ * being parsed during SSR; repeat renders (polls, clock ticks) reuse the parse.
+ */
+export function useCritique(text: string | null | undefined): Critique | null {
+  const hydrated = useHydrated();
+  return useMemo(() => (hydrated && text ? critiqueOf(text) : null), [hydrated, text]);
+}
+
 /* ---------- run history (read-only) ---------- */
 
 type RunsState = { status: "idle" } | { status: "loading" } | { status: "ready"; versions: Version[] } | { status: "error"; message: string };
@@ -221,8 +231,12 @@ export function VersionCompare({
   const beforeText = before.run.output ?? "";
   const afterText = after.run.output ?? "";
   const critiqueText = critique?.run.output ?? "";
-  const comparison = compareVersions(beforeText, afterText);
-  const marks: FlagMark[] = critiqueText ? markAddressed(parseCritique(critiqueText).flags, beforeText, afterText) : [];
+  // One comparison per pair of versions, not one per render (and markAddressed reuses it).
+  const comparison = useMemo(() => compareVersions(beforeText, afterText), [beforeText, afterText]);
+  const marks: FlagMark[] = useMemo(
+    () => (critiqueText ? markAddressed(parseCritique(critiqueText).flags, beforeText, afterText, comparison) : []),
+    [critiqueText, beforeText, afterText, comparison],
+  );
   const addressed = marks.filter((mark) => mark.status === "addressed").length;
   const summary = [
     comparison.changed ? `${comparison.changed} changed` : null,

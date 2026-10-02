@@ -6,6 +6,8 @@
   "workers_dev": true,
   "compatibility_date": "2026-09-26",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  // Workers Logs, so errors like 1102 (exceeded resource limits) can be traced.
+  "observability": { "enabled": true },
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS"
