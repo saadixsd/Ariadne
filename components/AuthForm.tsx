@@ -37,7 +37,7 @@ export function AuthForm({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email: address, code }),
         });
-        const body = (await response.json()) as { error?: string };
+        const body = (await response.json().catch(() => ({}))) as { error?: string };
         if (!response.ok) {
           setError(body.error ?? "Could not verify that code");
           return;
@@ -51,7 +51,7 @@ export function AuthForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: address, password }),
       });
-      const body = (await response.json()) as { error?: string; verify?: boolean };
+      const body = (await response.json().catch(() => ({}))) as { error?: string; verify?: boolean };
       if (!response.ok) {
         setError(body.error ?? "Could not continue");
         if (response.status === 403) {
@@ -81,7 +81,7 @@ export function AuthForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: address }),
       });
-      const body = (await response.json()) as { error?: string };
+      const body = (await response.json().catch(() => ({}))) as { error?: string };
       if (!response.ok) {
         setError(body.error ?? "Could not send another code");
         return;

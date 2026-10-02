@@ -17,9 +17,8 @@ import { SetupBanner } from "@/components/SetupBanner";
 import { TaskColumn } from "@/components/TaskColumn";
 import { AccountButton, TopBar } from "@/components/TopBar";
 import { useClocks, useNow } from "@/components/use-now";
-import { WelcomeOverlay } from "@/components/WelcomeOverlay";
 import { useFlag, writeFlag } from "@/components/client-storage";
-import { failureText, fetchProject, serverError, useProjectPoll } from "@/components/project-poll";
+import { failureText, fetchProject, runFailureNext, runFailureText, serverError, useProjectPoll } from "@/components/project-poll";
 import { acceptPolledProject, needsSharedContextPrompt } from "@/lib/board-project";
 import { hideModelIds } from "@/lib/model-label";
 import { buildLineage } from "@/lib/lineage";
@@ -31,7 +30,6 @@ import type { ProjectDTO, TaskDTO } from "@/lib/types";
 export type ProjectOption = { id: string; name: string };
 
 const HINT_KEY = "ariadne.hint.blocked";
-const MET_KEY = "ariadne.welcome.met";
 
 function observeStatuses(next: ProjectDTO, previousStatus: Record<string, string>) {
   let expandedId: string | null = null;
@@ -147,9 +145,7 @@ export function Dashboard({
   const [menu, setMenu] = useState<null | "account">(null);
   const [toast, setToast] = useState<{ tone: "danger" | "ok"; text: string } | null>(null);
   const [remaining, setRemaining] = useState(runsLeft);
-  const [pulseRunId, setPulseRunId] = useState<string | null>(null);
   const hintDismissed = useFlag(HINT_KEY);
-  const metAgents = useFlag(MET_KEY);
   const previousStatus = useRef<Record<string, string>>(
     Object.fromEntries(initial.tasks.map((task) => [task.id, task.status])),
   );
@@ -178,12 +174,6 @@ export function Dashboard({
     const timer = setTimeout(() => setToast(null), 6000);
     return () => clearTimeout(timer);
   }, [toast]);
-
-  useEffect(() => {
-    if (!pulseRunId) return;
-    const timer = setTimeout(() => setPulseRunId(null), 4000);
-    return () => clearTimeout(timer);
-  }, [pulseRunId]);
 
   // Poll only as hard as the moment needs: every 2s while a step spins, backing off
   // to once a minute while idle, paused in a hidden tab, 304 when nothing changed.
@@ -216,7 +206,6 @@ export function Dashboard({
 
   const toggleAgent = useCallback((id: string) => {
     setExpandedAgentId((current) => (current === id ? null : id));
-    queueMicrotask(() => writeFlag(MET_KEY, true));
   }, []);
 
   // One request (the project already carries its newest 100 events).
@@ -254,11 +243,12 @@ export function Dashboard({
     }));
     try {
       const response = await fetch(`/api/tasks/${taskId}/run`, { method: "POST" });
-      const failure = response.ok ? null : failureText("Run failed", response.status, await serverError(response));
+      const failure = response.ok ? null : runFailureText("Run failed", response.status, await serverError(response));
       if (!response.ok) {
+        if (response.status === 429) setRemaining(0);
         setToast({
           tone: "danger",
-          text: `${hideModelIds(failure ?? "Run failed")} Open the task to copy the error, or press Retry when you want another attempt.`,
+          text: `${hideModelIds(failure ?? "Run failed")} ${runFailureNext(response.status)}`,
         });
       } else if (data.agents.find((agent) => agent.id === task?.agentId)?.provider !== "human") {
         setRemaining((count) => Math.max(0, count - 1));
@@ -327,7 +317,7 @@ export function Dashboard({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name, brief }),
     });
-    const body = (await response.json()) as { error?: string };
+    const body = (await response.json().catch(() => ({}))) as { error?: string };
     if (!acceptPolledProject(selectedIdRef.current, projectId)) {
       return "That project changed before the brief could be saved.";
     }
@@ -365,7 +355,6 @@ export function Dashboard({
     setApprovalId(null);
     setExpandedTaskId(null);
     setRerunId(null);
-    setPulseRunId(null);
     writeProjectUrl(id);
   }
 
@@ -376,7 +365,7 @@ export function Dashboard({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, brief }),
       });
-      const body = (await response.json()) as ProjectDTO & { error?: string };
+      const body = (await response.json().catch(() => ({}))) as ProjectDTO & { error?: string };
       if (!response.ok || !body.id) return body.error ?? "Could not create the project.";
       setProjects((current) =>
         current.some((project) => project.id === body.id) ? current : [...current, { id: body.id, name: body.name }],
@@ -386,7 +375,6 @@ export function Dashboard({
       setApprovalId(null);
       setExpandedTaskId(null);
       setRerunId(null);
-      setPulseRunId(null);
       writeProjectUrl(body.id);
       return null;
     } catch {
@@ -401,11 +389,12 @@ export function Dashboard({
     setExpandedTaskId(rerunId);
     try {
       const response = await fetch(`/api/tasks/${rerunId}/rerun`, { method: "POST" });
-      const body = (await response.json()) as { error?: string };
+      const body = (await response.json().catch(() => ({}))) as { error?: string };
       if (!response.ok) {
+        if (response.status === 429) setRemaining(0);
         setToast({
           tone: "danger",
-          text: `${hideModelIds(body.error ?? "Could not re-run")}. Refresh the board before trying again.`,
+          text: `${hideModelIds(runFailureText("Could not re-run", response.status, body.error ?? null))} ${runFailureNext(response.status)}`,
         });
         await refresh();
         return;
@@ -433,7 +422,7 @@ export function Dashboard({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input),
       });
-      const body = (await response.json()) as { error?: string; task?: TaskDTO; project?: ProjectDTO };
+      const body = (await response.json().catch(() => ({}))) as { error?: string; task?: TaskDTO; project?: ProjectDTO };
       if (!response.ok || !body.project || !body.task) {
         return body.error ?? "Could not add the task. The board is unchanged.";
       }
@@ -448,17 +437,6 @@ export function Dashboard({
     }
   }
 
-  function highlightFirstRun() {
-    const first = data.tasks[0];
-    const node = document.querySelector('[data-task-index="0"]');
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    node?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "center" });
-    if (first?.status === "pending") {
-      setExpandedTaskId(first.id);
-      setPulseRunId(first.id);
-    }
-  }
-
   async function copyError(message: string) {
     try {
       await navigator.clipboard.writeText(message);
@@ -470,11 +448,6 @@ export function Dashboard({
 
   const approvalTask = data.tasks.find((task) => task.id === approvalId) ?? null;
   const lineageSteps = lineageId ? buildLineage(data, lineageId) : null;
-  const first = data.tasks[0];
-  const ranTask = !!first && first.status !== "pending";
-  const approved =
-    data.events.some((event) => event.type === "approved") ||
-    data.tasks.some((task) => task.requiresApproval && task.status === "done");
   const emptyOwnBrief = needsSharedContextPrompt(data);
 
   const handoffTask = handoffId ? data.tasks.find((task) => task.id === handoffId) : undefined;
@@ -549,13 +522,6 @@ export function Dashboard({
         </div>
       </TopBar>
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto pb-[env(safe-area-inset-bottom)] tall-xl:overflow-hidden">
-        <WelcomeOverlay
-          metAgents={metAgents}
-          ranTask={ranTask}
-          approved={approved}
-          canHighlightRun={first?.status === "pending"}
-          onRunDemo={highlightFirstRun}
-        />
         <section className="gutter-safe mx-auto grid w-full max-w-[1920px] shrink-0 grid-cols-1 items-end gap-x-10 gap-y-4 pt-[22px] pb-[18px] md:grid-cols-[minmax(0,1fr)_auto]">
           <div className="min-w-0">
             <p className="eyebrow">Project{clock(data.createdAt) ? ` · started ${clock(data.createdAt)}` : ""}</p>
@@ -596,7 +562,6 @@ export function Dashboard({
               project={data}
               expandedId={expandedTaskId}
               pendingId={pendingId}
-              pulseRunId={pulseRunId}
               showDependencyHint={!hintDismissed}
               onDismissHint={() => writeFlag(HINT_KEY, true)}
               onToggle={(id) => setExpandedTaskId((current) => (current === id ? null : id))}

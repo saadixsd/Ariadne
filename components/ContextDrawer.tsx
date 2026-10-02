@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import { MAX_BRIEF_CHARS, MAX_PROJECT_NAME_CHARS } from "@/lib/limits";
 
 export function ContextDrawer({
   name,
@@ -112,7 +113,7 @@ export function ContextDrawer({
           <input
             value={draftName}
             onChange={(event) => setDraftName(event.target.value)}
-            maxLength={120}
+            maxLength={MAX_PROJECT_NAME_CHARS}
             className="mt-1 w-full bg-canvas px-3 py-2 text-sm ring-1 ring-line"
             aria-label="Project name"
           />
@@ -122,6 +123,7 @@ export function ContextDrawer({
           <textarea
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
+            maxLength={MAX_BRIEF_CHARS}
             className="mt-1 min-h-64 w-full flex-1 bg-canvas px-3 py-2 text-sm leading-normal ring-1 ring-line"
             aria-label="Project brief"
           />

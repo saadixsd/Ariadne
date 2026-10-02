@@ -15,9 +15,9 @@ type RunningTask = {
  * Is this `running` task dead? Today runs are synchronous inside the HTTP request
  * (max ~120s), so age alone is a safe signal.
  *
- * LEASE HOOK: the planned async engine (ORCHESTRATION_DESIGN.md §1 item 1, §4.3)
- * gives engine runs a `TaskRun.leaseExpiresAt` and can legitimately run longer than
- * 5 minutes. When that lands, this is the single place to change: for a task with
+ * LEASE HOOK: a future async engine (not designed yet; parked until usage needs it)
+ * would give engine runs a `TaskRun.leaseExpiresAt` and could legitimately run longer
+ * than 5 minutes. When that lands, this is the single place to change: for a task with
  * an engine run, return `leaseExpiresAt < now` instead of checking age (and let the
  * DO lease sweeper own reclaim for those runs). Keep the age rule only for legacy
  * synchronous runs.

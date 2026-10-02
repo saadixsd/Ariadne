@@ -97,3 +97,46 @@ The coordination loop is unchanged. Seed, page load, and reset only write SQLite
 
 - Phase B is yours: use Ariadne market research for real and write down the pains.
 - Phase C is the five builders. Agent chat, new providers, a planner, accounts, billing, and deploy stay parked.
+
+## 2026-09-27 to 2026-09-30 — Catch-up (reconstructed from git history)
+
+These sessions were not logged at the time. This entry is rebuilt from the commits; see `git log` for the detail.
+
+- **Accounts and Cloudflare (Sep 27).** Email/password auth with hashed sessions, the D1-backed Worker on `ariadne.sr-labs.workers.dev` via OpenNext and Workers Builds, preview-branch bindings, the mandatory "What are you making?" project dialog for new accounts, and the first-page CPU fix for error 1102.
+- **Tree view (Sep 29).** A live Board ⇄ Tree switch, a node detail rail, hover previews and a next-step line. The green-and-white theme shipped here was replaced the same night (below). The "Beta" badge was removed.
+- **Ship-blockers (Sep 29).** `migrations/0001`–`0002` (baseline, `TaskRun`, structured event columns, `RateLimit`); per-IP rate limits on sign-up, sign-in and verify; no more claiming of unowned projects; server-side input caps (brief 5,000, title 200, instructions 5,000, note 2,000); immutable run history; a success-only atomic daily quota of 10 model runs; lazy stuck-run recovery after 5 minutes; UI parsers that read structured event columns instead of message text; the `tests/ship-blockers` suite.
+- **Red Thread redesign (Sep 29–30).** Linen paper, serif type, a red thread and gold knots. The Board is one thread with handoff beads, and a single knot panel replaced the duplicate Activity cards. The Tree is drawn as a labyrinth from the door to the deliverable. Times print only after hydration.
+- **Phase 2 (Sep 30).** Scout/Maker renamed Odysseus/Daedalus (`migrations/0003`); the Tree laid out from real dependencies; adaptive polling with ETag/304; typeset output with a Reader; a Socratic question at each knot; a real Settings page in place of Reset demo. Then the knot as a wide reading sheet, the Door sign-in, one Prisma client per Worker request, real server errors in toasts, a responsive pass, name editing, and project rename/delete.
+
+## 2026-10-01 — V1 hardening for real users (branch `cleanup/v1-hardening`)
+
+Spec: `docs/muse/22_CLAUDE_CODE_CLEANUP_BRIEF.md` and `CLAUDE.md` (the standing project brief, now at the repo root).
+
+### Start state
+
+Baseline before any change: lib 13/13, Phase 2 17/17, migrations 4/4, dev-server HTTP 10/10. `next build` passed with zero warnings once a corrupt Turbopack cache (`.next/cache/turbopack`) was cleared. `npm run lint` ran out of memory because eslint walked the generated `.open-next/` and `.wrangler/` bundles; linting the source folders gave 0 errors and 9 warnings (all `no-location-assign-relative-destination`).
+
+### What changed
+
+- **Launch-bar copy.** A repo grep of shipped code (`app components lib proxy.ts public` and config) for beta, alpha, preview, experimental, coming soon, under construction, lorem ipsum and TODO found no user-visible hits. "preview" survives only in internal identifiers (`previewChips`, `artifactPreview`, `lib/html-preview.ts`); the one visible use, the generated-page iframe title "Page preview", is now "Generated page".
+- **Intro card removed.** `components/WelcomeOverlay.tsx` ("You hold the thread.", the 3-step checklist) is deleted, along with every `ariadne.welcome.*` localStorage read and write, the step auto-complete wiring (the agents-met flag, ran-task and approved checks), the "Show me the first step" Run pulse (`pulseRunId`, `.pulse-run`), and the checkbox helpers in `client-storage.ts` that only it used. None of it was load-bearing. The "What are you making?" dialog is unchanged.
+- **Internal copy out of user UI.** The feedback success dialog no longer names the `/feedback` route. The missing-keys banner no longer tells users to edit `.env` and restart `npm run dev`. The "Project unavailable" and "No project yet" screens no longer say "run the seed again"; both now have working buttons.
+- **Brief cap is 5,000 everywhere.** Onboarding used 4,000; it now uses `MAX_BRIEF_CHARS` and `assertMaxLength` like every other route, and the project dialogs cap their inputs at the same limits.
+- **Domain.** `ariadneagents.si` was already routed to the Worker (`ariadneagents.si/*`); `www.ariadneagents.si` showed the registrar's parking page and now has its own route. Both routes are recorded in `wrangler.jsonc`.
+- **Email verification stays off.** The founder decided not to set up company email or a paid plan yet. The code is ready: add a `send_email` binding named `EMAIL` and an `EMAIL_FROM` var once the domain is onboarded to Cloudflare Email Service (Workers Paid is required to email arbitrary sign-ups). A rejected send now rolls the sign-up back with a readable 503 instead of leaving a half-created account behind a 500.
+- **Failure paths.** An expired session sends the board or Tree to `/sign-in`; a deleted project sends it to the user's next project; coming back online polls at once. A provider failure (502) shows "Claude or GPT returned an error instead of an answer" in the toast while the raw error stays on the frayed step beside Copy error. A used-up quota no longer says "press Retry", names midnight UTC, and drops the runs meter to 0. Error bodies that are not JSON no longer masquerade as "could not reach the server". A root `app/global-error.tsx` covers a crash in the root layout.
+- **No decorative controls.** The active Board/Tree segment is a label, not a link that reloads the page. The failed step's button is announced as "Respin", matching what it shows.
+- **Docs.** `MIGRATIONS.md` now exists (the production D1 pre-step that `migrations/0001` cites). The `ORCHESTRATION_DESIGN.md` citation in `lib/reclaim.ts` is gone: that design was never written and the async engine is parked.
+- **Lint.** eslint ignores `.open-next/` and `.wrangler/`, so `npm run lint` finishes.
+
+Untouched: the run pipeline (`lib/agents.ts`), board and tree logic, quota semantics (10 model runs per user per UTC day), run history, stuck-run recovery, and sign-up throttling.
+
+### What was verified
+
+- After the changes: lib 13/13, Phase 2 17/17, migrations 4/4, HTTP 10/10; `tsc` clean; lint 0 errors and the same 9 warnings as the baseline; the build has zero warnings.
+- A headless-Chromium audit (Playwright, local mock LLM) passed 35/35 checks:
+  - **Sign-up and board:** fresh sign-up → "What are you making?" → board with no intro card, even with stale `ariadne.welcome.*` keys planted. Name-only Continue shows an inline error; the button never sticks on "Starting".
+  - **Launch-bar copy:** no banned words on any screen.
+  - **Dead ends:** every button, link, menu item and tab on the board, Tree and Settings (fresh and finished projects) does something visible.
+  - **Full workflow:** research → draft → review → knot → produce, with produce locked until you tie off.
+  - **Failure paths:** model failure, quota at 10/10, offline and reconnect, expired session and deleted project all end on a readable message or the right page, never a blank screen. No console errors throughout.

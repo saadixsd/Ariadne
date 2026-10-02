@@ -31,6 +31,11 @@
       "fallthrough": true
     }
   ],
+  // ariadneagents.si is a proxied Cloudflare zone; these routes put the Worker on it.
+  "routes": [
+    { "pattern": "ariadneagents.si/*", "zone_name": "ariadneagents.si" },
+    { "pattern": "www.ariadneagents.si/*", "zone_name": "ariadneagents.si" }
+  ],
   "vars": {
     "ANTHROPIC_MODEL": "claude-haiku-4-5-20251001",
     "OPENAI_MODEL": "gpt-6-luna"

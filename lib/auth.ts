@@ -135,7 +135,7 @@ export async function signUp(emailInput: string, password: string) {
     const sent = await issueCode(user.id, email);
     if (!sent) {
       await prisma.user.delete({ where: { id: user.id } });
-      throw new TaskRunError("The verification email could not be sent.", 503);
+      throw new TaskRunError("We could not send the verification email. Try again in a few minutes.", 503);
     }
     return { verify: true as const };
   }
@@ -179,8 +179,8 @@ export async function resendCode(emailInput: string) {
   const user = validEmail(email) ? await prisma.user.findUnique({ where: { email } }) : null;
   if (!user || user.emailVerified) return;
   if (!(await canSendEmail())) {
-    throw new TaskRunError("Verification email is not available on this Cloudflare account yet.", 503);
+    throw new TaskRunError("We could not send a code right now. Try again in a few minutes.", 503);
   }
   const sent = await issueCode(user.id, email);
-  if (!sent) throw new TaskRunError("The verification email could not be sent.", 503);
+  if (!sent) throw new TaskRunError("We could not send the verification email. Try again in a few minutes.", 503);
 }

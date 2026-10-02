@@ -97,7 +97,6 @@ export function TaskColumn({
   project,
   expandedId,
   pendingId,
-  pulseRunId,
   showDependencyHint,
   onDismissHint,
   onToggle,
@@ -114,7 +113,6 @@ export function TaskColumn({
   project: ProjectDTO;
   expandedId: string | null;
   pendingId: string | null;
-  pulseRunId: string | null;
   showDependencyHint: boolean;
   onDismissHint: () => void;
   onToggle: (id: string) => void;
@@ -366,7 +364,6 @@ export function TaskColumn({
                           data-can-run={runnable ? "true" : "false"}
                           disabled={!runnable || busy}
                           onClick={() => onRun(task.id)}
-                          aria-label={task.status === "failed" ? "Retry" : undefined}
                           title={
                             !runnable
                               ? "Finish the tasks this one needs. Ariadne will not run it until you press Run."
@@ -374,9 +371,7 @@ export function TaskColumn({
                                 ? "Packages earlier work for your approval. Does not call Claude or GPT."
                                 : "Calls this agent now. Opening the page does not."
                           }
-                          className={`rt-btn ${runnable && !busy ? "rt-btn-thread" : "rt-btn-ghost"} ${
-                            pulseRunId === task.id && runnable ? "pulse-run ring-2 ring-thread/40" : ""
-                          }`}
+                          className={`rt-btn ${runnable && !busy ? "rt-btn-thread" : "rt-btn-ghost"}`}
                         >
                           {busy ? "Spinning…" : task.status === "failed" ? "Respin" : human && runnable ? "Open the knot" : "Run"}
                         </button>

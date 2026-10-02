@@ -6,7 +6,7 @@ import { CoordinationTree } from "@/components/CoordinationTree";
 import { AccountButton, TopBar } from "@/components/TopBar";
 import { TreeDetailRail } from "@/components/TreeDetailRail";
 import { ContextDrawer } from "@/components/ContextDrawer";
-import { failureText, fetchProject, serverError, useProjectPoll } from "@/components/project-poll";
+import { fetchProject, runFailureNext, runFailureText, serverError, useProjectPoll } from "@/components/project-poll";
 import { acceptPolledProject } from "@/lib/board-project";
 import { isSpinning } from "@/lib/poll-schedule";
 import { workflowTree } from "@/lib/live-tree";
@@ -183,10 +183,11 @@ export function LiveTree({
     try {
       const response = await fetch(`/api/tasks/${taskId}/run`, { method: "POST" });
       if (!response.ok) {
-        const failure = failureText("Run failed", response.status, await serverError(response));
+        const failure = runFailureText("Run failed", response.status, await serverError(response));
+        if (response.status === 429) setRemaining(0);
         setToast({
           tone: "danger",
-          text: `${hideModelIds(failure)} Open the task to copy the error, or press Retry when you want another attempt.`,
+          text: `${hideModelIds(failure)} ${runFailureNext(response.status)}`,
         });
       } else if (data.agents.find((agent) => agent.id === task?.agentId)?.provider !== "human") {
         setRemaining((count) => Math.max(0, count - 1));
@@ -255,11 +256,12 @@ export function LiveTree({
     setPendingId(rerunId);
     try {
       const response = await fetch(`/api/tasks/${rerunId}/rerun`, { method: "POST" });
-      const body = (await response.json()) as { error?: string };
+      const body = (await response.json().catch(() => ({}))) as { error?: string };
       if (!response.ok) {
+        if (response.status === 429) setRemaining(0);
         setToast({
           tone: "danger",
-          text: `${hideModelIds(body.error ?? "Could not re-run")}. Refresh the board before trying again.`,
+          text: `${hideModelIds(runFailureText("Could not re-run", response.status, body.error ?? null))} ${runFailureNext(response.status)}`,
         });
         await load();
         return;

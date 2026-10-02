@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { MAX_BRIEF_CHARS, MAX_PROJECT_NAME_CHARS } from "@/lib/limits";
 
 export function ProjectIntro() {
   const [name, setName] = useState("");
@@ -52,7 +53,7 @@ export function ProjectIntro() {
           <input
             value={name}
             onChange={(event) => setName(event.target.value)}
-            maxLength={120}
+            maxLength={MAX_PROJECT_NAME_CHARS}
             autoFocus
             placeholder="Name"
             className="mt-2 w-full rounded-2xl bg-panel px-4 py-4 text-[17px] ring-1 ring-line placeholder:text-ink-dim/50"
@@ -64,7 +65,7 @@ export function ProjectIntro() {
           <textarea
             value={description}
             onChange={(event) => setDescription(event.target.value)}
-            maxLength={4000}
+            maxLength={MAX_BRIEF_CHARS}
             placeholder="e.g. Map Montreal pre-seed investors for my AI dev-tools startup — I need names, check sizes, and warm-intro paths."
             className="mt-2 min-h-36 w-full resize-none rounded-2xl bg-panel px-4 py-4 text-[17px] leading-relaxed ring-1 ring-line placeholder:text-ink-dim/50"
             aria-label="Project description"

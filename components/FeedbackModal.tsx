@@ -25,7 +25,7 @@ export function FeedbackModal({ onClose }: { onClose: () => void }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ kind, message: message.trim() }),
       });
-      const body = (await response.json()) as { error?: string };
+      const body = (await response.json().catch(() => ({}))) as { error?: string };
       if (!response.ok) {
         setPhase("error");
         setError(body.error ?? "Could not save feedback");
@@ -54,7 +54,7 @@ export function FeedbackModal({ onClose }: { onClose: () => void }) {
               Thanks — you&apos;re shaping Ariadne.
             </h2>
             <p className="mt-2 text-sm leading-normal text-ink-dim">
-              It is stored for the inbox at /feedback. Sending feedback does not run an agent.
+              Your feedback is saved, and we read every note. Sending it does not run an agent.
             </p>
             <div className="mt-4 flex justify-end">
               <button

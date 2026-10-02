@@ -9,6 +9,7 @@ import { missingSetup } from "@/lib/setup";
 import { DAILY_MODEL_RUNS, modelRunsToday } from "@/lib/usage";
 import { getPrisma } from "@/lib/prisma";
 import { getProject } from "@/lib/project";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -37,8 +38,11 @@ export default async function Home({
         <BrandMark />
         <h1 className="mt-6 font-serif text-[44px] font-normal leading-none tracking-[-0.015em]">No project yet</h1>
         <p className="mt-3 text-sm leading-normal text-ink-dim">
-          Sign out and sign in again to name your project. That does not call Claude or GPT.
+          Name a project to start a thread. That does not call Claude or GPT.
         </p>
+        <Link href="/" className="rt-btn rt-btn-thread mt-5 h-10 w-fit text-sm">
+          Start a project
+        </Link>
       </main>
     );
   }
@@ -51,9 +55,17 @@ export default async function Home({
       <main className="mx-auto flex min-h-full max-w-lg flex-col justify-center px-6">
         <h1 className="font-serif text-[40px] font-normal leading-none tracking-[-0.015em]">Project unavailable</h1>
         <p className="mt-3 text-sm leading-normal text-ink-dim">
-          Refresh the page. If it stays empty, run the seed again. Nothing is sent to a model from
+          This project could not be opened. It may have been deleted. Nothing is sent to a model from
           this screen.
         </p>
+        <div className="mt-5 flex flex-wrap gap-2">
+          <Link href="/" className="rt-btn rt-btn-thread h-10 text-sm">
+            Open my projects
+          </Link>
+          <Link href="/settings#projects" className="rt-btn h-10 text-sm">
+            Manage projects
+          </Link>
+        </div>
       </main>
     );
   }

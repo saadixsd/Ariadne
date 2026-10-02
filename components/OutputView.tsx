@@ -103,7 +103,7 @@ export const OutputView = memo(function OutputView({
     return (
       <div className="space-y-3">
         {tools}
-        <iframe title="Page preview" sandbox="" srcDoc={html} className="block h-[min(28rem,60vh)] w-full max-w-full rounded-lg border border-line bg-white" />
+        <iframe title="Generated page" sandbox="" srcDoc={html} className="block h-[min(28rem,60vh)] w-full max-w-full rounded-lg border border-line bg-white" />
         <details className="rounded-lg bg-canvas ring-1 ring-line">
           <summary className="cursor-pointer px-3 py-2 text-xs font-[560] text-ink-dim">
             Page source · {html.split("\n").length} lines

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import { MAX_BRIEF_CHARS, MAX_PROJECT_NAME_CHARS } from "@/lib/limits";
 
 export function NewProjectDialog({
   onClose,
@@ -95,7 +96,7 @@ export function NewProjectDialog({
             <input
               value={name}
               onChange={(event) => setName(event.target.value)}
-              maxLength={120}
+              maxLength={MAX_PROJECT_NAME_CHARS}
               className="mt-1 w-full bg-canvas px-3 py-2 text-sm ring-1 ring-line"
               aria-label="Project name"
             />
@@ -105,6 +106,7 @@ export function NewProjectDialog({
             <textarea
               value={brief}
               onChange={(event) => setBrief(event.target.value)}
+              maxLength={MAX_BRIEF_CHARS}
               className="mt-1 min-h-28 w-full bg-canvas px-3 py-2 text-sm leading-normal ring-1 ring-line"
               aria-label="Project brief"
             />

@@ -25,6 +25,36 @@ export function failureText(what: string, status: number, message: string | null
   return /[.!?]$/.test(message) ? `${what}: ${message}` : `${what}: ${message}.`;
 }
 
+/**
+ * The board cannot continue without a session or without its project, so these send
+ * the browser somewhere that can: sign-in when the session expired, verify when the
+ * email is unconfirmed, and the user's next project when this one was deleted. A full
+ * reload, because every piece of client state belongs to what just went away.
+ */
+function leaveIfGone(status: number) {
+  if (typeof window === "undefined") return;
+  if (status === 401) window.location.replace("/sign-in");
+  else if (status === 403) window.location.replace("/verify");
+  else if (status === 404) window.location.replace(window.location.pathname.startsWith("/tree") ? "/tree" : "/");
+}
+
+/**
+ * The headline for a failed Run/Rerun. A 502 means the model provider failed; its raw
+ * error (often a JSON body) stays on the frayed step, next to Copy error, not in the toast.
+ */
+export function runFailureText(what: string, status: number, message: string | null): string {
+  if (status === 502) return `${what}: Claude or GPT returned an error instead of an answer.`;
+  return failureText(what, status, message);
+}
+
+/** What to tell the user after a Run/Rerun request failed, beyond the headline. */
+export function runFailureNext(status: number): string {
+  if (status === 429) return "Your daily runs come back at midnight UTC. Everything already spun is saved.";
+  if (status === 409) return "The board has refreshed, so check the step and try again.";
+  if (status === 502) return "This attempt did not use a daily run. Open the step to copy the error, or press Respin when you want another attempt.";
+  return "Open the step to copy the error, or press Respin when you want another attempt.";
+}
+
 /** GET the project; with `conditional`, echo the last ETag and accept a 304. */
 export async function fetchProject(projectId: string, conditional = false): Promise<ProjectFetch> {
   const headers: Record<string, string> = {};
@@ -32,7 +62,10 @@ export async function fetchProject(projectId: string, conditional = false): Prom
   if (conditional && known) headers["If-None-Match"] = known;
   const response = await fetch(`/api/projects/${projectId}`, { headers, cache: "no-store" });
   if (response.status === 304) return { kind: "unchanged" };
-  if (!response.ok) return { kind: "error", status: response.status, message: await serverError(response) };
+  if (!response.ok) {
+    leaveIfGone(response.status);
+    return { kind: "error", status: response.status, message: await serverError(response) };
+  }
   const etag = response.headers.get("etag");
   if (etag) etags.set(projectId, etag);
   return { kind: "changed", project: (await response.json()) as ProjectDTO };
@@ -93,6 +126,12 @@ export function useProjectPoll({
       }
     }
 
+    // Back online: ask right away instead of waiting out the idle back-off.
+    function onOnline() {
+      quiet.current = 0;
+      void tick();
+    }
+
     function onVisibility() {
       if (document.visibilityState === "visible") {
         quiet.current = 0;
@@ -107,11 +146,13 @@ export function useProjectPoll({
       schedule();
     };
     document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("online", onOnline);
     schedule();
     return () => {
       cancelled = true;
       window.clearTimeout(timer);
       document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("online", onOnline);
     };
   }, [projectId, spinning]);
 

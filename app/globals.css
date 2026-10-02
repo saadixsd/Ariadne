@@ -215,8 +215,7 @@ a[href] {
   transition: opacity 180ms ease;
 }
 
-.pulse-status,
-.pulse-run {
+.pulse-status {
   animation: status-pulse 1.5s ease-in-out infinite;
 }
 
@@ -315,7 +314,6 @@ a[href] {
 @media (prefers-reduced-motion: reduce) {
   .enter,
   .pulse-status,
-  .pulse-run,
   .thread-spin,
   .knot-breathe::after,
   .spindle,

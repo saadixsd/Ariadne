@@ -19,12 +19,18 @@ export async function sendVerificationCode(to: string, code: string) {
   const from = await emailFrom();
   const email = await emailBinding();
   if (!from || !email) return false;
-  await email.send({
-    to,
-    from: { email: from, name: "Ariadne" },
-    subject: "Your Ariadne code",
-    text: `Your Ariadne verification code is ${code}. It expires in 15 minutes.`,
-  });
+  try {
+    await email.send({
+      to,
+      from: { email: from, name: "Ariadne" },
+      subject: "Your Ariadne code",
+      text: `Your Ariadne verification code is ${code}. It expires in 15 minutes.`,
+    });
+  } catch (error) {
+    // E.g. E_SENDER_DOMAIN_NOT_AVAILABLE. Callers roll back and show a readable 503.
+    console.error("[ariadne] verification email failed", error instanceof Error ? error.message : error);
+    return false;
+  }
   return true;
 }
 
