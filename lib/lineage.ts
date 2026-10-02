@@ -1,3 +1,4 @@
+import { attributionFor, attributionLine } from "@/lib/attribution";
 import { hideModelIds } from "@/lib/model-label";
 import { providerLabel, taskNumber } from "@/lib/task-rules";
 import type { ActivityEventDTO, AgentDTO, ProjectDTO, TaskDTO } from "@/lib/types";
@@ -37,6 +38,8 @@ export type LineageWorkNode = {
   approval: LineageApproval | null;
   /** Your change notes that reached this step (newest last). */
   notes: LineageNote[];
+  /** "Made by GPT · Daedalus — Reviewed by Claude · Odysseus", once the step has output. */
+  attribution: string | null;
   selected: boolean;
 };
 
@@ -195,6 +198,7 @@ export function buildLineage(project: ProjectDTO, taskId: string): LineageStep[]
         body: task.output,
         approval,
         notes: changeNotesFor(task.id, project),
+        attribution: agent?.provider !== "human" && (task.output || task.status === "done") ? attributionLine(attributionFor(task, project)) : null,
         selected: task.id === taskId,
       },
     });

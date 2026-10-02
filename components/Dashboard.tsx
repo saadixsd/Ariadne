@@ -6,6 +6,7 @@ import type { NewTaskInput } from "@/components/AddTaskForm";
 import { AgentColumn } from "@/components/AgentColumn";
 import { ApprovalModal } from "@/components/ApprovalModal";
 import { ContextDrawer } from "@/components/ContextDrawer";
+import { RunCost } from "@/components/Critique";
 import { FeedbackModal } from "@/components/FeedbackModal";
 import { HandoffInspector } from "@/components/HandoffInspector";
 import { KnotPanel, type KnotPanelHandle } from "@/components/KnotPanel";
@@ -635,7 +636,7 @@ export function Dashboard({
               Re-run this task
             </h2>
             <p className="mt-2 text-sm leading-normal text-ink-dim">
-              These steps return to pending and lose their output. Only the task you re-run calls an agent. The rest stay pending until you press Run.
+              These steps return to pending; their current output stays in the run history. Only the task you re-run calls an agent, for 1 run. The rest stay pending until you press Run.
             </p>
             <ul className="mt-3 space-y-1 text-sm leading-normal">
               {cascadeFrom(rerunId, data.tasks).map((task) => (
@@ -652,9 +653,10 @@ export function Dashboard({
                 type="button"
                 disabled={rerunning}
                 onClick={() => void confirmRerun()}
-                className="rt-btn rt-btn-thread"
+                className="rt-btn rt-btn-thread gap-1"
               >
                 {rerunning ? "Re-running" : "Re-run"}
+                {rerunning || data.agents.find((agent) => agent.id === data.tasks.find((task) => task.id === rerunId)?.agentId)?.provider === "human" ? null : <RunCost />}
               </button>
             </div>
           </div>

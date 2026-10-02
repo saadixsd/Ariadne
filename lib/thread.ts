@@ -467,21 +467,6 @@ export function artifactPreview(task: TaskDTO | null, agents: AgentDTO[]): Artif
   return { eyebrow: objectOf(task.title), title: gist?.lead ?? plainText(lines[0] ?? ""), body: gist?.rest ?? null };
 }
 
-export type ReviewFlags = { reviewer: string; verdict: string | null; flags: string[] };
-
-export function reviewFlags(reviewers: TaskDTO[], agents: AgentDTO[]): ReviewFlags | null {
-  const reviewer = reviewers.find((item) => item.output);
-  if (!reviewer?.output) return null;
-  const lines = reviewer.output.split(/\n/).map((line) => line.trim()).filter(Boolean);
-  const verdictLine = lines.find((line) => /^(\*\*)?verdict\b/i.test(line));
-  const flags = listItems(reviewer.output).map(plainText);
-  return {
-    reviewer: agentOf(reviewer, agents)?.name ?? "The reviewer",
-    verdict: verdictLine ? plainText(verdictLine.replace(/^(\*\*)?verdict(\*\*)?\s*[:—-]?\s*(\*\*)?\s*/i, "")) : null,
-    flags,
-  };
-}
-
 /* ---------- board status ---------- */
 
 export type ThreadState = "spun" | "spinning" | "knot" | "frayed" | "ready" | "unspun";

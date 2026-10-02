@@ -45,8 +45,14 @@ export function ProjectIntro() {
         <span className="block h-0.5 w-8 bg-thread" aria-hidden />
         <p className="mt-6 text-[13px] font-medium tracking-[0.22em] text-ink-dim">ARIADNE</p>
         <h1 className="mt-3 text-[2.75rem] font-semibold leading-[1.05] tracking-tight">What are you making?</h1>
+        <p className="mt-4 font-serif text-[21px] leading-snug text-ink" data-one-liner>
+          Ariadne removes the human middleware between AI agents.
+        </p>
+        <p className="mt-2 text-[15px] leading-relaxed text-ink-dim" data-roster>
+          Odysseus (Claude) researches and reviews. Daedalus (GPT) drafts and builds. You judge.
+        </p>
         <p className="mt-4 text-[17px] leading-relaxed text-ink-dim">
-          Name the project and describe it in a sentence or two. Odysseus and Daedalus both read it.
+          Name the project and describe it in a sentence or two. Both of them read it first.
         </p>
         <label className="mt-10 block">
           <span className="text-[13px] text-ink-dim">Project name</span>

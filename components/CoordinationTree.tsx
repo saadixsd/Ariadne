@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { AttributionLine } from "@/components/Critique";
 import { Monogram } from "@/components/ThreadBits";
 import { useFresh } from "@/components/use-fresh";
 import { useClocks, useNow } from "@/components/use-now";
+import { attributionFor } from "@/lib/attribution";
 import { taskNumber } from "@/lib/task-rules";
 import {
   agentOf,
@@ -220,6 +222,7 @@ function HoverCard({ task, index, project }: { task: TaskDTO; index: number; pro
   const state = threadState(task, project.tasks);
   const tag = modelTag(task, agents);
   const carried = carriedInto(task, project);
+  const attribution = task.output || state === "spun" ? attributionFor(task, project) : null;
   let line: string;
   if (state === "knot") line = `Waiting on you. ${carried.arrived.length} inputs reach you here, ${charsLabel(inputChars(carried))} in all.`;
   else if (state === "spinning") line = `${agent?.name ?? "The agent"} is working on it now.`;
@@ -234,6 +237,7 @@ function HoverCard({ task, index, project }: { task: TaskDTO; index: number; pro
         <span>{tag ?? agent?.name ?? ""}</span>
       </p>
       <p className="mt-1.5 line-clamp-3">{line}</p>
+      {attribution ? <AttributionLine attribution={attribution} tone="ink" className="mt-1.5" /> : null}
       <p className="mt-2 border-t border-white/10 pt-2 font-mono text-[11px] text-[#c9bba5]">Click to inspect · Enter opens the rail</p>
     </div>
   );

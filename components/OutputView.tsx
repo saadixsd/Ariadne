@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useState, type ComponentProps } from "react";
+import { memo, useState, type ComponentProps, type ReactNode } from "react";
 import ReactMarkdown, { defaultUrlTransform, type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { extractHtmlDocument } from "@/lib/html-preview";
@@ -78,10 +78,13 @@ export const OutputView = memo(function OutputView({
   output,
   onCompare,
   foldable = true,
+  extraTools,
 }: {
   output: string;
   onCompare?: () => void;
   foldable?: boolean;
+  /** More controls for the tool row (e.g. "v1 → v2"), shown before the rest. */
+  extraTools?: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const html = extractHtmlDocument(output);
@@ -90,6 +93,7 @@ export const OutputView = memo(function OutputView({
 
   const tools = (
     <div className="flex flex-wrap items-center justify-end gap-1">
+      {extraTools}
       {onCompare ? (
         <button type="button" onClick={onCompare} className="rt-btn rt-btn-ghost h-7 px-2 text-xs">
           Beside its inputs

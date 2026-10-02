@@ -2,10 +2,12 @@
 
 import { useLayoutEffect, useRef, useState } from "react";
 import { AddTaskForm, type NewTaskInput } from "@/components/AddTaskForm";
+import { AttributionLine, RunCost, VersionsButton } from "@/components/Critique";
 import { OutputView } from "@/components/OutputView";
 import { Monogram } from "@/components/ThreadBits";
 import { useFresh } from "@/components/use-fresh";
 import { useClocks, useNow } from "@/components/use-now";
+import { attributionFor, handText } from "@/lib/attribution";
 import { hideModelIds } from "@/lib/model-label";
 import { canRunTask, dependenciesMet, taskNumber } from "@/lib/task-rules";
 import {
@@ -246,6 +248,7 @@ export function TaskColumn({
               const errorText = rawError ? hideModelIds(rawError) : null;
               const seconds = durationSeconds(task);
               const tag = modelTag(task, agents);
+              const attribution = state === "spun" || open ? attributionFor(task, project) : null;
               const next = tasks[index + 1];
               const blockers = task.dependsOn
                 .map((id) => tasks.find((item) => item.id === id))
@@ -309,6 +312,19 @@ export function TaskColumn({
                             {[stopwatch(seconds), tag].filter(Boolean).join(" · ")}
                           </span>
                         ) : null}
+                        {state === "spun" && (attribution?.reviewedBy || attribution?.reviews) ? (
+                          <span data-attribution-chip className="text-[11.5px] text-ink-faint">
+                            {attribution.reviewedBy ? (
+                              <>
+                                reviewed by <b className="font-semibold text-ink-dim">{handText(attribution.reviewedBy)}</b>
+                              </>
+                            ) : attribution.reviews ? (
+                              <>
+                                reviewing <b className="font-semibold text-ink-dim">{handText(attribution.reviews)}</b>
+                              </>
+                            ) : null}
+                          </span>
+                        ) : null}
                         {state === "knot" ? (
                           <Ticking
                             from={waitingSince}
@@ -354,8 +370,8 @@ export function TaskColumn({
                           <button type="button" onClick={() => onToggle(task.id)} aria-expanded={open} className="rt-btn rt-btn-ghost">
                             {open ? "Hide" : "Output"}
                           </button>
-                          <button type="button" onClick={() => onRerun(task.id)} className="rt-btn">
-                            Rerun
+                          <button type="button" onClick={() => onRerun(task.id)} className="rt-btn gap-1" title={human ? "Reopens the knot. Does not call Claude or GPT." : "Calls this agent again. Uses 1 of your daily runs if it succeeds."}>
+                            Rerun{human ? null : <RunCost />}
                           </button>
                         </>
                       ) : (
@@ -369,11 +385,12 @@ export function TaskColumn({
                               ? "Finish the tasks this one needs. Ariadne will not run it until you press Run."
                               : human
                                 ? "Packages earlier work for your approval. Does not call Claude or GPT."
-                                : "Calls this agent now. Opening the page does not."
+                                : "Calls this agent now. Uses 1 of your daily runs if it succeeds. Opening the page does not."
                           }
-                          className={`rt-btn ${runnable && !busy ? "rt-btn-thread" : "rt-btn-ghost"}`}
+                          className={`rt-btn gap-1 ${runnable && !busy ? "rt-btn-thread" : "rt-btn-ghost"}`}
                         >
                           {busy ? "Spinning…" : task.status === "failed" ? "Respin" : human && runnable ? "Open the knot" : "Run"}
+                          {busy || human ? null : <RunCost />}
                         </button>
                       )}
                     </div>
@@ -446,7 +463,8 @@ export function TaskColumn({
                         ) : null}
                         {task.output && !busy ? (
                           <div className="rounded-xl border border-line bg-panel px-3.5 py-3">
-                            <OutputView output={task.output} onCompare={() => onOpenReader(task.id)} />
+                            {attribution ? <AttributionLine attribution={attribution} className="mb-1" /> : null}
+                            <OutputView output={task.output} onCompare={() => onOpenReader(task.id)} extraTools={<VersionsButton task={task} project={project} />} />
                           </div>
                         ) : null}
                         {!task.output && !busy && task.status !== "failed" ? (

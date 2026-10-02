@@ -2,10 +2,14 @@
 
 import { useEffect, useImperativeHandle, useRef, useState, useSyncExternalStore, type Ref, type RefObject } from "react";
 import { createPortal } from "react-dom";
+import { AttributionLine, CritiqueFlags, RunCost, StepVersions, VersionsButton, versionKey } from "@/components/Critique";
 import { OutputView } from "@/components/OutputView";
 import { ContextBar, Monogram } from "@/components/ThreadBits";
 import { useClocks, useNow } from "@/components/use-now";
+import { attributionFor, reviewStepFor } from "@/lib/attribution";
 import { latestChangeNote } from "@/lib/change-notes";
+import { appendToNote, parseCritique } from "@/lib/critique";
+import { MAX_NOTE_CHARS } from "@/lib/limits";
 import { changeNotesFor } from "@/lib/lineage";
 import { hideModelIds } from "@/lib/model-label";
 import { delphicLine, socraticQuestion } from "@/lib/philosophy";
@@ -18,7 +22,6 @@ import {
   inputChars,
   knotFor,
   objectOf,
-  reviewFlags,
   since,
   stepRange,
   stopwatch,
@@ -26,6 +29,7 @@ import {
   failureReason,
 } from "@/lib/thread";
 import type { ProjectDTO, TaskDTO } from "@/lib/types";
+import { mayHaveEarlierVersion } from "@/lib/versions";
 
 export type KnotPanelHandle = { focusDecision: () => void };
 
@@ -99,45 +103,7 @@ function Waited({ openedAt }: { openedAt: string | null }) {
   return waited !== null ? <>{` · ${stopwatch(waited)}`}</> : null;
 }
 
-const NOTES_SHOWN = 8;
 const noopSubscribe = () => () => {};
-
-/** Every review point, in full. A very long list folds behind "Read more"; nothing is clipped. */
-function ReviewNotes({ flags }: { flags: NonNullable<ReturnType<typeof reviewFlags>> }) {
-  const [open, setOpen] = useState(false);
-  const points = flags.flags.map((flag) => flag.replace(/[.;:,]+\s*$/, ""));
-  const shown = open ? points : points.slice(0, NOTES_SHOWN);
-  const hidden = points.length - shown.length;
-  return (
-    <section aria-label="Review notes" className="rounded-xl border border-line bg-tint px-4 py-3.5 text-[13px] leading-normal text-ink-dim">
-      <p className="flex items-baseline gap-2">
-        <span aria-hidden>⚑</span>
-        <b className="text-ink">
-          {flags.reviewer} noted {points.length} {points.length === 1 ? "point" : "points"}
-          {points.length > 0 ? ":" : "."}
-        </b>
-      </p>
-      {flags.verdict ? <p className="mt-1.5 text-ink">Verdict: {flags.verdict}</p> : null}
-      {points.length > 0 ? (
-        <ol className="mt-2 grid list-decimal gap-1.5 pl-5 marker:font-mono marker:text-[11px] marker:text-ink-faint [overflow-wrap:anywhere]">
-          {shown.map((point, index) => (
-            <li key={index}>{point}</li>
-          ))}
-        </ol>
-      ) : null}
-      {points.length > NOTES_SHOWN ? (
-        <button
-          type="button"
-          aria-expanded={open}
-          onClick={() => setOpen((value) => !value)}
-          className="mt-2 text-xs font-[560] text-thread hover:text-thread-bright"
-        >
-          {open ? "Fold it back" : `Read more · ${hidden} more ${hidden === 1 ? "point" : "points"}`}
-        </button>
-      ) : null}
-    </section>
-  );
-}
 
 /**
  * The knot, opened: a wide reading sheet over the dimmed board. One scroll area (the
@@ -188,8 +154,12 @@ function KnotBody({
     return () => previous?.focus?.({ preventScroll: true });
   }, [open, client]);
 
-  const flags = reviewFlags(knot.reviewers, agents);
+  const reviewer = knot.reviewers.find((item) => item.output) ?? null;
+  const critique = reviewer?.output ? parseCritique(reviewer.output) : null;
+  const reviewerName = agentOf(reviewer ?? undefined, agents)?.name ?? "The reviewer";
   const judged = knot.artifact?.output ? knot.artifact : null;
+  const respun = !!judged && mayHaveEarlierVersion(judged, project);
+  const [view, setView] = useState<"latest" | "compare">("compare");
   const artifactAgent = agentOf(knot.artifact ?? undefined, agents);
   const unlock = knot.unlocks[0];
   const unlockAgent = agentOf(unlock, agents);
@@ -198,7 +168,16 @@ function KnotBody({
   const rewinds = knot.resets.filter((item) => item.id !== task.id);
   const rounds = changeNotesFor(task.id, project).length;
   const question = socraticQuestion(task.id, rounds);
-  const hasNotes = !!flags && (flags.flags.length > 0 || !!flags.verdict);
+  const hasNotes = !!critique && critique.prose.length > 0;
+
+  function addToNote(line: string) {
+    setNote((current) => appendToNote(current, line, MAX_NOTE_CHARS));
+    setNeedNote(false);
+    requestAnimationFrame(() => {
+      const field = noteRef.current;
+      if (field) field.scrollTop = field.scrollHeight;
+    });
+  }
 
   async function submit(approved: boolean) {
     if (!approved && note.trim().length === 0) {
@@ -267,11 +246,42 @@ function KnotBody({
           </details>
           <div className={`grid gap-5 ${hasNotes ? "lg:grid-cols-[minmax(0,1fr)_minmax(0,340px)]" : ""}`}>
             <section aria-label="What you are judging" className="min-w-0">
-              <p className="eyebrow mb-2 text-[10px]">
-                What you&apos;re judging{judged ? ` · ${objectOf(judged.title)}` : ""}
-                {judged && artifactAgent ? ` · by ${artifactAgent.name}` : ""}
-              </p>
-              {judged?.output ? (
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
+                <div className="min-w-0">
+                  <p className="eyebrow text-[10px]">What you&apos;re judging{judged ? ` · ${objectOf(judged.title)}` : ""}</p>
+                  {judged ? <AttributionLine attribution={attributionFor(judged, project)} className="mt-0.5" /> : null}
+                </div>
+                {respun ? (
+                  <div role="tablist" aria-label="Version view" className="flex shrink-0 rounded-full border border-line bg-panel p-[3px]">
+                    {(
+                      [
+                        ["compare", "v1 → v2"],
+                        ["latest", "Latest only"],
+                      ] as const
+                    ).map(([id, label]) => (
+                      <button
+                        key={id}
+                        type="button"
+                        role="tab"
+                        aria-selected={view === id}
+                        onClick={() => setView(id)}
+                        className={`rounded-full px-3 py-[3px] text-[12px] font-[550] ${view === id ? "bg-ink text-raised" : "text-ink-dim hover:text-ink"}`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+              {judged?.output && respun && view === "compare" ? (
+                <StepVersions
+                  taskId={judged.id}
+                  reviewTaskId={reviewStepFor(judged, project)?.id ?? null}
+                  reviewer={agentOf(reviewStepFor(judged, project) ?? undefined, agents)?.name ?? reviewerName}
+                  notes={changeNotesFor(judged.id, project)}
+                  refreshKey={versionKey(judged)}
+                />
+              ) : judged?.output ? (
                 <OutputView output={judged.output} foldable={false} onCompare={() => onOpenReader(judged.id)} />
               ) : task.output ? (
                 <OutputView output={task.output} foldable={false} />
@@ -279,9 +289,9 @@ function KnotBody({
                 <p className="text-[13px] text-ink-dim">Nothing was handed to this knot yet.</p>
               )}
             </section>
-            {hasNotes && flags ? (
+            {hasNotes && critique ? (
               <div className="min-w-0">
-                <ReviewNotes flags={flags} />
+                <CritiqueFlags critique={critique} reviewer={reviewerName} note={note} onAdd={addToNote} />
               </div>
             ) : null}
           </div>
@@ -384,7 +394,9 @@ export function useVisualViewportBox(ref: RefObject<HTMLElement | null>, active:
 /** The column card while the knot sheet is closed: what is waiting, and a way back in. */
 function KnotSummary({ knot, project, onOpen }: { knot: Knot; project: ProjectDTO; onOpen: () => void }) {
   const { clock } = useClocks();
-  const flags = reviewFlags(knot.reviewers, project.agents);
+  const reviewer = knot.reviewers.find((item) => item.output);
+  const flagCount = reviewer?.output ? parseCritique(reviewer.output).flags.length : 0;
+  const reviewerName = agentOf(reviewer, project.agents)?.name ?? "the reviewer";
   const artifactAgent = agentOf(knot.artifact ?? undefined, project.agents);
   return (
     <>
@@ -406,7 +418,7 @@ function KnotSummary({ knot, project, onOpen }: { knot: Knot; project: ProjectDT
       <div className="grid content-start gap-3 px-5 py-4">
         <p className="text-[13px] leading-normal text-ink-dim">
           {knot.artifact?.output ? `${artifactAgent?.name ?? "The hands"}’s work is ready for you to judge` : "The work upstream is ready for you"}
-          {flags && flags.flags.length > 0 ? `, with ${flags.flags.length} review ${flags.flags.length === 1 ? "point" : "points"} from ${flags.reviewer}.` : "."}
+          {flagCount > 0 ? `, with ${flagCount} ${flagCount === 1 ? "flag" : "flags"} from ${reviewerName}.` : "."}
         </p>
         <button type="button" onClick={onOpen} className="rt-btn rt-btn-knot h-10 text-sm">
           Open the knot
@@ -499,8 +511,9 @@ function StepBody({
         ) : null}
         {task.output ? (
           <div className="rounded-xl border border-line bg-panel px-3.5 py-3">
-            <p className="eyebrow -mb-6 text-[10px]">Output</p>
-            <OutputView output={task.output} onCompare={() => onOpenReader(task.id)} />
+            <p className="eyebrow text-[10px]">Output</p>
+            <AttributionLine attribution={attributionFor(task, project)} className="mt-0.5 mb-1" />
+            <OutputView output={task.output} onCompare={() => onOpenReader(task.id)} extraTools={<VersionsButton task={task} project={project} />} />
           </div>
         ) : (
           <div className="rounded-xl border border-line bg-panel px-3.5 py-3">
@@ -511,17 +524,18 @@ function StepBody({
       </div>
       <div className="flex justify-end gap-2 border-t border-line px-5 pt-3.5 pb-4">
         {task.status === "done" ? (
-          <button type="button" onClick={() => onRerun(task.id)} className="rt-btn h-10 text-sm">
-            Rerun
+          <button type="button" onClick={() => onRerun(task.id)} className="rt-btn h-10 gap-1 text-sm">
+            Rerun{agent?.provider === "human" ? null : <RunCost />}
           </button>
         ) : (
           <button
             type="button"
             disabled={!runnable || running}
             onClick={() => onRun(task.id)}
-            className="rt-btn rt-btn-thread h-10 text-sm"
+            className="rt-btn rt-btn-thread h-10 gap-1 text-sm"
           >
             {running ? "Spinning…" : task.status === "failed" ? "Respin" : agent?.provider === "human" ? "Open the knot" : "Run"}
+            {running || agent?.provider === "human" ? null : <RunCost />}
           </button>
         )}
       </div>

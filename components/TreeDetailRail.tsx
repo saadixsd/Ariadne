@@ -3,8 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 import { useClocks } from "@/components/use-now";
 import { useVisualViewportBox } from "@/components/KnotPanel";
+import { AttributionLine, CritiqueFlags, RunCost, VersionsButton } from "@/components/Critique";
 import { OutputView } from "@/components/OutputView";
 import { ContextBar, PacketSections } from "@/components/ThreadBits";
+import { attributionFor, attributionLine } from "@/lib/attribution";
+import { appendToNote, parseCritique } from "@/lib/critique";
+import { MAX_NOTE_CHARS } from "@/lib/limits";
 import { changeNotesFor, orderedLineageTasks } from "@/lib/lineage";
 import { socraticQuestion } from "@/lib/philosophy";
 import type { TreeNode } from "@/lib/live-tree";
@@ -19,7 +23,6 @@ import {
   knotFor,
   modelTag,
   outputGist,
-  reviewFlags,
   stepRange,
   stopwatch,
   threadState,
@@ -48,6 +51,7 @@ function Lineage({ task, project, knot }: { task: TaskDTO; project: ProjectDTO; 
         const who = agentOf(item, project.agents)?.name ?? "Unassigned";
         const quote = firstLine(item, project);
         const spun = item.status === "done";
+        const madeBy = spun && agentOf(item, project.agents)?.provider !== "human" ? attributionLine(attributionFor(item, project)) : null;
         return (
           <li key={item.id} className="relative">
             <span
@@ -63,6 +67,11 @@ function Lineage({ task, project, knot }: { task: TaskDTO; project: ProjectDTO; 
               </span>
             </p>
             {quote ? <q className="mt-[3px] block font-serif text-[15px] leading-[1.3] text-ink-dim italic">{quote}</q> : null}
+            {madeBy ? (
+              <span data-attribution className="mt-[3px] block text-[11.5px] leading-snug text-ink-faint">
+                {madeBy}
+              </span>
+            ) : null}
           </li>
         );
       })}
@@ -85,15 +94,21 @@ function Lineage({ task, project, knot }: { task: TaskDTO; project: ProjectDTO; 
 function KnotFoot({
   task,
   project,
+  note,
+  setNote,
+  writing,
+  setWriting,
   onDecide,
 }: {
   task: TaskDTO;
   project: ProjectDTO;
+  note: string;
+  setNote: (note: string) => void;
+  writing: boolean;
+  setWriting: (writing: boolean) => void;
   onDecide: (approved: boolean, note: string) => Promise<void>;
 }) {
   const knot = knotFor(task, project);
-  const [note, setNote] = useState("");
-  const [writing, setWriting] = useState(false);
   const [busy, setBusy] = useState<"approve" | "changes" | null>(null);
   const noteRef = useRef<HTMLTextAreaElement>(null);
   const unlock = knot.unlocks[0];
@@ -211,7 +226,10 @@ export function TreeDetailRail({
   const carried = task ? carriedInto(task, project) : null;
   const knotInfo = knot && task ? knotFor(task, project) : null;
   const preview = knotInfo ? artifactPreview(knotInfo.artifact, agents) : null;
-  const flags = knotInfo ? reviewFlags(knotInfo.reviewers, agents) : null;
+  const reviewer = knotInfo?.reviewers.find((item) => item.output) ?? null;
+  const critique = reviewer?.output ? parseCritique(reviewer.output) : null;
+  const [note, setNote] = useState("");
+  const [writing, setWriting] = useState(false);
   const inputNames = knotInfo ? [...new Set(knotInfo.inputs.map((input) => input.agent?.name ?? ""))].filter(Boolean) : [];
 
   const eyebrow = isRoot
@@ -313,7 +331,8 @@ export function TreeDetailRail({
         {tab === "output" ? (
           task?.output && task.status === "done" ? (
             <div className="rounded-xl border border-line bg-panel px-3.5 py-3">
-              <OutputView output={task.output} />
+              <AttributionLine attribution={attributionFor(task, project)} className="mb-1" />
+              <OutputView output={task.output} extraTools={<VersionsButton task={task} project={project} />} />
             </div>
           ) : (
             <p className="text-sm leading-normal text-ink-dim">
@@ -331,13 +350,24 @@ export function TreeDetailRail({
             {knot && preview ? (
               <div className="rounded-xl border border-gate-line/70 bg-raised px-3.5 py-3">
                 <p className="eyebrow mb-1 text-[10px]">What you&apos;re judging · {preview.eyebrow}</p>
-                {knotInfo?.artifact?.output ? <OutputView output={knotInfo.artifact.output} /> : <p className="mt-1.5 font-serif text-2xl leading-[1.05]">{preview.title}</p>}
-                {flags && flags.flags.length > 0 ? (
-                  <p className="mt-1.5 text-[12.5px] text-ink-dim">
-                    ⚑ {flags.reviewer} noted: {flags.flags.slice(0, 2).map((flag) => flag.split(/[.;—]/)[0].trim()).join("; ")}.
-                  </p>
-                ) : null}
+                {knotInfo?.artifact ? <AttributionLine attribution={attributionFor(knotInfo.artifact, project)} className="mb-1" /> : null}
+                {knotInfo?.artifact?.output ? (
+                  <OutputView output={knotInfo.artifact.output} extraTools={<VersionsButton task={knotInfo.artifact} project={project} />} />
+                ) : (
+                  <p className="mt-1.5 font-serif text-2xl leading-[1.05]">{preview.title}</p>
+                )}
               </div>
+            ) : null}
+            {knot && critique && critique.prose ? (
+              <CritiqueFlags
+                critique={critique}
+                reviewer={agentOf(reviewer ?? undefined, agents)?.name ?? "The reviewer"}
+                note={note}
+                onAdd={(line) => {
+                  setNote(appendToNote(note, line, MAX_NOTE_CHARS));
+                  setWriting(true);
+                }}
+              />
             ) : null}
             {!knot && !isOutput && task.status === "failed" ? (
               <p className="rounded-xl border border-danger/30 bg-danger/5 px-3 py-2.5 font-mono text-[12px] text-danger">
@@ -346,8 +376,9 @@ export function TreeDetailRail({
             ) : null}
             {!knot && !isOutput && task.output ? (
               <div className="rounded-xl border border-line bg-panel px-3.5 py-3">
-                <p className="eyebrow -mb-6 text-[10px]">Output</p>
-                <OutputView output={task.output} />
+                <p className="eyebrow text-[10px]">Output</p>
+                <AttributionLine attribution={attributionFor(task, project)} className="mt-0.5 mb-1" />
+                <OutputView output={task.output} extraTools={<VersionsButton task={task} project={project} />} />
               </div>
             ) : null}
           </>
@@ -363,21 +394,24 @@ export function TreeDetailRail({
           </>
         ) : null}
       </div>
-      {knot && task ? <KnotFoot key={task.id} task={task} project={project} onDecide={onDecide} /> : null}
+      {knot && task ? (
+        <KnotFoot key={task.id} task={task} project={project} note={note} setNote={setNote} writing={writing} setWriting={setWriting} onDecide={onDecide} />
+      ) : null}
       {task && !knot && !isOutput && task.status !== "awaiting_approval" ? (
         <div className="flex justify-end gap-2 border-t border-line px-[22px] pt-3.5 pb-[18px]">
           {task.status === "done" ? (
-            <button type="button" onClick={() => onRerun(task.id)} className="rt-btn h-10 text-sm">
-              Rerun
+            <button type="button" onClick={() => onRerun(task.id)} className="rt-btn h-10 gap-1 text-sm">
+              Rerun{agent?.provider === "human" ? null : <RunCost />}
             </button>
           ) : (
             <button
               type="button"
               disabled={!node.runnable || busy}
               onClick={() => onRun(task.id)}
-              className="rt-btn rt-btn-thread h-10 text-sm"
+              className="rt-btn rt-btn-thread h-10 gap-1 text-sm"
             >
               {busy ? "Spinning…" : task.status === "failed" ? "Respin" : agent?.provider === "human" ? "Open the knot" : "Run"}
+              {busy || agent?.provider === "human" ? null : <RunCost />}
             </button>
           )}
         </div>

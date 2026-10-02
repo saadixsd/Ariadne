@@ -170,6 +170,11 @@ function LineageList({ steps }: { steps: LineageStep[] }) {
                     </span>
                   </p>
                 )}
+                {node.kind !== "brief" && node.attribution ? (
+                  <p data-attribution className="mt-1.5 text-[12px] leading-snug text-ink-dim">
+                    {node.attribution}
+                  </p>
+                ) : null}
                 {meta ? <p className="mt-2 font-mono text-xs text-ink-dim">{meta}</p> : null}
                 {node.kind !== "brief" && node.notes.length > 0 ? (
                   <ul className="mt-2 grid gap-1.5">
