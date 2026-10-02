@@ -149,10 +149,8 @@ Untouched: the run pipeline (`lib/agents.ts`), board and tree logic, quota seman
 
 ### What is left
 
-- Merge `cleanup/v1-hardening` to `main` to ship to `ariadneagents.si`.
 - Email verification: when there is company email, onboard `ariadneagents.si` to Cloudflare Email Service (Workers Paid is required for arbitrary recipients), then add `"send_email": [{ "name": "EMAIL" }]` and `EMAIL_FROM` to `wrangler.jsonc` (production and previews).
 - The repo lives under iCloud-synced `~/Documents`, which leaves " 2" conflict copies in `.next/cache/turbopack` and breaks `next build` until that folder is deleted. Moving the repo out of iCloud (or excluding `.next`) fixes it for good.
-- Two smoke-test accounts (`smoke-test-v1-…@ariadneagents.si`) are in production D1; the first has a frayed step from the keyless preview run. Delete them when convenient.
 - Not fixed in this pass: the midnight-UTC edge case in the stuck-run test.
 
 ## 2026-10-02 — 390px layout pass
@@ -168,3 +166,10 @@ Untouched: the run pipeline (`lib/agents.ts`), board and tree logic, quota seman
 - After the fix (local, mock models): 38/38 at 390px, and 38/38 at 1440px, where the rail is unchanged.
 - lib 13/13, Phase 2 17/17, migrations 4/4; lint 0 errors with the same 9 baseline warnings; build with zero warnings.
 - Each push to an existing branch preview creates a deployment without that preview's secrets (Workers Previews, open beta); only new previews start from the base config. Re-run `wrangler preview secret put <KEY> --name <branch>` after a push when a preview needs to call the models.
+
+### Shipped
+
+- `cleanup/v1-hardening` fast-forwarded to `main` (`9b0d2a0`). Workers Builds deployed it to production at 2026-10-02 00:32 UTC.
+- The same 390px check against `https://ariadneagents.si`, with real models: 38/38. The check covers sign-up, the board with no intro card, the knot, and the Tree rail as a full-screen sheet with its footer on screen. `www.ariadneagents.si` and `ariadne.sr-labs.workers.dev` also serve the app.
+- All six `smoke-test-v1-…@ariadneagents.si` accounts created during this pass were deleted from production D1 by exact id. The cascade left no orphaned tasks, runs, agents or events, and the real accounts are untouched.
+- Today's checks also tripped the sign-up throttle (5 sign-ups per IP per hour); it answered 429 with Retry-After, as designed.
