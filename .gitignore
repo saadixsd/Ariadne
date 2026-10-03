@@ -52,3 +52,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local database copies and backups (never commit: they can hold test accounts)
+prisma/dev.db*
+*.db.*
+*.db.backup*
