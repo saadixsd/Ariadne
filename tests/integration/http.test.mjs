@@ -101,6 +101,20 @@ test("1c. sign-in: 10 attempts per hour per IP, the 11th is throttled even with 
   assert.ok(elsewhere.cookie);
 });
 
+test("O. API writes from another site are refused (403); same-site and Origin-less writes pass", async () => {
+  const evil = await call("POST", "/api/auth/sign-in", { body: { email: "x@test.dev", password: "wrong-password" }, from: ip(31), headers: { origin: "https://evil.example" } });
+  assert.equal(evil.status, 403);
+  assert.match(evil.json?.error ?? "", /another site/);
+  const nullOrigin = await call("POST", "/api/feedback", { body: { kind: "bug", message: "x" }, from: ip(31), headers: { origin: "null" } });
+  assert.equal(nullOrigin.status, 403);
+  const crossFetch = await call("POST", "/api/auth/sign-out", { from: ip(31), headers: { "sec-fetch-site": "cross-site" } });
+  assert.equal(crossFetch.status, 403);
+  const own = await call("POST", "/api/auth/sign-in", { body: { email: "x@test.dev", password: "wrong-password" }, from: ip(32), headers: { origin: BASE } });
+  assert.equal(own.status, 401, "same-origin request reaches the route (wrong password -> 401)");
+  const reads = await call("GET", "/api/projects", { from: ip(31), headers: { origin: "https://evil.example" } });
+  assert.equal(reads.status, 401, "reads are not blocked by the Origin check (no session -> 401)");
+});
+
 test("2. no project changes owners on sign-up / sign-in", () => {
   const rows = Object.fromEntries(sql(`SELECT id, userId FROM "Project" WHERE id IN (?,?)`, `orphan-${run}`, `owned-${run}`).map((r) => [r.id, r.userId]));
   assert.equal(rows[`orphan-${run}`], null, "orphan project was NOT claimed");
