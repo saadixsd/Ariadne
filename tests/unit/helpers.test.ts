@@ -165,6 +165,13 @@ test("errors: failed requests show the server's error, never a dev-server hint",
   assert.equal(await serverError(new Response("<html>Worker threw exception</html>", { status: 500 })), null);
 });
 
+test("errors: the site-wide ceiling (503) never tells you your own runs are gone", async () => {
+  const { runFailureNext } = await import("../../components/project-poll");
+  assert.match(runFailureNext(503), /Your own daily runs are untouched/);
+  assert.match(runFailureNext(503), /midnight UTC/);
+  assert.match(runFailureNext(429), /Your daily runs come back at midnight UTC/);
+});
+
 test("account: names are trimmed, collapsed, capped at 60, and empty clears", async () => {
   const { readPersonName, MAX_PERSON_NAME_CHARS } = await import("../../lib/account");
   assert.equal(MAX_PERSON_NAME_CHARS, 60);

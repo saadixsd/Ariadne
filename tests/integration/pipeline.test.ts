@@ -14,7 +14,11 @@ import { PrismaClient } from "@prisma/client";
 import { startMockLlm } from "./mock-llm.mjs";
 import { createNodeSqliteAdapter } from "../../lib/node-sqlite";
 
-type Mock = { url: string; state: { fail: boolean; calls: number; failures: number }; close: () => Promise<void> };
+type Mock = {
+  url: string;
+  state: { fail: boolean; calls: number; failures: number; lastBody: Record<string, Record<string, unknown>> };
+  close: () => Promise<void>;
+};
 
 const root = path.resolve(__dirname, "../..");
 const dbFile = path.join(mkdtempSync(path.join(tmpdir(), "ariadne-sb-")), "test.db");
@@ -26,7 +30,7 @@ let agents: typeof import("../../lib/agents");
 let project: typeof import("../../lib/project");
 let usage: typeof import("../../lib/usage");
 let reclaim: typeof import("../../lib/reclaim");
-let demo: typeof import("../../lib/starter-thread");
+let starter: typeof import("../../lib/starter-thread");
 let lineage: typeof import("../../lib/lineage");
 let handoff: typeof import("../../lib/handoff-preview");
 let liveTree: typeof import("../../lib/live-tree");
@@ -53,7 +57,7 @@ async function newUser(email: string) {
 }
 
 async function newProject(userId: string) {
-  const id = await demo.createUserProject(userId, "Test project", "Build a landing page for a coffee cart.");
+  const id = await starter.createUserProject(userId, "Test project", "Build a landing page for a coffee cart.");
   const tasks = await prisma.task.findMany({ where: { projectId: id }, orderBy: { createdAt: "asc" } });
   const [research, draft, review, gate, build] = tasks;
   return { id, research, draft, review, gate, build };
@@ -92,7 +96,7 @@ before(async () => {
   project = await import("../../lib/project");
   usage = await import("../../lib/usage");
   reclaim = await import("../../lib/reclaim");
-  demo = await import("../../lib/starter-thread");
+  starter = await import("../../lib/starter-thread");
   lineage = await import("../../lib/lineage");
   handoff = await import("../../lib/handoff-preview");
   liveTree = await import("../../lib/live-tree");
@@ -210,6 +214,71 @@ describe("quota: only successful runs count, increment is atomic", () => {
     assert.deepEqual(unexpected, [], "only quota rejections");
     assert.equal(results.filter((r) => r.status === "fulfilled").length, limits.DAILY_MODEL_RUNS);
     assert.equal(await runsToday(user.id), limits.DAILY_MODEL_RUNS);
+  });
+});
+
+describe("site-wide daily ceiling and output caps", () => {
+  async function fillSite(runs: number) {
+    const filler = await newUser(`filler-${runs}-${Date.now()}@test.dev`);
+    // Whatever other tests already used today counts toward the site total too.
+    const used = (await prisma.usageDay.aggregate({ where: { day: usage.utcDay() }, _sum: { runs: true } }))._sum.runs ?? 0;
+    await prisma.usageDay.create({ data: { userId: filler.id, day: usage.utcDay(), runs: runs - used } });
+    return () => prisma.usageDay.deleteMany({ where: { userId: filler.id } });
+  }
+
+  test("site total at the ceiling: 503, nothing sent, task and the user's own quota untouched", async () => {
+    const cleanup = await fillSite(limits.SITE_DAILY_MODEL_RUNS);
+    try {
+      const user = await newUser("site-cap@test.dev");
+      const p = await newProject(user.id);
+      const callsBefore = mock.state.calls;
+      await rejects(agents.runTask(p.research.id, user.id), 503, /spun all 200 runs .* nothing was sent to Claude or GPT/);
+      assert.equal(mock.state.calls, callsBefore, "provider not called");
+      assert.equal((await prisma.task.findUniqueOrThrow({ where: { id: p.research.id } })).status, "pending");
+      assert.equal(await runsToday(user.id), 0, "the refused run gave its reservation back");
+      // The knot is not a model run, so it still opens when the site is at the ceiling.
+      await prisma.task.updateMany({ where: { id: { in: [p.research.id, p.draft.id, p.review.id] } }, data: { status: "done", output: "x" } });
+      assert.equal((await agents.runTask(p.gate.id, user.id)).status, "awaiting_approval");
+    } finally {
+      await cleanup();
+    }
+  });
+
+  test("one run below the ceiling: the last run fits, the next is refused", async () => {
+    const cleanup = await fillSite(limits.SITE_DAILY_MODEL_RUNS - 1);
+    try {
+      const user = await newUser("site-edge@test.dev");
+      const p = await newProject(user.id);
+      assert.equal((await agents.runTask(p.research.id, user.id)).status, "done");
+      await rejects(agents.runTask(p.draft.id, user.id), 503);
+      assert.equal(await runsToday(user.id), 1);
+    } finally {
+      await cleanup();
+    }
+  });
+
+  test("the per-account cap still answers first (429) when both are used up", async () => {
+    const cleanup = await fillSite(limits.SITE_DAILY_MODEL_RUNS);
+    try {
+      const user = await newUser("both-caps@test.dev");
+      const p = await newProject(user.id);
+      await prisma.usageDay.create({ data: { userId: user.id, day: usage.utcDay(), runs: limits.DAILY_MODEL_RUNS } });
+      await rejects(agents.runTask(p.research.id, user.id), 429, /Daily limit/);
+    } finally {
+      await cleanup();
+      await prisma.usageDay.deleteMany({ where: { user: { email: "both-caps@test.dev" } } });
+    }
+  });
+
+  test("provider calls carry output caps (Claude 8,192; GPT 16,384 including reasoning)", async () => {
+    const user = await newUser("token-caps@test.dev");
+    const p = await newProject(user.id);
+    await agents.runTask(p.research.id, user.id); // Odysseus -> Anthropic
+    await agents.runTask(p.draft.id, user.id); // Daedalus -> OpenAI
+    assert.equal(mock.state.lastBody.anthropic.max_tokens, limits.MAX_OUTPUT_TOKENS_ANTHROPIC);
+    assert.equal(mock.state.lastBody.openai.max_completion_tokens, limits.MAX_OUTPUT_TOKENS_OPENAI);
+    assert.equal(limits.MAX_OUTPUT_TOKENS_ANTHROPIC, 8192);
+    assert.equal(limits.MAX_OUTPUT_TOKENS_OPENAI, 16384);
   });
 });
 

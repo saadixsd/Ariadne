@@ -50,6 +50,8 @@ export function runFailureText(what: string, status: number, message: string | n
 /** What to tell the user after a Run/Rerun request failed, beyond the headline. */
 export function runFailureNext(status: number): string {
   if (status === 429) return "Your daily runs come back at midnight UTC. Everything already spun is saved.";
+  // 503 from Run is the site-wide daily ceiling (lib/usage.ts), not this account's quota.
+  if (status === 503) return "Your own daily runs are untouched. The thread picks up again at midnight UTC, and everything already spun is saved.";
   if (status === 409) return "The board has refreshed, so check the step and try again.";
   if (status === 502) return "This attempt did not use a daily run. Open the step to copy the error, or press Respin when you want another attempt.";
   return "Open the step to copy the error, or press Respin when you want another attempt.";

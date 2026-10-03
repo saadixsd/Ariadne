@@ -6,7 +6,7 @@
 import { createServer } from "node:http";
 
 export function startMockLlm(port = 0) {
-  const state = { fail: false, calls: 0, failures: 0 };
+  const state = { fail: false, calls: 0, failures: 0, lastBody: {} };
   const server = createServer(async (req, res) => {
     let body = "";
     for await (const chunk of req) body += chunk;
@@ -27,6 +27,7 @@ export function startMockLlm(port = 0) {
       return send(500, { error: { type: "api_error", message: "mock provider is down" } });
     }
     const request = JSON.parse(body || "{}");
+    state.lastBody[req.url?.endsWith("/messages") ? "anthropic" : "openai"] = request;
     const n = state.calls;
     if (req.url?.endsWith("/messages")) {
       return send(200, {

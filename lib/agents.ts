@@ -9,7 +9,7 @@ import { dependentTasks, directDependencies, transitiveDependencies, unmetDepend
 import { safeErrorMessage, TaskRunError } from "@/lib/errors";
 import { handName } from "@/lib/hands";
 import { assertMaxLength } from "@/lib/input-caps";
-import { MAX_NOTE_CHARS } from "@/lib/limits";
+import { MAX_NOTE_CHARS, MAX_OUTPUT_TOKENS_ANTHROPIC, MAX_OUTPUT_TOKENS_OPENAI } from "@/lib/limits";
 import { prisma } from "@/lib/prisma";
 import { isStuck, reclaimStuckTasks } from "@/lib/reclaim";
 import { emitEvent, emitEvents, preserveLegacyOutputs, recordRun, type EventStructure } from "@/lib/run-history";
@@ -79,7 +79,7 @@ async function callAnthropic(model: string, system: string, user: string) {
   });
   const response = await client.messages.create({
     model,
-    max_tokens: 8192,
+    max_tokens: MAX_OUTPUT_TOKENS_ANTHROPIC,
     system,
     messages: [{ role: "user", content: user }],
   });
@@ -100,6 +100,7 @@ async function callOpenAI(model: string, system: string, user: string) {
   });
   const response = await client.chat.completions.create({
     model,
+    max_completion_tokens: MAX_OUTPUT_TOKENS_OPENAI,
     messages: [
       { role: "system", content: system },
       { role: "user", content: user },
