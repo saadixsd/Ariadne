@@ -42,27 +42,12 @@
     "ANTHROPIC_MODEL": "claude-haiku-4-5-20251001",
     "OPENAI_MODEL": "gpt-6-luna"
   },
-  // Workers Builds preview branches do not inherit production bindings.
-  // Without this block, PR preview deploys fail while main succeeds.
+  // No "previews" block on purpose. It used to hand every branch preview the production
+  // D1 database, and the preview environment held real model API keys, so any pushed
+  // branch could read and write production data and spend money. Without the block a
+  // branch preview has no DB binding and fails to build instead of touching prod.
+  // Non-production branch builds should also be off in Workers Builds settings.
+  // If previews are wanted again, create a separate D1 (`wrangler d1 create ariadne-preview`),
+  // apply migrations to it, and bind only that here, with no paid API keys.
   // https://developers.cloudflare.com/workers/previews/configuration/
-  "previews": {
-    "vars": {
-      "ANTHROPIC_MODEL": "claude-haiku-4-5-20251001",
-      "OPENAI_MODEL": "gpt-6-luna"
-    },
-    "d1_databases": [
-      {
-        "binding": "DB",
-        "database_name": "ariadne",
-        "database_id": "4c3b880c-68e7-427b-af68-43710ec3f863",
-        "migrations_dir": "migrations"
-      }
-    ],
-    "services": [
-      {
-        "binding": "WORKER_SELF_REFERENCE",
-        "service": "ariadne"
-      }
-    ]
-  }
 }
