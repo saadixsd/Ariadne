@@ -15,6 +15,8 @@ const eslintConfig = defineConfig([
     // Generated Cloudflare bundles (opennextjs-cloudflare / wrangler): huge, not source.
     ".open-next/**",
     ".wrangler/**",
+    // The early-access page is its own Worker with its own tooling (landing/README.md).
+    "landing/**",
   ]),
 ]);
 

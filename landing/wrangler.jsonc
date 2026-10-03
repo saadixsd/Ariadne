@@ -1,0 +1,54 @@
+{
+  // Ariadne early-access page: its own tiny Worker, separate from the app ("ariadne").
+  // Static files in public/ are served by Cloudflare's asset layer without running this
+  // Worker at all (zero Worker CPU). Only /api/* reaches src/worker.ts.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "ariadne-landing",
+  "account_id": "7a89d9dae3714c68933b37664f2b3d71",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-09-26",
+  "workers_dev": true,
+  // No public preview URLs for this Worker's versions.
+  "preview_urls": false,
+  "observability": { "enabled": true },
+
+  // public/ is generated from site/ by scripts/build.mjs (wrangler runs it on dev and deploy).
+  "build": { "command": "node scripts/build.mjs", "watch_dir": ["site"] },
+
+  "assets": {
+    "directory": "public",
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "404-page",
+    "run_worker_first": ["/api/*"]
+  },
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "ariadne-early-access",
+      // Replace with the id printed by `wrangler d1 create ariadne-early-access` before deploying.
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations"
+    }
+  ],
+
+  "vars": {
+    // Attempts per hashed IP per hour on POST /api/early-access (every attempt counts).
+    "RATE_LIMIT_PER_HOUR": "8",
+    // Browsers on other sites cannot post the form. Requests without an Origin header
+    // (curl, scripts) still have to pass Turnstile and the rate limit.
+    "ALLOWED_ORIGINS": "https://ariadneagents.si,https://www.ariadneagents.si",
+    // Hostnames a Turnstile token must have been issued on (comma list; empty = skip).
+    "TURNSTILE_HOSTNAMES": "ariadneagents.si,www.ariadneagents.si"
+  }
+
+  // Secrets (never in this file): TURNSTILE_SECRET, HASH_SALT, TOKEN_SECRET.
+  // Local values live in .dev.vars (copy .dev.vars.example).
+
+  // Routes are added at switch-over time, after they are removed from the app's
+  // wrangler.jsonc (see README "Going live"):
+  // "routes": [
+  //   { "pattern": "ariadneagents.si/*", "zone_name": "ariadneagents.si" },
+  //   { "pattern": "www.ariadneagents.si/*", "zone_name": "ariadneagents.si" }
+  // ]
+}

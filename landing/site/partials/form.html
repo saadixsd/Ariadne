@@ -1,0 +1,101 @@
+<form class="ea-form door-inner" id="ea" action="/api/early-access" method="post" novalidate>
+  <div class="ea-step" data-step="email">
+    <p class="eyebrow">The door</p>
+    <h1 class="title" id="hero-title">Stop being the thread.<br><em>Hold it.</em></h1>
+    <p class="lede">You've been carrying work between your AI tools by hand. Ariadne passes it from Claude to GPT and back, and stops at every knot for you to decide.</p>
+    <div class="ea-q">
+      <label for="ea-email">Email</label>
+      <input class="door-input" id="ea-email" name="email" type="email" autocomplete="email" inputmode="email" autocapitalize="off" spellcheck="false" maxlength="254" required placeholder="you@studio.com" aria-describedby="ea-msg ea-privacy">
+    </div>
+    <div class="ea-turnstile" id="ea-turnstile" data-sitekey="{{SITE_KEY}}"></div>
+    <div class="ea-cta">
+      <button class="rt-btn rt-btn-thread js-only" type="submit" data-next="email">Get early access</button>
+      <p class="ea-note">Ariadne is currently being tested with a small group of builders who regularly use multiple AI models.</p>
+    </div>
+    <p class="ea-privacy" id="ea-privacy">Your email and answers are only used to choose testers and to contact you about Ariadne. Never shared, never sold.</p>
+  </div>
+
+  <fieldset class="ea-step ea-qstep" data-step="usesAiFor" aria-labelledby="s1-q">
+    <legend class="q" id="s1-q">
+        <span class="eyebrow ea-count">1 of 3</span>
+        <svg class="q-svg" viewBox="0 0 400 104" aria-hidden="true" focusable="false">
+          <defs><clipPath id="s1-wipe"><rect class="q-wipe" x="0" y="-10" width="400" height="124"/></clipPath></defs>
+          <path class="q-thread" d="M200 -90 C200 -40 22 -50 22 4 L22 98 Q22 108 36 108 L364 108"/><circle class="q-bead" cx="364" cy="108" r="3.5"/>
+          <text class="q-ink" clip-path="url(#s1-wipe)"><tspan x="200" y="38">What do you use</tspan><tspan x="200" y="82">AI for?</tspan></text>
+        </svg>
+        <span class="q-text">What do you use AI for?</span>
+      </legend>
+    <div class="ea-answer">
+      <label class="sr-only" for="ea-use">What do you use AI for?</label>
+      <input class="door-input" id="ea-use" name="usesAiFor" type="text" maxlength="280" autocomplete="off" placeholder="Research, writing, code, client work…">
+      <div class="ea-actions js-only"><button class="rt-btn rt-btn-ghost" type="button" data-skip>Skip</button><button class="rt-btn rt-btn-thread" type="submit" data-next="usesAiFor">Next</button></div>
+    </div>
+  </fieldset>
+
+  <fieldset class="ea-step ea-qstep" data-step="tools" aria-labelledby="s2-q">
+    <legend class="q" id="s2-q">
+        <span class="eyebrow ea-count">2 of 3</span>
+        <svg class="q-svg" viewBox="0 0 400 104" aria-hidden="true" focusable="false">
+          <defs><clipPath id="s2-wipe"><rect class="q-wipe" x="0" y="-10" width="400" height="124"/></clipPath></defs>
+          <path class="q-thread" d="M200 -90 C200 -40 22 -50 22 4 L22 98 Q22 108 36 108 L364 108"/><circle class="q-bead" cx="364" cy="108" r="3.5"/>
+          <text class="q-ink" clip-path="url(#s2-wipe)"><tspan x="200" y="38">Which AI tools</tspan><tspan x="200" y="82">do you use?</tspan></text>
+        </svg>
+        <span class="q-text">Which AI tools do you use?</span>
+      </legend>
+    <div class="ea-answer">
+      <div class="chips">
+        <label class="chip"><input type="checkbox" name="tools" value="claude"><span>Claude</span></label>
+        <label class="chip"><input type="checkbox" name="tools" value="gpt"><span>ChatGPT / GPT</span></label>
+        <label class="chip"><input type="checkbox" name="tools" value="cursor"><span>Cursor</span></label>
+        <label class="chip"><input type="checkbox" name="tools" value="codex"><span>Codex</span></label>
+        <label class="chip"><input type="checkbox" name="tools" value="gemini"><span>Gemini</span></label>
+        <label class="chip"><input type="checkbox" name="tools" value="copilot"><span>Copilot</span></label>
+        <label class="chip"><input type="checkbox" name="tools" value="other" id="t-other"><span>Other</span></label>
+      </div>
+      <div class="other-text">
+        <label class="sr-only" for="ea-other">Other tools</label>
+        <input class="door-input" id="ea-other" name="toolsOther" type="text" maxlength="80" autocomplete="off" placeholder="Which ones?">
+      </div>
+      <div class="ea-actions js-only"><button class="rt-btn rt-btn-ghost" type="button" data-skip>Skip</button><button class="rt-btn rt-btn-thread" type="submit" data-next="tools">Next</button></div>
+    </div>
+  </fieldset>
+
+  <fieldset class="ea-step ea-qstep" data-step="switching" aria-labelledby="s3-q">
+    <legend class="q" id="s3-q">
+        <span class="eyebrow ea-count">3 of 3</span>
+        <svg class="q-svg" viewBox="0 0 400 104" aria-hidden="true" focusable="false">
+          <defs><clipPath id="s3-wipe"><rect class="q-wipe" x="0" y="-10" width="400" height="124"/></clipPath></defs>
+          <path class="q-thread" d="M200 -90 C200 -40 22 -50 22 4 L22 98 Q22 108 36 108 L364 108"/><circle class="q-bead" cx="364" cy="108" r="3.5"/>
+          <text class="q-ink" clip-path="url(#s3-wipe)"><tspan x="200" y="38">How often do you switch</tspan><tspan x="200" y="82">between them?</tspan></text>
+        </svg>
+        <span class="q-text">How often do you switch between them?</span>
+      </legend>
+    <div class="ea-answer">
+      <div class="chips">
+        <label class="chip"><input type="radio" name="switching" value="several_daily"><span>Several times a day</span></label>
+        <label class="chip"><input type="radio" name="switching" value="daily"><span>Daily</span></label>
+        <label class="chip"><input type="radio" name="switching" value="weekly"><span>Weekly</span></label>
+        <label class="chip"><input type="radio" name="switching" value="rarely"><span>Rarely</span></label>
+      </div>
+      <div class="ea-actions js-only"><button class="rt-btn rt-btn-ghost" type="button" data-skip>Skip</button><button class="rt-btn rt-btn-thread" type="submit" data-next="switching">Finish</button></div>
+    </div>
+  </fieldset>
+
+  <p class="ea-msg" id="ea-msg" role="status" aria-live="polite"></p>
+  <div class="ea-cta nojs-only">
+    <button class="rt-btn rt-btn-thread" type="submit">Get early access</button>
+    <p class="ea-note">Ariadne is currently being tested with a small group of builders who regularly use multiple AI models.</p>
+    <p class="ea-privacy">Your email and answers are only used to choose testers and to contact you about Ariadne. Never shared, never sold.</p>
+    <p class="ea-msg" data-tone="info">This form needs JavaScript on for a quick check that you're human.</p>
+  </div>
+</form>
+
+<div class="ea-done door-inner" id="ea-done" tabindex="-1" hidden>
+  <svg class="knot" viewBox="0 0 160 90" aria-hidden="true" focusable="false">
+    <path class="knot-draw" d="M0 64 C30 64 46 64 62 48 C78 32 100 14 95 38 C90 60 60 50 70 36 C80 22 104 56 160 64"/>
+    <circle class="knot-dot" cx="80" cy="42" r="6"/>
+  </svg>
+  <p class="eyebrow">Tied</p>
+  <h2 data-done-title>Thank you. Your request is in.</h2>
+  <p data-done-text>I read every answer myself and invite a few people at a time, starting with those Ariadne can help most. If it's a fit, you'll hear from me by email.</p>
+</div>

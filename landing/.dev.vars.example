@@ -1,0 +1,9 @@
+# Copy to .dev.vars for `wrangler dev`. These are Cloudflare's public Turnstile TEST secrets:
+#   1x0000000000000000000000000000000AA always passes
+#   2x0000000000000000000000000000000AA always fails
+TURNSTILE_SECRET=1x0000000000000000000000000000000AA
+HASH_SALT=local-dev-salt-not-secret
+TOKEN_SECRET=local-dev-token-secret-not-secret
+# Local dev runs on http://127.0.0.1:8787, and Turnstile test tokens are not tied to a hostname.
+ALLOWED_ORIGINS=http://127.0.0.1:8787,http://localhost:8787
+TURNSTILE_HOSTNAMES=
