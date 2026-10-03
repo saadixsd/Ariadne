@@ -166,9 +166,19 @@ function back(req: Request, path: string): Response {
   return new Response(null, { status: 303, headers: { location: new URL(path, req.url).toString(), "cache-control": "no-store" } });
 }
 
-async function start(req: Request, env: Env): Promise<Response> {
+// In-app browsers (Instagram, X, TikTok) can send `Origin: null` or their own
+// origin for a same-site POST. Turnstile (hostname-checked) guards step 1 and a
+// signed token guards steps 2-4, so only refuse a clearly foreign origin that the
+// browser also marks as cross-site.
+function foreignOrigin(req: Request, env: Env): boolean {
   const origin = req.headers.get("origin");
-  if (origin && !list(env.ALLOWED_ORIGINS).includes(origin)) return reply(403, "forbidden", "This form only works on ariadneagents.si.");
+  if (!origin || origin === "null" || list(env.ALLOWED_ORIGINS).includes(origin)) return false;
+  const site = req.headers.get("sec-fetch-site");
+  return site !== "same-origin" && site !== "same-site";
+}
+
+async function start(req: Request, env: Env): Promise<Response> {
+  if (foreignOrigin(req, env)) return reply(403, "forbidden", "This form only works on the Ariadne site. Open ariadneagents.si in your browser and try again.");
 
   const read = await readBody(req);
   if (read instanceof Response) return read;
@@ -221,8 +231,7 @@ async function start(req: Request, env: Env): Promise<Response> {
 }
 
 async function update(req: Request, env: Env): Promise<Response> {
-  const origin = req.headers.get("origin");
-  if (origin && !list(env.ALLOWED_ORIGINS).includes(origin)) return reply(403, "forbidden", "This form only works on ariadneagents.si.");
+  if (foreignOrigin(req, env)) return reply(403, "forbidden", "This form only works on the Ariadne site. Open ariadneagents.si in your browser and try again.");
   const read = await readBody(req);
   if (read instanceof Response) return read;
   if (read.form) return reply(415, "bad_request", "Send the answer as JSON.");
