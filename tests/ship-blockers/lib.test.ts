@@ -26,7 +26,7 @@ let agents: typeof import("../../lib/agents");
 let project: typeof import("../../lib/project");
 let usage: typeof import("../../lib/usage");
 let reclaim: typeof import("../../lib/reclaim");
-let demo: typeof import("../../lib/demo");
+let demo: typeof import("../../lib/starter-thread");
 let lineage: typeof import("../../lib/lineage");
 let handoff: typeof import("../../lib/handoff-preview");
 let liveTree: typeof import("../../lib/live-tree");
@@ -92,7 +92,7 @@ before(async () => {
   project = await import("../../lib/project");
   usage = await import("../../lib/usage");
   reclaim = await import("../../lib/reclaim");
-  demo = await import("../../lib/demo");
+  demo = await import("../../lib/starter-thread");
   lineage = await import("../../lib/lineage");
   handoff = await import("../../lib/handoff-preview");
   liveTree = await import("../../lib/live-tree");

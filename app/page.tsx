@@ -1,10 +1,9 @@
-import { BrandMark } from "@/components/BrandMark";
 import { Dashboard } from "@/components/Dashboard";
 import { ProjectIntro } from "@/components/ProjectIntro";
 import { accountDisplay } from "@/lib/account";
 import { currentUser } from "@/lib/auth";
 import { pickBoardProject } from "@/lib/board-project";
-import { needsProjectIntroFor } from "@/lib/demo";
+import { needsProjectIntroFor } from "@/lib/starter-thread";
 import { missingSetup } from "@/lib/setup";
 import { DAILY_MODEL_RUNS, modelRunsToday } from "@/lib/usage";
 import { getPrisma } from "@/lib/prisma";
@@ -30,22 +29,8 @@ export default async function Home({
     select: { id: true, name: true, brief: true, template: true },
   });
   if (await needsProjectIntroFor(user.id, projects)) return <ProjectIntro />;
-  const existing = pickBoardProject(projects, requested);
-
-  if (!existing) {
-    return (
-      <main className="mx-auto flex min-h-full max-w-lg flex-col justify-center px-6 py-16">
-        <BrandMark />
-        <h1 className="mt-6 font-serif text-[44px] font-normal leading-none tracking-[-0.015em]">No project yet</h1>
-        <p className="mt-3 text-sm leading-normal text-ink-dim">
-          Name a project to start a thread. That does not call Claude or GPT.
-        </p>
-        <Link href="/" className="rt-btn rt-btn-thread mt-5 h-10 w-fit text-sm">
-          Start a project
-        </Link>
-      </main>
-    );
-  }
+  // needsProjectIntroFor() is true for a user with no projects, so a project always exists here.
+  const existing = pickBoardProject(projects, requested)!;
 
   const project = await getProject(existing.id, user.id);
   const account = accountDisplay(user);

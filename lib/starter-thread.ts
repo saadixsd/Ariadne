@@ -1,6 +1,5 @@
-import { Prisma } from "@prisma/client";
-import { DAEDALUS, ODYSSEUS } from "./hands";
-import { prisma } from "./prisma";
+import { DAEDALUS, ODYSSEUS } from "@/lib/hands";
+import { prisma } from "@/lib/prisma";
 
 type TaskSpec = {
   key: string;
@@ -134,11 +133,6 @@ async function seedOwnBoard(projectId: string) {
   await createStarterTasks(projectId, agents, OWN_TASKS);
 }
 
-function isUniqueConflict(error: unknown) {
-  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
-}
-
-export const OWN_PROJECT_NAME = "My project";
 
 export async function createUserProject(userId: string, name: string, brief: string) {
   const project = await prisma.project.create({
@@ -149,10 +143,10 @@ export async function createUserProject(userId: string, name: string, brief: str
 }
 
 /**
- * needsProjectIntro, answered from the project list the page has already loaded
- * (every project of this user, with template and brief), so the board load skips two
- * queries. Same rules: a named own project means no intro; no projects means intro;
- * otherwise intro until any task has started.
+ * Should the user see "What are you making?" first? Answered from the project list the
+ * page has already loaded (every project of this user, with template and brief), so the
+ * board load needs no extra queries in the usual case. A named own project means no
+ * intro; no projects means intro; otherwise intro until any task has started.
  */
 export async function needsProjectIntroFor(
   userId: string,
@@ -160,24 +154,6 @@ export async function needsProjectIntroFor(
 ) {
   if (projects.some((project) => project.template === "own" && project.brief !== "")) return false;
   if (projects.length === 0) return true;
-  const started = await prisma.task.findFirst({
-    where: { status: { not: "pending" }, project: { userId } },
-    select: { id: true },
-  });
-  return !started;
-}
-
-export async function needsProjectIntro(userId: string) {
-  const named = await prisma.project.findFirst({
-    where: { userId, template: "own", NOT: { brief: "" } },
-    select: { id: true },
-  });
-  if (named) return false;
-  const anyProject = await prisma.project.findFirst({
-    where: { userId },
-    select: { id: true },
-  });
-  if (!anyProject) return true;
   const started = await prisma.task.findFirst({
     where: { status: { not: "pending" }, project: { userId } },
     select: { id: true },
@@ -214,34 +190,3 @@ export async function startFirstProject(userId: string, name: string, brief: str
   return projectId;
 }
 
-export async function ensureOwnProject(userId: string) {
-  const existing = await prisma.project.findFirst({
-    where: { userId, template: "own" },
-    orderBy: { createdAt: "asc" },
-  });
-  if (existing) {
-    const agents = await prisma.agent.count({ where: { projectId: existing.id } });
-    if (agents === 0) await seedOwnBoard(existing.id);
-    return existing.id;
-  }
-
-  const id = `own_${userId}`;
-  try {
-    await prisma.project.create({
-      data: { id, userId, name: OWN_PROJECT_NAME, brief: "", template: "own" },
-    });
-  } catch (error) {
-    if (!isUniqueConflict(error)) throw error;
-    const raced = await prisma.project.findFirst({
-      where: { userId, template: "own" },
-      orderBy: { createdAt: "asc" },
-    });
-    if (!raced) throw error;
-    const agents = await prisma.agent.count({ where: { projectId: raced.id } });
-    if (agents === 0) await seedOwnBoard(raced.id);
-    return raced.id;
-  }
-
-  await seedOwnBoard(id);
-  return id;
-}

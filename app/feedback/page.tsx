@@ -33,7 +33,7 @@ export default async function FeedbackInbox() {
         </Link>
       </div>
       <p className="mt-2 text-sm leading-normal text-ink-dim">
-        Notes people sent from Give feedback. Reading this page does not run an agent.
+        The notes you sent from Give feedback. Reading this page does not run an agent.
       </p>
       {rows.length === 0 ? (
         <p className="mt-8 bg-panel px-4 py-6 text-sm leading-normal text-ink-dim ring-1 ring-line">

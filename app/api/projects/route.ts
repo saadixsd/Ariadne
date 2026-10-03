@@ -1,5 +1,5 @@
 import { requireUser } from "@/lib/auth";
-import { createUserProject } from "@/lib/demo";
+import { createUserProject } from "@/lib/starter-thread";
 import { errorResponse } from "@/lib/errors";
 import { assertMaxLength } from "@/lib/input-caps";
 import { MAX_BRIEF_CHARS, MAX_PROJECT_NAME_CHARS } from "@/lib/limits";

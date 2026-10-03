@@ -56,7 +56,7 @@ export async function requireUser() {
 // There is deliberately no "claim unowned projects" step on sign-up/sign-in/verify.
 // It used to assign every project with userId = null to whichever account signed
 // in next, so a stranger could take over orphaned data. Projects are only ever
-// created with an owner (lib/demo.ts) and never change owners.
+// created with an owner (lib/starter-thread.ts) and never change owners.
 
 async function startSession(userId: string) {
   const prisma = await getPrisma();

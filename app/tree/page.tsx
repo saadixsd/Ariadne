@@ -2,7 +2,7 @@ import { LiveTree } from "@/components/LiveTree";
 import { accountDisplay } from "@/lib/account";
 import { currentUser } from "@/lib/auth";
 import { pickBoardProject } from "@/lib/board-project";
-import { needsProjectIntroFor } from "@/lib/demo";
+import { needsProjectIntroFor } from "@/lib/starter-thread";
 import { DAILY_MODEL_RUNS, modelRunsToday } from "@/lib/usage";
 import { getPrisma } from "@/lib/prisma";
 import { getProject } from "@/lib/project";
