@@ -27,7 +27,7 @@
       "binding": "DB",
       "database_name": "ariadne-early-access",
       // Replace with the id printed by `wrangler d1 create ariadne-early-access` before deploying.
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "9b4babaf-864d-4cea-84e2-8915adec0de7",
       "migrations_dir": "migrations"
     }
   ],
