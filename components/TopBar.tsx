@@ -4,8 +4,10 @@ import type { ReactNode } from "react";
 import { BrandMark } from "@/components/BrandMark";
 import { ViewSwitch } from "@/components/ViewSwitch";
 import { DAILY_MODEL_RUNS } from "@/lib/limits";
+import { newProjectHref } from "@/lib/new-project";
 
 const MANAGE = "__manage_projects__";
+const NEW = "__new_project__";
 
 export function RunsMeter({ remaining }: { remaining: number }) {
   const ratio = Math.max(0, Math.min(1, remaining / DAILY_MODEL_RUNS));
@@ -26,6 +28,7 @@ export function TopBar({
   projectId,
   projects,
   onSwitchProject,
+  onNewProject,
   runsLeft,
   children,
 }: {
@@ -33,9 +36,15 @@ export function TopBar({
   projectId: string;
   projects: { id: string; name: string }[];
   onSwitchProject: (id: string) => void;
+  /** Opens the new-project dialog in place; without it, the button goes to the board and opens it there. */
+  onNewProject?: () => void;
   runsLeft: number;
   children?: ReactNode;
 }) {
+  const startNew = () => {
+    if (onNewProject) onNewProject();
+    else window.location.assign(newProjectHref(projectId));
+  };
   return (
     // One row at every width: the project name truncates and secondary controls fold
     // away before anything wraps, so the account button never drops to its own line.
@@ -46,6 +55,12 @@ export function TopBar({
         <select
           value={projectId}
           onChange={(event) => {
+            if (event.target.value === NEW) {
+              // Keep showing the current project; the dialog decides whether we switch.
+              event.target.value = projectId;
+              startNew();
+              return;
+            }
             if (event.target.value === MANAGE) {
               window.location.assign(`/settings?project=${encodeURIComponent(projectId)}#projects`);
               return;
@@ -60,12 +75,24 @@ export function TopBar({
             </option>
           ))}
           <option disabled>──────────</option>
+          <option value={NEW}>＋ New project…</option>
           <option value={MANAGE}>Manage projects…</option>
         </select>
         <span aria-hidden className="pointer-events-none absolute right-2.5 text-[11px] text-ink-faint">
           ▾
         </span>
       </label>
+      <button
+        type="button"
+        onClick={startNew}
+        data-new-project
+        aria-label="New project"
+        title="Start a new project"
+        className="rt-btn rt-btn-ghost shrink-0 px-2.5 max-sm:w-8 max-sm:border-line-strong max-sm:bg-raised max-sm:px-0"
+      >
+        <span aria-hidden>＋</span>
+        <span className="max-sm:hidden">New project</span>
+      </button>
       <div className="shrink-0">
         <ViewSwitch view={view} projectId={projectId} />
       </div>

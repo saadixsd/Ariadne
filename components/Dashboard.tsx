@@ -115,6 +115,7 @@ export function Dashboard({
   accountInitial,
   accountName = "",
   runsLeft,
+  startNew = false,
 }: {
   initial: ProjectDTO;
   projects: ProjectOption[];
@@ -123,6 +124,8 @@ export function Dashboard({
   accountInitial: string;
   accountName?: string;
   runsLeft: number;
+  /** Open the new-project dialog right away (the board was reached with ?new=1). */
+  startNew?: boolean;
 }) {
   const { clock } = useClocks();
   const router = useRouter();
@@ -138,7 +141,7 @@ export function Dashboard({
   const [readerId, setReaderId] = useState<string | null>(null);
   const knotRef = useRef<KnotPanelHandle>(null);
   const [contextOpen, setContextOpen] = useState(false);
-  const [newProjectOpen, setNewProjectOpen] = useState(false);
+  const [newProjectOpen, setNewProjectOpen] = useState(startNew);
   const [selectedId, setSelectedId] = useState(initial.id);
   const selectedIdRef = useRef(initial.id);
   const [lineageId, setLineageId] = useState<string | null>(null);
@@ -167,6 +170,7 @@ export function Dashboard({
   function writeProjectUrl(id: string) {
     const url = new URL(window.location.href);
     url.searchParams.set("project", id);
+    url.searchParams.delete("new");
     window.history.replaceState(null, "", url);
   }
 
@@ -462,6 +466,10 @@ export function Dashboard({
         projectId={selectedId}
         projects={projects}
         onSwitchProject={(id) => void switchProject(id)}
+        onNewProject={() => {
+          setMenu(null);
+          setNewProjectOpen(true);
+        }}
         runsLeft={remaining}
       >
         <button
@@ -617,7 +625,13 @@ export function Dashboard({
         />
       ) : null}
       {newProjectOpen ? (
-        <NewProjectDialog onClose={() => setNewProjectOpen(false)} onCreate={createProject} />
+        <NewProjectDialog
+          onClose={() => {
+            setNewProjectOpen(false);
+            writeProjectUrl(selectedIdRef.current);
+          }}
+          onCreate={createProject}
+        />
       ) : null}
       {feedbackOpen ? <FeedbackModal onClose={() => setFeedbackOpen(false)} /> : null}
       {readerTask ? <OutputReader key={readerTask.id} task={readerTask} project={data} onClose={closeReader} /> : null}

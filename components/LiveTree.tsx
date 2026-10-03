@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { useRouter } from "next/navigation";
 import { CoordinationTree } from "@/components/CoordinationTree";
 import { AccountButton, TopBar } from "@/components/TopBar";
+import { newProjectHref } from "@/lib/new-project";
 import { TreeDetailRail } from "@/components/TreeDetailRail";
 import { ContextDrawer } from "@/components/ContextDrawer";
 import { RunCost } from "@/components/Critique";
@@ -320,6 +321,9 @@ export function LiveTree({
           <AccountButton initial={accountInitial} label="Account menu" expanded={menu} onClick={() => setMenu((value) => !value)} />
           {menu ? (
             <div role="menu" className="absolute right-0 z-40 mt-2 w-52 rounded-xl border border-line bg-raised p-1 shadow-[0_18px_40px_-16px_rgba(31,26,20,.35)]">
+              <a role="menuitem" href={newProjectHref(data.id)} className="block rounded-lg px-3 py-2 text-sm hover:bg-panel">
+                New project
+              </a>
               <a role="menuitem" href={`/settings?project=${encodeURIComponent(data.id)}#projects`} className="block rounded-lg px-3 py-2 text-sm hover:bg-panel">
                 Manage projects
               </a>

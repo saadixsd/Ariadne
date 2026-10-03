@@ -7,6 +7,7 @@ import { accountDisplay } from "@/lib/account";
 import { currentUser } from "@/lib/auth";
 import { HANDS } from "@/lib/hands";
 import { MAX_PROJECT_NAME_CHARS } from "@/lib/limits";
+import { newProjectHref } from "@/lib/new-project";
 import { getPrisma } from "@/lib/prisma";
 import { DAILY_MODEL_RUNS, modelRunsToday } from "@/lib/usage";
 import Link from "next/link";
@@ -78,7 +79,10 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
             <h2 id="projects-title" className="font-serif text-[24px] leading-tight">
               Projects
             </h2>
-            <p className="font-mono text-[11.5px] text-ink-faint tnum">{projects.length} {projects.length === 1 ? "project" : "projects"}</p>
+            <p className="ml-auto font-mono text-[11.5px] text-ink-faint tnum">{projects.length} {projects.length === 1 ? "project" : "projects"}</p>
+            <a href={newProjectHref(back === "/" ? null : from)} className="rt-btn rt-btn-thread shrink-0 self-center">
+              ＋ New project
+            </a>
           </div>
           <ProjectsManager projects={projects} maxName={MAX_PROJECT_NAME_CHARS} />
         </section>

@@ -16,12 +16,12 @@ export const dynamic = "force-dynamic";
 export default async function Home({
   searchParams,
 }: {
-  searchParams: Promise<{ project?: string }>;
+  searchParams: Promise<{ project?: string; new?: string }>;
 }) {
   const user = await currentUser();
   if (!user) redirect("/sign-in");
   if (!user.emailVerified) redirect("/verify");
-  const { project: requested } = await searchParams;
+  const { project: requested, new: startNew } = await searchParams;
   const prisma = await getPrisma();
   const projects = await prisma.project.findMany({
     where: { userId: user.id },
@@ -64,6 +64,7 @@ export default async function Home({
       accountInitial={account.initial}
       accountName={user.firstName?.trim() || user.lastName?.trim() ? account.name : ""}
       runsLeft={runsLeft}
+      startNew={startNew === "1"}
     />
   );
 }

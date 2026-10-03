@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { ancestorsOf, layoutDag, placeDag } from "../../lib/dag-layout";
 import { handName } from "../../lib/hands";
+import { newProjectHref } from "../../lib/new-project";
 import { delphicLine, SOCRATIC_QUESTIONS, socraticQuestion } from "../../lib/philosophy";
 import { POLL_ACTIVE_MS, POLL_IDLE_MAX_MS, POLL_IDLE_START_MS, isSpinning, nextPollDelay } from "../../lib/poll-schedule";
 import { briefLead, foldPlan } from "../../lib/text-fold";
@@ -184,4 +185,11 @@ test("account: names are trimmed, collapsed, capped at 60, and empty clears", as
   assert.equal(readPersonName("x".repeat(61)), undefined);
   assert.equal(readPersonName(42), undefined);
   assert.equal(readPersonName("a\u0000b"), undefined);
+});
+
+test("new project: links open the board's dialog, keeping the project you came from", () => {
+  assert.equal(newProjectHref("abc"), "/?project=abc&new=1");
+  assert.equal(newProjectHref("a b&c"), "/?project=a%20b%26c&new=1");
+  assert.equal(newProjectHref(null), "/?new=1");
+  assert.equal(newProjectHref(), "/?new=1");
 });

@@ -84,48 +84,51 @@ export function NewProjectDialog({
             }
           }}
         >
-          <h2 id={titleId} className="font-serif text-[26px] font-normal leading-tight">
-            New project
+          <span className="block h-0.5 w-8 bg-thread" aria-hidden />
+          <p className="eyebrow mt-4">New project</p>
+          <h2 id={titleId} className="mt-1 font-serif text-[30px] font-normal leading-tight tracking-[-0.01em]">
+            What are you making next?
           </h2>
           <p className="mt-2 text-sm leading-normal text-ink-dim">
-            This project is yours. Odysseus and Daedalus read the brief when you press Run. Creating it does not call Claude
-            or GPT.
+            It gets its own brief and its own thread, with Odysseus and Daedalus ready. Your other projects stay as they
+            are. Creating it doesn&apos;t call Claude or GPT and doesn&apos;t use a run.
           </p>
-          <label className="mt-4 block text-sm">
-            Project name
+          <label className="mt-5 block">
+            <span className="text-[13px] text-ink-dim">Project name</span>
             <input
               value={name}
               onChange={(event) => setName(event.target.value)}
               maxLength={MAX_PROJECT_NAME_CHARS}
-              className="mt-1 w-full bg-canvas px-3 py-2 text-sm ring-1 ring-line"
+              placeholder="Name"
+              className="mt-1.5 w-full rounded-xl bg-canvas px-3.5 py-2.5 text-[15px] ring-1 ring-line placeholder:text-ink-dim/50"
               aria-label="Project name"
             />
           </label>
-          <label className="mt-3 block text-sm">
-            Brief
+          <label className="mt-4 block">
+            <span className="text-[13px] text-ink-dim">Brief</span>
             <textarea
               value={brief}
               onChange={(event) => setBrief(event.target.value)}
               maxLength={MAX_BRIEF_CHARS}
-              className="mt-1 min-h-28 w-full bg-canvas px-3 py-2 text-sm leading-normal ring-1 ring-line"
+              placeholder="A sentence or two. Both of them read it before they work."
+              className="mt-1.5 min-h-28 w-full resize-none rounded-xl bg-canvas px-3.5 py-2.5 text-[15px] leading-normal ring-1 ring-line placeholder:text-ink-dim/50"
               aria-label="Project brief"
             />
+            <span className="mt-1.5 block text-[12.5px] leading-normal text-ink-faint">
+              Tip: state the goal, who it&apos;s for, and what a good result looks like.
+            </span>
           </label>
           {error ? (
             <p id={errorId} role="alert" className="mt-3 text-sm text-danger">
               {error}
             </p>
           ) : null}
-          <div className="mt-4 flex justify-end gap-2">
-            <button type="button" onClick={onClose} className="px-3 py-2 text-sm text-ink-dim hover:text-ink">
+          <div className="mt-5 flex justify-end gap-2">
+            <button type="button" onClick={onClose} className="rt-btn rt-btn-ghost">
               Cancel
             </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="bg-thread px-3 py-2 text-sm font-medium text-raised disabled:opacity-50"
-            >
-              {saving ? "Creating" : "Create project"}
+            <button type="submit" disabled={saving} className="rt-btn rt-btn-thread">
+              {saving ? "Starting…" : "Start the project"}
             </button>
           </div>
         </form>
