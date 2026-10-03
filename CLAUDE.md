@@ -49,14 +49,14 @@ Odysseus/Daedalus.
 **Models (Worker vars):** Claude Haiku `claude-haiku-4-5-20251001`,
 GPT `gpt-6-luna`.
 
-**Default workflow for new projects:** a generic 5-task template in `lib/demo.ts`
+**Default workflow for new projects:** a generic 5-task template in `lib/starter-thread.ts`
 (research → draft → review → human approval → produce). The
 "Scout → Maker → Scout review → Human approval → Maker" loop in old notes was the
 Phase B dogfood shape, not the template.
 
 ## 4. Stack & repo facts
 
-- Private GitHub repo `saadixsd/Ariadne`, branch `main`.
+- GitHub repo `saadixsd/Ariadne`, branch `main`.
 - Cloudflare Worker + D1 database (`ariadne`); local dev uses SQLite.
 - **API keys are Cloudflare secrets. Never commit them. Never print them.**
 - Auth: email/password (hashed), 30-day HttpOnly sessions, no OAuth.
@@ -64,35 +64,37 @@ Phase B dogfood shape, not the template.
 - **10 provider/model calls per account per UTC day** (`DAILY_MODEL_RUNS` in
   `lib/limits.ts`), enforced before any provider call. Failed runs, human
   approvals and human tasks don't count.
+- **Site-wide ceiling: 200 model runs per UTC day across all accounts**
+  (`SITE_DAILY_MODEL_RUNS`), checked after the account's own run is reserved;
+  over it, the run is refused with 503 and nothing reaches a provider. Output caps:
+  Claude `max_tokens` 8,192, GPT `max_completion_tokens` 16,384.
+- Security headers (`next.config.ts`) on every response, no `X-Powered-By`;
+  `proxy.ts` refuses API writes with a foreign `Origin` (403).
+- Workers **free plan**: 10 ms CPU per request is the limit that matters (error 1102).
+  Keep per-request CPU low; Workers Logs (observability) is on to trace it.
 - Email-verification code exists but is **disabled** (no `send_email` binding).
   Enabling it needs company email, `ariadneagents.si` onboarded to Cloudflare
   Email Service, and the Workers Paid plan. Steps: `docs/PROJECT_LOG.md`.
 - Live: **https://ariadneagents.si** (apex and `www` are Worker routes in
   `wrangler.jsonc`). https://ariadne.sr-labs.workers.dev still serves the same app.
-- Production deploys from `main` via Workers Builds; `main` is at `34cdc97` (Oct 1).
-- **Branch previews spend real money on real data.** The real OpenAI/Anthropic
-  keys are set as preview secrets, and the `previews` block binds the production
-  D1 (`ariadne`). Any pushed branch gets a public preview URL that can make live
-  model calls against production users' data (the 10/day cap still applies).
-  Don't push throwaway branches casually; remove the preview secrets when not testing.
+- Production deploys from `main` via Workers Builds. Main was at `9f841e6` (Oct 2)
+  before the `presentation/cleanup` branch.
+- **Branch previews do not get production data.** `wrangler.jsonc` has no
+  `previews` block on purpose (it used to bind the production D1, and preview
+  secrets held real model keys). Don't add one back pointing at `ariadne`; use a
+  separate D1 with no paid keys if previews are ever needed.
+- Schema changes: next `migrations/000N_*.sql`, applied to production with
+  `wrangler d1 migrations apply ariadne --remote` **before** pushing the code
+  (`docs/MIGRATIONS.md`).
 
-**Repo map:** map the actual layout yourself on first run (entry point, Worker
-code, routes, D1 schema/migrations, frontend). Do not assume a structure — verify.
+**Repo map:** `README.md` (layout) and `docs/ARCHITECTURE.md` (pipeline, state
+machine, code map) describe it; tests live in `tests/unit` and `tests/integration`.
+Still verify against the code before relying on it.
 
-## 5. Validation hypothesis
+## 5. Strategy
 
-People who regularly use multiple AI models to complete one piece of work will
-value having those models coordinated through a shared workflow.
-
-**Current gate (the only thing that matters right now):** 5 real builders on real
-recurring workflows + a willingness-to-pay test at **$29/mo** (the old ~$15 figure
-is dead — founder rejected it as too low).
-- Pass: 3+ of 5 finish a real workflow unaided; 1+ credible yes at $29/mo.
-- Kill signals: builders skip the critique step; single-model self-review satisfies
-  them; "I could wire this in n8n" (wrapper verdict).
-
-Full version: `21_ARIADNE_VALIDATION_DRAFT.md` — **not in this repo** (lives
-outside it with the founder). Ask if you need it.
+Business strategy (validation plan, pricing tests, goals) is kept outside this
+repo with the founder. Ask if a task needs it.
 
 ## 6. Hard product decisions — do not relitigate
 
@@ -103,27 +105,28 @@ outside it with the founder). Ask if you need it.
   model picker / model switching, eval scores, autonomous reruns, large agent
   rosters, broad tool use.
 - **NOT a generic agent framework.** V1 is an opinionated hosted two-model roster.
-- **No new features without a validation need.** If it doesn't serve the 5-builder
-  gate, it doesn't get built.
+- **No new features unless the founder asks for them.**
 
 ## 7. Current goal
 
-Get 5 real builders using Ariadne on real recurring workflows and determine
-whether the coordination problem is valuable enough to solve.
+Ask the founder; it is tracked outside this repo (section 5).
 
 ## 8. Current work
 
-**Done — the cleanup pass is finished.** Branch `cleanup/v1-hardening` merged to
-`main` on Oct 1 2026 (`9b0d2a0`, then the log commit `34cdc97`) and is live on
-ariadneagents.si. It removed the 3-step intro onboarding ("You hold the thread."
-card) and its `ariadne.welcome.*` localStorage wiring, confirmed zero user-visible
-"Beta" wording (keep it that way), and hardened copy and failure paths. Full
-record: `docs/PROJECT_LOG.md`. **The mandatory "What are you making?" project
-dialog on signup stays** — the founder confirmed it is intentional (direction
+**Presentation cleanup (Oct 3 2026), branch `presentation/cleanup`:** repo tidy
+(planning docs archived, dead code removed, `lib/demo.ts` → `lib/starter-thread.ts`,
+tests regrouped), the site-wide 200 runs/day ceiling and GPT output cap, security
+headers, the Origin check on API writes, previews unbound from production D1,
+`npm audit fix`, and README / ARCHITECTURE / SECURITY / CHANGELOG with diagrams in
+`docs/diagrams/`. No migration. See `docs/PROJECT_LOG.md`.
+
+Earlier: the Oct 1 V1 cleanup (`cleanup/v1-hardening`, `9b0d2a0`, `34cdc97`) and the
+Oct 2 differentiation features and free-plan performance work (`5e7bf28` …
+`9f841e6`) are on `main` and live. **The mandatory "What are you making?" project
+dialog on signup stays**: the founder confirmed it is intentional (direction
 before blank canvas).
 
-No task is in progress here. Next candidate: the unbuilt differentiation
-features in section 10 — only when the founder asks.
+No task is in progress here beyond that branch. Next work only when the founder asks.
 
 Task detail (historical): `docs/archive/planning/22_CLAUDE_CODE_CLEANUP_BRIEF.md`.
 
@@ -132,7 +135,7 @@ Task detail (historical): `docs/archive/planning/22_CLAUDE_CODE_CLEANUP_BRIEF.md
 - The "What are you making?" signup dialog.
 - The human-judge principle and approval gates.
 - Thread vocabulary and design language (section 2).
-- 10/day cap semantics.
+- 10/day per-account cap semantics, and the 200/day site-wide ceiling.
 - No Beta wording, anywhere.
 - **Immutable run history:** reruns and request-changes create new versions; they
   never destroy prior outputs. (Ship-blockers pass, Sep 30.)
@@ -141,6 +144,13 @@ Task detail (historical): `docs/archive/planning/22_CLAUDE_CODE_CLEANUP_BRIEF.md
 
 ## 10. Recent changes
 
+- **Oct 3:** presentation cleanup branch (section 8).
+- **Oct 2:** differentiation features shipped: critique flags with "Add to note",
+  v1→v2 comparison, model attribution ("Made by / Reviewed by"), run-cost labels
+  on Run buttons, and the one-liner on the "What are you making?" dialog
+  (`5e7bf28`); faster comparison, new favicon, Workers Logs (`24ae2e4`); lower
+  per-request CPU for the free plan (`039511e`) and half the queries on Run
+  (`9f841e6`).
 - **Oct 1:** V1 cleanup/hardening pass merged to `main` (`9b0d2a0`, `34cdc97`):
   intro card removed, internal copy out of the UI, brief cap 5,000 everywhere,
   readable failure paths, `www.ariadneagents.si` route, Tree detail rail as a
@@ -149,13 +159,8 @@ Task detail (historical): `docs/archive/planning/22_CLAUDE_CODE_CLEANUP_BRIEF.md
   Scout→Odysseus, Maker→Daedalus; ship-blockers reliability pass (immutable run
   history, stale-run recovery, signup throttling); responsive pass, name editing,
   project rename/delete (`d0908ed`).
-- **Specified but NOT built (planned/next — none of this is in `main`):** the
-  differentiation features — critique flags with "Add to note", v1→v2
-  comparison, model attribution ("Made by / Reviewed by"), budget honesty
-  ("1 run" on Run buttons), and the one-liner + roster on the
-  "What are you making?" dialog / empty state. Do not assume they exist.
-- **Sep 28:** Phase B dogfood passed — full cross-model loop on a real
-  investor-mapping task; critique visibly improved the draft.
+- **Sep 28:** Phase B dogfood passed — full cross-model loop on a real task;
+  critique visibly improved the draft.
 - **Sep 27:** mandatory "What are you making?" dialog confirmed intentional.
 
 ## 11. Known issues / unverified
@@ -165,17 +170,15 @@ Task detail (historical): `docs/archive/planning/22_CLAUDE_CODE_CLEANUP_BRIEF.md
 - Rerun/cascade + immutable history not independently verified end-to-end.
 - Email verification disabled (see section 4 for what enabling it needs).
 - Tree node detail/lineage view may lag the board's.
-- Docs under `docs/muse/` numbered 04–13 contain stale names
-  (Scout/Maker), stale pricing (~$15), and the stale green/white theme. Treat them
-  as history, not spec. This file + section 12 win on conflicts.
+- Docs under `docs/archive/planning/` (04–13 especially) contain stale names
+  (Scout/Maker) and the stale green/white theme. Treat them as history, not
+  spec. This file wins on conflicts.
 
 ## 12. Key files
 
-- `16_ARIADNE_EXPLAINER_GROK.md` — full orientation: thesis, the three problems,
-  what Ariadne is NOT, V1→V3 roadmap. **Not in this repo**; until it is, use this
-  file plus `docs/archive/planning/01_VISION.md` and `docs/archive/planning/07_V1_PLAN.md`.
-- `21_ARIADNE_VALIDATION_DRAFT.md` — problem, differentiation, validation plan,
-  kill criteria. **Not in this repo.**
+- `README.md`, `docs/ARCHITECTURE.md`, `docs/SECURITY.md`, `CHANGELOG.md` — overview,
+  pipeline and code map, security model, history.
+- `docs/archive/planning/01_VISION.md`, `07_V1_PLAN.md` — original thesis and V1 plan.
 - `docs/archive/planning/22_CLAUDE_CODE_CLEANUP_BRIEF.md` — the (finished) Oct 1 cleanup task.
 - `docs/PROJECT_LOG.md` — what shipped, when, and how it was verified.
 - `docs/MIGRATIONS.md` — how production D1 schema changes ship.

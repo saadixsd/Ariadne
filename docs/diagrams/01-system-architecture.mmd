@@ -1,0 +1,51 @@
+flowchart TB
+  subgraph Browser["Browser (React client components)"]
+    Board["Board<br/>components/Dashboard.tsx"]
+    Tree["Tree<br/>components/LiveTree.tsx"]
+    Poll["Adaptive poll + ETag<br/>components/project-poll.ts<br/>lib/poll-schedule.ts"]
+  end
+
+  subgraph CF["Cloudflare"]
+    Edge["Routes: ariadneagents.si, www<br/>+ ariadne.sr-labs.workers.dev<br/>security headers on every response"]
+    subgraph Worker["Worker 'ariadne' (Next.js 16 via OpenNext)"]
+      Proxy["proxy.ts<br/>cookie gate, door rewrite,<br/>cross-site API writes refused"]
+      Pages["App Router pages (SSR)<br/>app/page.tsx, app/tree, app/settings"]
+      API["Route handlers app/api/**<br/>auth, projects, tasks/:id/run|approve|rerun|runs"]
+      subgraph Lib["lib/ (server)"]
+        Auth["auth.ts, password.ts<br/>rate-limit.ts"]
+        Engine["agents.ts: runTask / decideTask / rerunTask"]
+        Guards["usage.ts (10 runs per account,<br/>200 site-wide, per UTC day)<br/>reclaim.ts (stuck runs &gt; 5 min)<br/>input-caps.ts, limits.ts"]
+        Hist["run-history.ts<br/>TaskRun + ActivityEvent"]
+        DB["prisma.ts<br/>per-request PrismaClient + D1 adapter"]
+      end
+    end
+    D1[("D1 database 'ariadne'<br/>User, Session, Project, Agent, Task,<br/>TaskRun, ActivityEvent, UsageDay,<br/>RateLimit, Feedback")]
+    Secrets["Worker secrets<br/>ANTHROPIC_API_KEY, OPENAI_API_KEY"]
+    Logs["Workers Logs (observability)"]
+  end
+
+  Anthropic["Anthropic API<br/>Odysseus = Claude<br/>(research + review)"]
+  OpenAI["OpenAI API<br/>Daedalus = GPT<br/>(draft + build)"]
+  GH["GitHub saadixsd/Ariadne<br/>branch main"]
+  Builds["Workers Builds<br/>push to main = production deploy"]
+
+  Board --> Edge
+  Tree --> Edge
+  Poll --> Edge
+  Edge --> Proxy --> Pages
+  Proxy --> API
+  Pages --> Lib
+  API --> Auth
+  API --> Engine
+  Engine --> Guards
+  Engine --> Hist
+  Auth --> DB
+  Guards --> DB
+  Hist --> DB
+  Engine --> DB
+  DB --> D1
+  Engine -- "Messages API, 60 s timeout, 1 retry" --> Anthropic
+  Engine -- "Chat Completions, 60 s timeout, 1 retry" --> OpenAI
+  Secrets -.-> Engine
+  Worker -.-> Logs
+  GH --> Builds --> Worker

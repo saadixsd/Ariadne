@@ -1,0 +1,57 @@
+sequenceDiagram
+  autonumber
+  actor U as You (browser)
+  participant P as proxy.ts
+  participant R as POST /api/tasks/:id/run
+  participant A as lib/auth.ts
+  participant E as lib/agents.ts runTask()
+  participant Q as lib/usage.ts
+  participant D as D1 (Prisma)
+  participant M as Claude or GPT
+
+  U->>P: Run (session cookie)
+  P->>R: cookie ok, same-site, pass
+  R->>A: requireUser()
+  A->>D: Session by sha256(token), with User
+  A-->>R: user (401 if no session)
+  R->>E: runTask(taskId, userId)
+  E->>D: load owned project + all tasks with agents
+  opt a task is running for more than 5 min
+    E->>D: reclaimStuckTasks: set pending, release quota, TaskRun reclaimed, event failed
+  end
+  E->>E: 409 if running or awaiting_approval, or dependencies not done
+  alt model step (Odysseus or Daedalus)
+    E->>Q: reserveModelRun(user, UTC day)
+    Q->>D: UPDATE UsageDay SET runs+1 WHERE runs < 10 (this account)
+    Q->>D: SUM(runs) for the day across all accounts
+    Q-->>E: ok, 429 (own 10) or 503 (site 200)
+  end
+  E->>D: claim: Task status=running, startedAt (guarded updateMany)
+  E->>D: Agent status=working
+  E->>D: events started + one handoff per dependency (one INSERT)
+  alt human step (You at the knot)
+    E->>D: output = packaged chain (plus your last change note), status=awaiting_approval
+    E->>D: TaskRun succeeded (model human), event approval_requested
+    E-->>U: task (no daily run used)
+  else model step
+    E->>E: prompt = role + Shared context (brief) + Input from each direct dependency + instructions
+    E->>M: call (60 s timeout, retried once)
+    alt provider error
+      E->>Q: releaseModelRun (failed runs do not count)
+      E->>D: TaskRun failed, Task failed, event failed
+      E-->>U: 502 with a readable error
+    else output returned
+      E->>D: commitIfOwned: status done (or awaiting_approval if requiresApproval)
+      E->>D: TaskRun succeeded (prompt, output, latency, tries)
+      E->>D: Agent model + status, event completed
+      opt a human step's dependencies are now all done
+        E->>E: openReadyHumanGates: runTask(human step), so the knot opens itself
+      end
+      E-->>U: task
+    end
+  end
+  loop every 2 s while spinning, backing off to 60 s when idle
+    U->>R: GET /api/projects/:id with If-None-Match
+    R-->>U: 304, or the new project state
+  end
+  Note over U,E: At the knot: POST /api/tasks/:id/approve {approved:true} sets done (event approved).<br/>{approved:false, note} resets the drafting step and everything after it to pending,<br/>appends the note to its instructions (event note). Nothing calls a model until you press Run again.

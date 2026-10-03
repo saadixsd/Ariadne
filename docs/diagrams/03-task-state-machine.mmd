@@ -1,0 +1,20 @@
+stateDiagram-v2
+  [*] --> pending: project created (5-step starter thread)
+  pending --> running: Run, all dependencies done,<br/>model steps reserve 1 of 10 daily runs<br/>(and 1 of the site-wide 200)
+  failed --> running: Respin (same checks)
+  running --> done: model output, no approval needed
+  running --> awaiting_approval: human step packages the chain<br/>(or a model step with requiresApproval)
+  running --> failed: provider error after 1 retry<br/>(daily run released)
+  running --> pending: reclaimed after 5 min with no result<br/>(daily run released)
+  awaiting_approval --> done: Tie off (approve)
+  awaiting_approval --> pending: Ask for changes (note required)<br/>drafting step + all later steps reset, note appended
+  done --> pending: Re-run of this step or an earlier one<br/>(downstream steps cleared, history kept)
+  done --> [*]
+  note right of running
+    Every attempt writes one immutable TaskRun row:
+    succeeded, failed, reclaimed, discarded or legacy.
+  end note
+  note left of awaiting_approval
+    The knot. Opens by itself when the step before it
+    finishes. Approving uses no daily run.
+  end note

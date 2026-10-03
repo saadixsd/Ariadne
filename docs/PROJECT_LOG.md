@@ -1,5 +1,7 @@
 # Ariadne project log
 
+Paths are as they were on each day. Since Oct 3: `docs/muse/` is `docs/archive/planning/`, `tests/phase2` is `tests/unit`, `tests/ship-blockers` is `tests/integration`, `lib/demo.ts` is `lib/starter-thread.ts`, and `MIGRATIONS.md` is `docs/MIGRATIONS.md`.
+
 ## 2026-09-27 — Phase 1 coordination loop
 
 ### Start state
@@ -173,3 +175,34 @@ Untouched: the run pipeline (`lib/agents.ts`), board and tree logic, quota seman
 - The same 390px check against `https://ariadneagents.si`, with real models: 38/38. The check covers sign-up, the board with no intro card, the knot, and the Tree rail as a full-screen sheet with its footer on screen. `www.ariadneagents.si` and `ariadne.sr-labs.workers.dev` also serve the app.
 - All six `smoke-test-v1-…@ariadneagents.si` accounts created during this pass were deleted from production D1 by exact id. The cascade left no orphaned tasks, runs, agents or events, and the real accounts are untouched.
 - Today's checks also tripped the sign-up throttle (5 sign-ups per IP per hour); it answered 429 with Retry-After, as designed.
+
+## 2026-10-02 (afternoon) — Review features and free-plan performance
+
+### What changed
+
+- **Differentiation features (`5e7bf28`).** Review flags with "Add to note", a v1 → v2 comparison, model attribution ("Made by / Reviewed by"), run-cost labels on Run buttons, and a one-liner on the "What are you making?" dialog.
+- **Polish (`24ae2e4`).** A faster v1 → v2 comparison, the critique parsed in the browser, a new favicon, and Workers Logs (`observability`) turned on so 1102 errors (exceeded resource limits on the free plan) can be traced.
+- **Less CPU per request (`039511e`).** Markdown renders in the browser only, board loads make fewer queries, and the sign-in and sign-up pages are static (a visitor with a session cookie gets the dynamic variant through `proxy.ts`).
+- **Fewer queries on Run (`9f841e6`).** 29 → 16 database queries per run, same behavior.
+
+### What was verified
+
+- Worker CPU from Workers Logs: project page ~26–28 ms → ~16–19 ms; sign-in ~6 → ~2 ms; `/run` ~27 → 22–25 ms.
+- Workers Builds deployed to production at 3:58 PM and 5:21 PM ET on Oct 2.
+
+## 2026-10-03 — Presentation cleanup (branch `presentation/cleanup`, from `9f841e6`)
+
+Built and verified on a copy of the repo; not pushed. No migration.
+
+### What changed
+
+- **Site-wide ceiling.** At most 200 model runs per UTC day across all accounts (`SITE_DAILY_MODEL_RUNS`), checked after the account's own 10/day reservation (unchanged, still 429 first). Over the ceiling the reservation is given back and the run is refused with 503, `Retry-After` until midnight UTC, and the message "Ariadne has spun all 200 runs it makes in a day across every account, so nothing was sent to Claude or GPT. Your own daily runs are untouched. The thread picks up again at midnight UTC, and everything already spun is saved." The total is a `SUM` over existing `UsageDay` rows, so no schema change.
+- **Output caps.** GPT calls now send `max_completion_tokens` 16,384 (they had no cap); Claude keeps `max_tokens` 8,192. Both are constants in `lib/limits.ts`.
+- **Security headers.** HSTS, `nosniff`, `Referrer-Policy`, `X-Frame-Options: DENY`, `frame-ancestors 'none'`, `Permissions-Policy`, and no `X-Powered-By` (`next.config.ts`). The sandboxed `srcdoc` iframe for generated pages still renders.
+- **Origin check.** `proxy.ts` answers 403 to API writes whose `Origin` is another site (or `null`), or that the browser marks `Sec-Fetch-Site: cross-site`.
+- **Previews.** The `previews` block is gone from `wrangler.jsonc`, so branch previews can't bind the production D1.
+- **Dependencies.** `npm audit fix` (no `--force`): 11 findings → 8, all in build-time tooling.
+- **Repo tidy.** `docs/muse/` → `docs/archive/planning/`; `MIGRATIONS.md` → `docs/MIGRATIONS.md`; unused `public/*.svg` and `prisma/seed.ts` removed (`db:setup` is now `prisma db push`); `lib/demo.ts` → `lib/starter-thread.ts` with its dead helpers and the unreachable "No project yet" screen removed; `tests/phase2` → `tests/unit`, `tests/ship-blockers` → `tests/integration`; `.gitignore` covers local DB copies and backups.
+- **Docs.** New README, `docs/ARCHITECTURE.md`, `docs/SECURITY.md`, `CHANGELOG.md`, diagrams in `docs/diagrams/`. Business strategy moved out of `CLAUDE.md` to the founder's private notes.
+
+Untouched: the run pipeline beyond the ceiling, the per-account cap, run history, stuck-run recovery, sign-up throttling, and the UI apart from the ceiling message.
