@@ -64,7 +64,9 @@ Rendered: [`docs/diagrams/01-system-architecture.png`](diagrams/01-system-archit
 
 - **Edge of the Worker.** Every response carries security headers (HSTS, `nosniff`,
   `Referrer-Policy`, `X-Frame-Options: DENY`, `frame-ancestors 'none'`,
-  `Permissions-Policy`) from `next.config.ts`, and no `X-Powered-By`. `proxy.ts` sends
+  `Permissions-Policy`) from `next.config.ts` (static files under `/_next/static` get
+  the same core headers from `public/_headers`, since Workers Assets serves them without
+  running the Worker), and no `X-Powered-By`. `proxy.ts` sends
   signed-out visitors to `/sign-in` and refuses API writes whose `Origin` is another site.
 - **One request, one Prisma client.** On Workers, `lib/prisma.ts` creates a Prisma
   client per request (keyed on OpenNext's request context). A shared client batched

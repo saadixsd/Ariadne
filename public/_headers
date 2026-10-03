@@ -1,0 +1,7 @@
+# Cloudflare Workers Static Assets: files under /_next/static are served without
+# running the Worker, so next.config.ts headers() never reaches them. Same headers here.
+/*
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Frame-Options: DENY
