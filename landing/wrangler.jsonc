@@ -40,15 +40,14 @@
     "ALLOWED_ORIGINS": "https://ariadneagents.si,https://www.ariadneagents.si",
     // Hostnames a Turnstile token must have been issued on (comma list; empty = skip).
     "TURNSTILE_HOSTNAMES": "ariadneagents.si,www.ariadneagents.si"
-  }
+  },
 
   // Secrets (never in this file): TURNSTILE_SECRET, HASH_SALT, TOKEN_SECRET.
   // Local values live in .dev.vars (copy .dev.vars.example).
 
-  // Routes are added at switch-over time, after they are removed from the app's
-  // wrangler.jsonc (see README "Going live"):
-  // "routes": [
-  //   { "pattern": "ariadneagents.si/*", "zone_name": "ariadneagents.si" },
-  //   { "pattern": "www.ariadneagents.si/*", "zone_name": "ariadneagents.si" }
-  // ]
+  // The public site. The product moved to app.ariadneagents.si (the app's wrangler.jsonc).
+  "routes": [
+    { "pattern": "ariadneagents.si/*", "zone_name": "ariadneagents.si" },
+    { "pattern": "www.ariadneagents.si/*", "zone_name": "ariadneagents.si" }
+  ]
 }

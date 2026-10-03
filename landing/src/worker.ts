@@ -88,9 +88,16 @@ async function turnstile(env: Env, token: string, ip: string): Promise<"ok" | "f
   let result: Siteverify;
   try {
     const response = await fetch(SITEVERIFY, { method: "POST", body: form });
-    if (!response.ok) return "unreachable";
+    // Siteverify answers a bad secret with HTTP 400 and a JSON body, so read 4xx too.
+    if (response.status >= 500) return "unreachable";
     result = await response.json<Siteverify>();
   } catch {
+    return "unreachable";
+  }
+  const codes = result["error-codes"] ?? [];
+  if (codes.some((code) => code.endsWith("-secret") || code === "internal-error")) {
+    // Our side is misconfigured (wrong or missing TURNSTILE_SECRET): say "try later", log the codes.
+    console.error("turnstile siteverify refused the secret:", codes.join(","));
     return "unreachable";
   }
   if (!result.success) return "failed";
