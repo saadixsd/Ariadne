@@ -1,9 +1,9 @@
 // HTTP-level acceptance checks against a running `next dev` server (local SQLite,
 // mock LLM). Start them first, e.g.:
-//   node tests/ship-blockers/mock-llm.mjs 4197 &
+//   node tests/integration/mock-llm.mjs 4197 &
 //   ANTHROPIC_API_KEY=test OPENAI_API_KEY=test ANTHROPIC_BASE_URL=http://127.0.0.1:4197 \
 //   OPENAI_BASE_URL=http://127.0.0.1:4197/v1 npx next dev -p 3197 &
-//   BASE_URL=http://127.0.0.1:3197 node --test tests/ship-blockers/http.test.mjs
+//   BASE_URL=http://127.0.0.1:3197 node --test tests/integration/http.test.mjs
 // Requests carry `cf-connecting-ip`, the header Cloudflare's edge sets in prod.
 import assert from "node:assert/strict";
 import path from "node:path";
@@ -59,7 +59,7 @@ before(async () => {
   // Safety: make sure BASE_URL is THIS checkout (the runs route only exists here),
   // not some other dev server on the shared machine.
   const probe = await call("GET", "/api/tasks/probe/runs");
-  if (probe.status !== 401) throw new Error(`BASE_URL ${BASE} is not this ship-blockers checkout (probe got ${probe.status})`);
+  if (probe.status !== 401) throw new Error(`BASE_URL ${BASE} is not this Ariadne checkout (probe got ${probe.status})`);
   // Fixtures for the ownership check: an orphan project (userId NULL) and a project owned by someone else.
   sql(`INSERT INTO "User" (id,email,passwordHash,passwordSalt,emailVerified,createdAt) VALUES (?,?,?,?,1,?)`, `owner-${run}`, `owner-${run}@test.dev`, "h", "s", new Date().toISOString());
   sql(`INSERT INTO "Project" (id,userId,name,brief,template,createdAt) VALUES (?,NULL,'Orphan','b','own',?)`, `orphan-${run}`, new Date().toISOString());

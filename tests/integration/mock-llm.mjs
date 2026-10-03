@@ -2,7 +2,7 @@
 // real provider. Point the SDKs at it with ANTHROPIC_BASE_URL / OPENAI_BASE_URL.
 //   POST /__mode {"fail": true|false}  -> make every provider call fail with 500
 //   GET  /__stats                      -> {calls, failures}
-// Run standalone: node tests/ship-blockers/mock-llm.mjs [port]
+// Run standalone: node tests/integration/mock-llm.mjs [port]
 import { createServer } from "node:http";
 
 export function startMockLlm(port = 0) {

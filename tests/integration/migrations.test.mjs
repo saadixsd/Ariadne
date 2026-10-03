@@ -1,5 +1,5 @@
 // Verifies migrations/ against prisma/schema.prisma and a production-like D1.
-// Run: node --test tests/ship-blockers/migrations.test.mjs   (Node 22, uses node:sqlite)
+// Run: node --test tests/integration/migrations.test.mjs   (Node 22, uses node:sqlite)
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync } from "node:fs";
@@ -45,7 +45,7 @@ test("prisma/d1.sql (fresh snapshot) == schema.prisma", () => {
 
 test("production-like D1 (old d1.sql + manual name columns): migrations apply, no drift, events backfilled", () => {
   const { file, conn } = db("prod.db");
-  conn.exec(sql("tests/ship-blockers/fixtures/prod-d1-as-built.sql"));
+  conn.exec(sql("tests/integration/fixtures/prod-d1-as-built.sql"));
   conn.exec(`ALTER TABLE "User" ADD COLUMN "firstName" TEXT; ALTER TABLE "User" ADD COLUMN "lastName" TEXT;`);
   // Legacy data written by the old code.
   conn.exec(`
@@ -93,7 +93,7 @@ test("production-like D1 (old d1.sql + manual name columns): migrations apply, n
 
 test("production-like D1 WITHOUT name columns: migrations apply but drift remains -> MIGRATIONS.md pre-step is required", () => {
   const { file, conn } = db("prod-nonames.db");
-  conn.exec(sql("tests/ship-blockers/fixtures/prod-d1-as-built.sql"));
+  conn.exec(sql("tests/integration/fixtures/prod-d1-as-built.sql"));
   for (const m of MIGRATIONS) conn.exec(sql(m));
   conn.close();
   const diff = schemaDiff(file);

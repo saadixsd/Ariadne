@@ -1,5 +1,5 @@
-// Phase 2 unit tests: DAG layout, polling back-off, philosophy rotation, text fold, hand names.
-// Run: npx tsx --test tests/phase2/units.test.ts
+// Unit tests for pure helpers: DAG layout, polling back-off, philosophy rotation, text fold, hand names.
+// Run: npx tsx --test tests/unit/helpers.test.ts
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { ancestorsOf, layoutDag, placeDag } from "../../lib/dag-layout";

@@ -22,7 +22,7 @@ Production runs on Cloudflare D1 (`ariadne`). Local dev runs on SQLite (`prisma/
   ```
 
   Then regenerate `prisma/d1.sql` (a fresh-database snapshot, never applied to an existing database).
-- `npm test` includes `tests/ship-blockers/migrations.test.mjs`, which checks that the migrations
+- `npm test` includes `tests/integration/migrations.test.mjs`, which checks that the migrations
   rebuild exactly `schema.prisma`, on a fresh database and on a copy of production's original shape.
 
 ## One-off pre-step: `User.firstName` / `User.lastName`

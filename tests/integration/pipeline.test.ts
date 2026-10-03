@@ -1,8 +1,8 @@
-// Ship-blockers acceptance tests at the lib level, against a throwaway SQLite DB
+// Pipeline acceptance tests at the lib level (run, approve, rerun, quota, recovery), against a throwaway SQLite DB
 // built from migrations/0001 + 0002 (so this also proves the migrations produce a
 // schema Prisma can use) and a mock LLM server (no real provider is ever called).
 //
-// Run: npx tsx --conditions=react-server --test tests/ship-blockers/lib.test.ts
+// Run: npx tsx --conditions=react-server --test tests/integration/pipeline.test.ts
 import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";

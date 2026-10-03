@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Runs every ship-blockers check locally. Never touches a remote database or a
+# Runs every integration check locally. Never touches a remote database or a
 # real LLM provider (a mock server stands in for Anthropic/OpenAI).
 # Needs Node 22 (node:sqlite). Uses ports $DEV_PORT (default 3197, next dev) and $MOCK_PORT (default 4197, mock LLM).
 # NOTE: recreates prisma/dev.db (the previous one is moved to prisma/dev.db.bak).
 set -euo pipefail
 cd "$(dirname "$0")/../.."
-OUT="${1:-/tmp/ariadne-ship-blockers-evidence}"
+OUT="${1:-/tmp/ariadne-integration-evidence}"
 mkdir -p "$OUT"
 DEV_PORT="${DEV_PORT:-3197}"
 MOCK_PORT="${MOCK_PORT:-4197}"
@@ -15,16 +15,16 @@ for port in "$DEV_PORT" "$MOCK_PORT"; do
 done
 
 echo "== lib tests (temp DB built from migrations/, mock LLM)"
-npx tsx --conditions=react-server --test tests/ship-blockers/lib.test.ts 2>&1 | tee "$OUT/lib.test.txt" | grep -E "^# (tests|pass|fail)"
+npx tsx --conditions=react-server --test tests/integration/pipeline.test.ts 2>&1 | tee "$OUT/pipeline.test.txt" | grep -E "^# (tests|pass|fail)"
 
 echo "== migration tests"
-node --test tests/ship-blockers/migrations.test.mjs 2>&1 | tee "$OUT/migrations.test.txt" | grep -E "^# (tests|pass|fail)"
+node --test tests/integration/migrations.test.mjs 2>&1 | tee "$OUT/migrations.test.txt" | grep -E "^# (tests|pass|fail)"
 
 echo "== wrangler d1 migrations apply --local (miniflare D1, prod-like start state)"
 STATE="$(mktemp -d)"
 export CI=1 WRANGLER_SEND_METRICS=false
 {
-  npx wrangler d1 execute ariadne --local --persist-to "$STATE" --file tests/ship-blockers/fixtures/prod-d1-as-built.sql
+  npx wrangler d1 execute ariadne --local --persist-to "$STATE" --file tests/integration/fixtures/prod-d1-as-built.sql
   npx wrangler d1 execute ariadne --local --persist-to "$STATE" --command 'ALTER TABLE "User" ADD COLUMN "firstName" TEXT; ALTER TABLE "User" ADD COLUMN "lastName" TEXT;'
   npx wrangler d1 migrations list ariadne --local --persist-to "$STATE"
   npx wrangler d1 migrations apply ariadne --local --persist-to "$STATE"
@@ -36,7 +36,7 @@ rm -rf "$STATE"
 echo "== dev server HTTP tests"
 [ -f prisma/dev.db ] && mv prisma/dev.db prisma/dev.db.bak
 npx prisma db push --skip-generate > /dev/null 2>&1
-node tests/ship-blockers/mock-llm.mjs "$MOCK_PORT" > "$OUT/mock.log" 2>&1 &
+node tests/integration/mock-llm.mjs "$MOCK_PORT" > "$OUT/mock.log" 2>&1 &
 MOCK_PID=$!
 ANTHROPIC_API_KEY=test-not-real OPENAI_API_KEY=test-not-real \
 ANTHROPIC_BASE_URL="http://127.0.0.1:$MOCK_PORT" OPENAI_BASE_URL="http://127.0.0.1:$MOCK_PORT/v1" \
@@ -63,5 +63,5 @@ curl -s -D - -o /tmp/sb-curl-body -w "HTTP %{http_code}\n" -H "content-type: app
   -X POST "http://127.0.0.1:$DEV_PORT/api/auth/sign-up" -d "{\"email\":\"curl-legit-$RANDOM@test.dev\",\"password\":\"password123\"}" \
   | grep -iE "^HTTP|set-cookie" | sed -E 's/(ariadne_session=)[^;]+/\1<redacted>/' | tee -a "$OUT/curl-rate-limit.txt"
 
-BASE_URL="http://127.0.0.1:$DEV_PORT" node --test tests/ship-blockers/http.test.mjs 2>&1 | tee "$OUT/http.test.txt" | grep -E "^(not )?ok|^# (tests|pass|fail)"
+BASE_URL="http://127.0.0.1:$DEV_PORT" node --test tests/integration/http.test.mjs 2>&1 | tee "$OUT/http.test.txt" | grep -E "^(not )?ok|^# (tests|pass|fail)"
 echo "evidence in $OUT"

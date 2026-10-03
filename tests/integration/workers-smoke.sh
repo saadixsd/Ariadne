@@ -2,7 +2,7 @@
 # Smoke test against the real Workers build (opennextjs-cloudflare build) running in
 # `wrangler dev --local` (workerd + local D1 migrated with migrations/). No keys are
 # set, so model runs fail by design: that exercises "failed runs don't use quota".
-# Usage: BASE=http://127.0.0.1:8797 PERSIST=/tmp/d1 bash tests/ship-blockers/workers-smoke.sh
+# Usage: BASE=http://127.0.0.1:8797 PERSIST=/tmp/d1 bash tests/integration/workers-smoke.sh
 set -uo pipefail
 BASE="${BASE:-http://127.0.0.1:8797}"
 PERSIST="${PERSIST:?local D1 persist dir used by wrangler dev}"

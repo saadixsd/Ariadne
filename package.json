@@ -11,8 +11,8 @@
     "lint": "eslint",
     "db:push": "prisma db push",
     "db:setup": "prisma db push",
-    "test": "tsx --conditions=react-server --test tests/ship-blockers/lib.test.ts && tsx --test tests/phase2/units.test.ts tests/phase2/differentiation.test.ts && node --test tests/ship-blockers/migrations.test.mjs",
-    "test:all": "bash tests/ship-blockers/run-all.sh",
+    "test": "tsx --conditions=react-server --test tests/integration/pipeline.test.ts && tsx --test tests/unit/helpers.test.ts tests/unit/review-features.test.ts && node --test tests/integration/migrations.test.mjs",
+    "test:all": "bash tests/integration/run-all.sh",
     "postinstall": "node scripts/workers-ci-build.mjs"
   },
   "allowScripts": {
