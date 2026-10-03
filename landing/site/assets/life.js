@@ -60,6 +60,10 @@
     var running = false, inView = true, drawn = false, len = 0;
     var pulse = null;    // { start, dur }
     var nextPulse = 0;
+    // an open door draws the thread in along the floor and through its foot
+    var pulls = [];
+    var narrowFrom = -1, narrowTo = -1, narrowCap = 0;      // [index, x, y]: where a point eases to as the door opens
+    var through = 0, throughTarget = 0;
 
     function layout() {
       var pr = page.getBoundingClientRect();
@@ -67,6 +71,7 @@
       var W = pr.width, H = pr.height;
       var dl = dr.left - pr.left, dt = dr.top - pr.top, db = dr.bottom - pr.top, drt = dr.right - pr.left;
       var cx = (dl + drt) / 2, h = db - dt, g = dl, below = H - db;
+      narrowFrom = narrowTo = -1;
       // the svg covers the whole hero, but lives inside the door (so it sits behind the leaves)
       svg.style.left = -dl + "px";
       svg.style.top = -dt + "px";
@@ -88,16 +93,33 @@
           [dl + (cx - dl) * 0.42, db + Math.min(40, below * 0.42)],
         ].concat(end);
       } else {
-        // narrow: the Door fills the width, so the thread comes in under the threshold
+        // narrow: the Door nearly fills the width. The thread hangs from the logo's own
+        // thread, runs down the thin gutter beside the arch (so it is there on the first
+        // screen, never over the form), and turns in under the threshold to the Door's foot
+        var mark = document.querySelector("header.top svg");
+        var mr = mark && mark.getBoundingClientRect();
+        var sx = mr && mr.width ? mr.left - pr.left + mr.width * 0.12 : Math.max(6, g * 0.5);
+        var sy = mr && mr.width ? mr.bottom - pr.top - mr.height * 0.2 : Math.max(0, dt - 40);
+        var gx = Math.max(5, g * 0.5);
         base = [
-          [-40, db + 26],
-          [W * 0.18, db + Math.min(60, below * 0.42)],
-          [W * 0.36, db + 30],
-          [cx - 22, db + Math.min(70, below * 0.5)],
+          [sx, sy],
+          [gx + 2, dt + Math.min(40, h * 0.06)],
+          [gx, dt + h * 0.32],
+          [gx + 1, dt + h * 0.64],
+          [gx, db - 18],
+          [g + 36, db + Math.min(30, below * 0.3)],
         ].concat(end);
+        narrowFrom = 1; narrowTo = 4; narrowCap = g + 8;   // gutter points: quiet, and kept off the doorway
       }
+      var fi = leadsOn ? base.length - 2 : base.length - 1;
+      var px = base[fi - 2][0];       // never pull back past the point before, or the thread doubles back
+      pulls = [[fi, cx, db + 5], [fi - 1, px + (cx - px) * 0.55, db + 16]];
       weight = base.map(function (p, i) { return i === 0 || i >= base.length - (leadsOn ? 2 : 1) ? 0.25 : 1; });
       if (leadsOn) weight[base.length - 1] = 0;
+      if (narrowFrom >= 0) {
+        weight[0] = 0;   // tied to the logo
+        for (var q = narrowFrom; q <= narrowTo; q++) weight[q] = 0.3;
+      }
       render(performance.now());
       len = line.getTotalLength();
       if (!drawn) {
@@ -112,8 +134,15 @@
       if (eased && !reduced) pr = page.getBoundingClientRect();
       return base.map(function (p, i) {
         var w = weight[i];
-        var x = p[0] + Math.sin(t * 0.7 + i * 1.3) * amp * w;
-        var y = p[1] + Math.cos(t * 0.55 + i * 0.9) * amp * w;
+        var bx = p[0], by = p[1];
+        for (var k = 0; through > 0 && k < pulls.length; k++) {
+          if (pulls[k][0] !== i) continue;
+          bx += (pulls[k][1] - bx) * through;
+          by += (pulls[k][2] - by) * through;
+          w *= 1 - through * 0.8;
+        }
+        var x = bx + Math.sin(t * 0.7 + i * 1.3) * amp * w;
+        var y = by + Math.cos(t * 0.55 + i * 0.9) * amp * w;
         if (pr) {
           var px = eased[0] - pr.left, py = eased[1] - pr.top;
           var dx = px - x, dy = py - y, dist = Math.sqrt(dx * dx + dy * dy);
@@ -123,6 +152,7 @@
             y += (dy / dist) * k;
           }
         }
+        if (i >= narrowFrom && i <= narrowTo) x = Math.min(x, narrowCap);
         return [x, y];
       });
     }
@@ -149,6 +179,7 @@
         eased[1] += (pointer[1] - eased[1]) * 0.08;
       }
       tug *= 0.94;
+      through += (throughTarget - through) * 0.045;
       render(now);
       if (drawn && !pulse && now > nextPulse) firePulse(now, 3000);
       if (pulse) stepPulse(now);
@@ -185,6 +216,16 @@
       requestAnimationFrame(frame);
     }
     function stop() { running = false; }
+
+    // when the door opens, the thread is drawn in through its foot
+    function stageChanged() {
+      var stage = door.getAttribute("data-stage");
+      throughTarget = stage === "open" || stage === "done" ? 1 : 0;
+      start();
+      if (!running) { through = throughTarget; render(performance.now()); }
+    }
+    if (window.MutationObserver) new MutationObserver(stageChanged).observe(door, { attributes: true, attributeFilter: ["data-stage"] });
+    throughTarget = through = /open|done/.test(door.getAttribute("data-stage") || "") ? 1 : 0;
 
     layout();
     if (reduced) {

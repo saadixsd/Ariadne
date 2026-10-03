@@ -157,16 +157,22 @@
 
   // ---------- the door opens ----------
   function openDoor(alreadyDone) {
-    // hold the door's height so the swing doesn't jump the page
+    // hold the door's height so nothing below it moves while it opens
     door.style.minHeight = door.offsetHeight + "px";
+    // a disabled default button would block Enter-to-submit on the questions
+    startButton.type = "button";
+    // the email lifts away and, a beat later, the latch gives: the two overlap, so
+    // there is no dead pause between pressing the button and the door moving
     step("email").classList.add("leaving");
-    return wait(260)
+    return wait(140)
+      .then(function () {
+        door.setAttribute("data-stage", "open");
+        return wait(200);
+      })
       .then(function () {
         step("email").classList.add("gone");
-        // a disabled default button would block Enter-to-submit on the questions
-        startButton.type = "button";
-        door.setAttribute("data-stage", "open");
-        return wait(950);
+        // the first question starts writing while the leaves settle onto their stops
+        return wait(720);
       })
       .then(function () {
         sending = false;
