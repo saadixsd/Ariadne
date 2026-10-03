@@ -29,26 +29,44 @@
         <h2 id="hands-title">Two hands spin. <em>You tie the knot.</em></h2>
         <p class="lede">In the myth, Ariadne gave Theseus a thread so he could find his way out of the labyrinth. She didn't walk it for him. Here, the models do the walking and you hold the thread.</p>
       </div>
-      <ol class="hands-row">
-        <li class="hand">
-          <span class="monogram mono-o" aria-hidden="true">O</span>
-          <h3 class="hand-name">Odysseus</h3>
-          <p class="hand-role">Claude · researches and reviews</p>
-          <p class="hand-text">Reads your brief, explores the corners, then turns back to question every draft.</p>
-        </li>
-        <li class="hand">
-          <span class="monogram mono-d" aria-hidden="true">D</span>
-          <h3 class="hand-name">Daedalus</h3>
-          <p class="hand-role">GPT · drafts and builds</p>
-          <p class="hand-text">Takes what Odysseus found and makes the thing itself: the copy, the plan, the artifact.</p>
-        </li>
-        <li class="hand">
-          <span class="monogram mono-y" aria-hidden="true">Y</span>
-          <h3 class="hand-name">You</h3>
-          <p class="hand-role">The knot</p>
-          <p class="hand-text">Nothing moves past a knot until you tie it off or ask for changes.</p>
-        </li>
-      </ol>
+      <div class="hands-stage">
+        <svg class="hands-thread" aria-hidden="true" focusable="false"><path class="hn-measure" d=""/><path class="hn-line" d=""/><path class="hn-trail" d=""/><circle class="hn-pulse" cx="-10" cy="-10" r="5"/></svg>
+        <ol class="hands-row">
+          <li class="hand" data-hand="o">
+            <span class="monogram mono-o" aria-hidden="true">O</span>
+            <div class="hand-body">
+              <h3 class="hand-name">Odysseus</h3>
+              <p class="hand-role">Claude · researches and reviews</p>
+              <p class="hand-text">Reads your brief, explores the corners, then turns back to question every draft.</p>
+            </div>
+          </li>
+          <li class="hand" data-hand="d">
+            <span class="monogram mono-d" aria-hidden="true">D</span>
+            <div class="hand-body">
+              <h3 class="hand-name">Daedalus</h3>
+              <p class="hand-role">GPT · drafts and builds</p>
+              <p class="hand-text">Takes what Odysseus found and makes the thing itself: the copy, the plan, the artifact.</p>
+            </div>
+          </li>
+          <li class="hand" data-hand="y">
+            <span class="monogram mono-y" aria-hidden="true">Y</span>
+            <div class="hand-body">
+              <h3 class="hand-name">You</h3>
+              <p class="hand-role">The knot</p>
+              <p class="hand-text">Nothing moves past a knot until you tie it off or ask for changes.</p>
+              <div class="knot-actions js-only" role="group" aria-label="Your decision at the knot">
+                <button class="rt-btn rt-btn-knot" type="button" data-act="tie" disabled>Tie the knot</button>
+                <button class="rt-btn" type="button" data-act="back" disabled>Send it back</button>
+              </div>
+            </div>
+          </li>
+        </ol>
+        <div class="hands-demo js-only">
+          <p class="eyebrow">A pass, in miniature. Try it.</p>
+          <p class="hands-status" id="hands-status" role="status" aria-live="polite">Scroll here and the hands start passing the work along.</p>
+          <button class="rt-btn rt-btn-ghost" type="button" data-act="again" hidden>Run it again</button>
+        </div>
+      </div>
       <p class="hands-close">What would make this wrong? The judgement stays yours.</p>
     </div>
   </section>

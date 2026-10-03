@@ -7,3 +7,4 @@
 .nojs-only { display: grid !important; }
 .ea-qstep .ea-answer { opacity: 1 !important; transform: none !important; }
 .ea-step[data-step="email"] .ea-cta, .ea-step[data-step="email"] .ea-privacy { display: none !important; }
+.hero-thread, .hands-thread, .hands-demo, .knot-actions { display: none !important; }

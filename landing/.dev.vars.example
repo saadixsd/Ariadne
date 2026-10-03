@@ -5,5 +5,7 @@ TURNSTILE_SECRET=1x0000000000000000000000000000000AA
 HASH_SALT=local-dev-salt-not-secret
 TOKEN_SECRET=local-dev-token-secret-not-secret
 # Local dev runs on http://127.0.0.1:8787, and Turnstile test tokens are not tied to a hostname.
-ALLOWED_ORIGINS=http://127.0.0.1:8787,http://localhost:8787
+# wrangler dev rewrites a same-origin Origin header to the first route's host (http://ariadneagents.si),
+# so that origin has to be allowed locally too.
+ALLOWED_ORIGINS=http://127.0.0.1:8787,http://localhost:8787,http://ariadneagents.si
 TURNSTILE_HOSTNAMES=

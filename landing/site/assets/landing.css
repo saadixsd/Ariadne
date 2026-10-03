@@ -116,18 +116,25 @@ a:hover { color: var(--color-thread-bright); }
 }
 .door::before { content: ""; position: absolute; inset: 10px 10px 0; border: 1px solid var(--color-line); border-bottom: 0; border-radius: 224px 224px 0 0; pointer-events: none; }
 .door-threshold { position: absolute; left: -40px; right: -40px; bottom: 0; height: 1px; background: var(--color-line-strong); }
-.door-thread { position: absolute; bottom: -3px; right: 50%; width: 760px; height: 300px; pointer-events: none; overflow: visible; }
-.door-thread-m { display: none; position: absolute; top: 100%; left: 50%; width: 120px; height: 140px; margin-left: -60px; overflow: visible; pointer-events: none; }
+/* the red thread: one smooth curve, laid out by life.js from the real geometry. The svg
+   covers the whole hero but sits inside the door, so it passes behind the leaves. */
+.hero-thread { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; z-index: 0; }
+.ht-line { fill: none; stroke: var(--color-thread); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+  stroke-dasharray: var(--len, 4000); stroke-dashoffset: var(--len, 4000); transition: stroke-dashoffset 2.4s cubic-bezier(0.6, 0.05, 0.3, 1), stroke 600ms ease; }
+.hero-thread.drawn .ht-line { stroke-dashoffset: 0; }
+.hero-thread.settled .ht-line { stroke-dasharray: none; transition: stroke 600ms ease; }
+.ht-glow { fill: none; stroke: var(--color-thread-bright); stroke-width: 4; stroke-linecap: round; opacity: 0; filter: drop-shadow(0 0 4px rgba(179, 48, 42, 0.45)); }
+.ht-bead { fill: var(--color-thread-bright); opacity: 0; filter: drop-shadow(0 0 5px rgba(179, 48, 42, 0.6)); }
+.hero-thread.pulsing .ht-glow, .hero-thread.pulsing .ht-bead { opacity: var(--pulse, 0); }
+.ht-end { fill: var(--color-thread); opacity: 0; transition: opacity 500ms ease; }
+.hero-thread.settled .ht-end { opacity: 1; }
+.door.attending .ht-line { stroke: var(--color-thread-bright); }
 .door-inner { position: relative; display: grid; gap: 22px; text-align: center; }
 
 .door-draw { stroke-dasharray: var(--len, 1000); stroke-dashoffset: var(--len, 1000); animation: thread-draw var(--dur, 2.4s) cubic-bezier(0.6, 0.05, 0.3, 1) var(--delay, 0s) forwards; }
 .door-fade { opacity: 0; animation: door-fade 0.7s ease var(--delay, 0s) forwards; }
 .door-rise { opacity: 0; transform: translateY(6px); animation: door-rise 0.7s ease var(--delay, 0s) forwards; }
 .d1 { --delay: 0.15s; } .d2 { --delay: 0.3s; } .d3 { --delay: 0.45s; }
-.draw-desk { --len: 1400; --dur: 2.6s; }
-.draw-mob { --len: 330; --dur: 1.8s; }
-.fade-desk { --delay: 2.4s; }
-.fade-mob { --delay: 1.7s; }
 
 @keyframes thread-draw { to { stroke-dashoffset: 0; } }
 @keyframes door-fade { to { opacity: 1; } }
@@ -197,17 +204,53 @@ h1.title em, h2 em { font-style: italic; color: var(--color-thread); }
 .hero { padding-top: calc(104px + env(safe-area-inset-top)); }
 .top { position: absolute; top: calc(22px + env(safe-area-inset-top)); left: 0; right: 0; }
 .top .wrap { display: flex; justify-content: space-between; align-items: center; }
-.hands { position: relative; padding: 24px 0 88px; }
+.hands { position: relative; padding: 64px 0 88px; }
 .hands-intro { text-align: center; display: grid; gap: 10px; justify-items: center; margin-bottom: 36px; }
 .hands-intro h2 { font-family: var(--font-serif); font-weight: 400; font-size: 34px; line-height: 1.05; letter-spacing: -0.01em; }
 .hands-intro p { max-width: 520px; }
 .hands-row { position: relative; display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
 .hands-row::before { content: ""; position: absolute; left: 16%; right: 16%; top: 38px; height: 2px; background: var(--color-thread); }
-.hand { position: relative; display: grid; justify-items: center; gap: 8px; text-align: center; padding: 22px 20px 24px; }
+.hands::before { content: ""; position: absolute; left: 50%; top: 0; width: 2px; height: 44px; margin-left: -1px; background: linear-gradient(var(--color-thread), rgba(179, 48, 42, 0)); }
+.hand { position: relative; display: grid; align-content: start; justify-items: center; gap: 8px; text-align: center; padding: 22px 20px 24px; }
 .hand .monogram { width: 34px; height: 34px; font-size: 16px; box-shadow: 0 0 0 6px var(--color-canvas); }
 .hand .mono-y { box-shadow: 0 0 0 6px var(--color-canvas), 0 0 0 11px rgba(201, 138, 18, 0.22); }
 .hand .hand-text { max-width: 280px; }
 .hands-close { text-align: center; margin-top: 28px; font-family: var(--font-serif); font-style: italic; font-size: 22px; color: var(--color-ink-dim); }
+
+/* ---------- the hands, alive (life.js adds .live) ---------- */
+.hands-stage { position: relative; }
+.hand-body { display: grid; justify-items: center; gap: 8px; }
+.hands-thread { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; display: none; }
+.hands-stage.live .hands-thread { display: block; }
+.hands-stage.live .hands-row::before { display: none; }
+.hands-row > li { position: relative; z-index: 1; }
+.hn-measure { fill: none; stroke: none; visibility: hidden; }
+.hn-line { fill: none; stroke: var(--color-thread); stroke-width: 2; stroke-linecap: round; stroke-dasharray: var(--len, 2000); stroke-dashoffset: var(--len, 2000); transition: stroke-dashoffset 1.2s cubic-bezier(0.6, 0.05, 0.3, 1); }
+.hands-stage.drawn .hn-line { stroke-dashoffset: 0; }
+.hn-trail { fill: none; stroke: var(--color-thread-bright); stroke-width: 4.5; stroke-linecap: round; opacity: 0; transition: opacity 200ms ease; filter: drop-shadow(0 0 5px rgba(179, 48, 42, 0.5)); }
+.hands-thread.moving .hn-trail { opacity: 1; }
+.hn-pulse { fill: var(--color-thread-bright); opacity: 0; transition: opacity 300ms ease; filter: drop-shadow(0 0 6px rgba(179, 48, 42, 0.6)); }
+.hands-stage.drawn .hn-pulse { opacity: 1; }
+.hand .monogram { position: relative; transition: transform 300ms ease; }
+.hand .monogram::after { content: ""; position: absolute; inset: -6px; border-radius: 999px; border: 2px solid currentColor; opacity: 0; pointer-events: none; }
+.hand[data-hand="o"] .monogram::after { color: var(--color-agent-2); }
+.hand[data-hand="d"] .monogram::after { color: var(--color-agent-1); }
+.hand[data-hand="y"] .monogram::after { color: var(--color-gate); }
+.hand.is-active .monogram { transform: scale(1.12); }
+.hand.is-active .monogram::after { animation: ring 1.6s ease-out infinite; }
+.hand.is-waiting .monogram::after { animation: ring 1.3s ease-out infinite; }
+.hand.is-tied .monogram { transform: scale(1.12); box-shadow: 0 0 0 6px var(--color-canvas), 0 0 0 9px var(--color-gate); }
+.hand.is-tied .monogram::after { animation: tie 0.6s cubic-bezier(0.3, 1.6, 0.5, 1) forwards; }
+@keyframes ring { from { opacity: 0.7; transform: scale(0.85); } to { opacity: 0; transform: scale(1.7); } }
+@keyframes tie { from { opacity: 0.9; transform: scale(1.8); } to { opacity: 0; transform: scale(1); } }
+.knot-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 6px; opacity: 0.35; transition: opacity 300ms ease; }
+.knot-actions.on { opacity: 1; }
+.knot-actions .rt-btn { height: 38px; font-size: 13.5px; }
+.rt-btn-knot { background: var(--color-gate-bg); border-color: var(--color-gate-line); color: var(--color-gate-ink); }
+.rt-btn-knot:not(:disabled):hover { background: #f8e6b8; color: var(--color-gate-ink); }
+.knot-actions .rt-btn:disabled { cursor: default; }
+.hands-demo { display: grid; justify-items: center; gap: 6px; margin-top: 18px; text-align: center; min-height: 92px; }
+.hands-status { font-size: 15px; color: var(--color-ink); max-width: 460px; min-height: 1.5em; }
 
 /* ---------- the staged door ----------
    closed: the leaves are the door's face and step 1 sits on them.
@@ -222,6 +265,13 @@ h1.title em, h2 em { font-style: italic; color: var(--color-thread); }
 .leaf-r { right: 0; transform-origin: right center; }
 .leaf-l::before { border-radius: 160px 0 0 0; border-right: 0; right: 8px; }
 .leaf-r::before { border-radius: 0 160px 0 0; border-left: 0; left: 8px; }
+/* the Door listens (life.js): a crack of light on focus, a little more once the email looks right */
+.door[data-stage="closed"].attending .leaf-l { transform: rotateY(-7deg); }
+.door[data-stage="closed"].attending .leaf-r { transform: rotateY(7deg); }
+.door[data-stage="closed"].ajar .leaf-l { transform: rotateY(-16deg); }
+.door[data-stage="closed"].ajar .leaf-r { transform: rotateY(16deg); }
+.door[data-stage="closed"].attending .door-light { opacity: 0.85; }
+.door[data-stage="closed"].attending .leaf { transition: transform 900ms cubic-bezier(0.3, 0.7, 0.2, 1), opacity 400ms ease 700ms; }
 .door[data-stage="open"] .leaf-l, .door[data-stage="done"] .leaf-l { transform: rotateY(-100deg); opacity: 0; }
 .door[data-stage="open"] .leaf-r, .door[data-stage="done"] .leaf-r { transform: rotateY(100deg); opacity: 0; }
 .door[data-stage="open"] .door-light, .door[data-stage="done"] .door-light { opacity: 1; }
@@ -272,15 +322,17 @@ h1.title em, h2 em { font-style: italic; color: var(--color-thread); }
 /* ---------- responsive ---------- */
 @media (max-width: 760px) {
   .hands-row { grid-template-columns: 1fr; gap: 6px; }
-  .hands-row::before { left: 50%; right: auto; top: 30px; bottom: 30px; width: 2px; height: auto; margin-left: -1px; }
-  .hand { background: var(--color-canvas); padding: 14px 8px; }
+  .hands-row::before { left: 25px; right: auto; top: 30px; bottom: 30px; width: 2px; height: auto; }
+  /* stacked: a timeline, the thread down the left so it never hides behind the text */
+  .hand { grid-template-columns: 34px 1fr; justify-items: start; column-gap: 16px; text-align: left; padding: 16px 0 16px 8px; }
+  .hand .monogram { align-self: start; margin-top: 2px; }
+  .hand-body { justify-items: start; }
+  .knot-actions { justify-content: flex-start; }
 }
 @media (max-width: 520px) {
   .door { padding: 84px 22px 34px; border-radius: 200px 200px 0 0; }
   .door::before, .door-way { border-radius: 190px 190px 0 0; }
   .leaf::before { inset: 56px 12px 18px; }
-  .door-thread { display: none; }
-  .door-thread-m { display: block; }
   .door-page { padding-bottom: 150px; }
   .hero { padding-top: calc(84px + env(safe-area-inset-top)); }
   h1.title { font-size: 38px; }
@@ -303,6 +355,10 @@ h1.title em, h2 em { font-style: italic; color: var(--color-thread); }
   }
   .ea-qstep.writing .q-ink { animation: none !important; fill-opacity: 1; stroke-opacity: 0; }
   .leaf, .door-light, .ea-step[data-step="email"].leaving { transition: none !important; }
+  .ht-line, .hn-line { transition: none !important; stroke-dasharray: none !important; }
+  .hand .monogram::after { animation: none !important; }
+  .hand.is-active .monogram::after, .hand.is-waiting .monogram::after { opacity: 0.6; transform: scale(1.15); }
+  .hand .monogram, .knot-actions { transition: none; }
   .rt-btn { transition: none; }
   .rt-btn:not(:disabled):hover { transform: none; }
 }

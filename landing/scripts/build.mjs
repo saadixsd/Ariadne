@@ -28,7 +28,7 @@ for (const file of readdirSync(join(site, "partials"))) {
   partials[file.replace(/\.(html|svg)$/, "")] = readFileSync(join(site, "partials", file), "utf8").trim();
 }
 const assetHash = createHash("sha256");
-for (const file of ["assets/landing.css", "assets/nojs.css", "assets/early-access.js"]) assetHash.update(readFileSync(join(site, file)));
+for (const file of ["assets/landing.css", "assets/nojs.css", "assets/early-access.js", "assets/life.js"]) assetHash.update(readFileSync(join(site, file)));
 const version = assetHash.digest("hex").slice(0, 10);
 
 function render(template, page) {
