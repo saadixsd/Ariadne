@@ -125,7 +125,7 @@ before blank canvas).
 No task is in progress here. Next candidate: the unbuilt differentiation
 features in section 10 — only when the founder asks.
 
-Task detail (historical): `docs/muse/22_CLAUDE_CODE_CLEANUP_BRIEF.md`.
+Task detail (historical): `docs/archive/planning/22_CLAUDE_CODE_CLEANUP_BRIEF.md`.
 
 ## 9. Do not change
 
@@ -173,12 +173,12 @@ Task detail (historical): `docs/muse/22_CLAUDE_CODE_CLEANUP_BRIEF.md`.
 
 - `16_ARIADNE_EXPLAINER_GROK.md` — full orientation: thesis, the three problems,
   what Ariadne is NOT, V1→V3 roadmap. **Not in this repo**; until it is, use this
-  file plus `docs/muse/01_VISION.md` and `docs/muse/07_V1_PLAN.md`.
+  file plus `docs/archive/planning/01_VISION.md` and `docs/archive/planning/07_V1_PLAN.md`.
 - `21_ARIADNE_VALIDATION_DRAFT.md` — problem, differentiation, validation plan,
   kill criteria. **Not in this repo.**
-- `docs/muse/22_CLAUDE_CODE_CLEANUP_BRIEF.md` — the (finished) Oct 1 cleanup task.
+- `docs/archive/planning/22_CLAUDE_CODE_CLEANUP_BRIEF.md` — the (finished) Oct 1 cleanup task.
 - `docs/PROJECT_LOG.md` — what shipped, when, and how it was verified.
-- `MIGRATIONS.md` — how production D1 schema changes ship.
+- `docs/MIGRATIONS.md` — how production D1 schema changes ship.
 
 ## 13. Development rules
 

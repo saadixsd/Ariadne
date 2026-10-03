@@ -4,9 +4,9 @@ Ariadne coordinates the AI workforce teams already use. Coordination is the prod
 
 This is the phase 1 prototype: Odysseus (Claude, researches and reviews) and Daedalus (GPT, drafts and builds) share one project brief, hand work to each other, and stop at a knot for your approval before anything moves on.
 
-- Thesis: [docs/muse/01_VISION.md](docs/muse/01_VISION.md)
+- Thesis: [docs/archive/planning/01_VISION.md](docs/archive/planning/01_VISION.md)
 - Project log: [docs/PROJECT_LOG.md](docs/PROJECT_LOG.md)
-- Specs: [docs/muse/](docs/muse/)
+- Specs: [docs/archive/planning/](docs/archive/planning/)
 
 ## Run locally
 
