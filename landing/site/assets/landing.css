@@ -171,6 +171,13 @@ h1.title em, h2 em { font-style: italic; color: var(--color-thread); }
 .foot p { font-size: 13px; color: var(--color-ink-faint); }
 .foot .brand { font-size: 22px; }
 .foot .brand svg { width: 22px; height: 22px; }
+/* the wordmark, with Ariadne's other doors beside it: ink at rest, thread red under the hand */
+.foot-brand { display: flex; align-items: center; gap: 14px; }
+.social { display: flex; align-items: center; gap: 2px; }
+.social a { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 50%; color: var(--color-ink-dim); border: 1px solid transparent; transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease; }
+.social a:hover { color: var(--color-thread); background-color: var(--color-raised); border-color: var(--color-line); }
+.social a:active { color: var(--color-thread-bright); }
+.social svg { display: block; }
 
 /* hands: the mythic roster, from lib/hands.ts */
 .hand-role { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-ink-faint); }
