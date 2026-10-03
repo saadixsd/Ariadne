@@ -6,7 +6,7 @@ flowchart TB
   end
 
   subgraph CF["Cloudflare"]
-    Edge["Routes: ariadneagents.si, www<br/>+ ariadne.sr-labs.workers.dev<br/>security headers on every response"]
+    Edge["Custom domain: app.ariadneagents.si<br/>(Cloudflare Access; apex and www are the landing Worker)<br/>security headers on every response"]
     subgraph Worker["Worker 'ariadne' (Next.js 16 via OpenNext)"]
       Proxy["proxy.ts<br/>cookie gate, door rewrite,<br/>cross-site API writes refused"]
       Pages["App Router pages (SSR)<br/>app/page.tsx, app/tree, app/settings"]

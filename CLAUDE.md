@@ -75,8 +75,9 @@ Phase B dogfood shape, not the template.
 - Email-verification code exists but is **disabled** (no `send_email` binding).
   Enabling it needs company email, `ariadneagents.si` onboarded to Cloudflare
   Email Service, and the Workers Paid plan. Steps: `docs/PROJECT_LOG.md`.
-- Live: **https://ariadneagents.si** (apex and `www` are Worker routes in
-  `wrangler.jsonc`). https://ariadne.sr-labs.workers.dev still serves the same app.
+- Live: the product is on **https://app.ariadneagents.si** (a custom domain in
+  `wrangler.jsonc`; `workers_dev` and preview URLs are off, Cloudflare Access in front).
+  The apex and `www` serve the early-access page, a separate Worker in `landing/`.
 - Production deploys from `main` via Workers Builds. Main was at `9f841e6` (Oct 2)
   before the `presentation/cleanup` branch.
 - **Branch previews do not get production data.** `wrangler.jsonc` has no

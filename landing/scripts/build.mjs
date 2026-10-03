@@ -6,7 +6,9 @@
     {{head}} {{brand}} {{form}} {{foot}} {{door-thread}}   site/partials/*.html
     {{SITE_KEY}} {{SITE_URL}} {{VERSION}}                  landing.config.json + asset hash
 
-  TURNSTILE_SITE_KEY in the environment overrides the config (e.g. a failing test key).
+  Production gets config.turnstileSiteKey (the real widget). LANDING_DEV=1 (set by `npm run dev`)
+  uses config.turnstileSiteKeyDev, Cloudflare's always-pass test key, because the real widget
+  refuses localhost. TURNSTILE_SITE_KEY in the environment overrides both (e.g. a failing test key).
 */
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
@@ -17,7 +19,9 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const site = join(root, "site");
 const out = join(root, "public");
 const config = JSON.parse(readFileSync(join(root, "landing.config.json"), "utf8"));
-const siteKey = process.env.TURNSTILE_SITE_KEY || config.turnstileSiteKey;
+const siteKey =
+  process.env.TURNSTILE_SITE_KEY ||
+  (process.env.LANDING_DEV === "1" ? config.turnstileSiteKeyDev : config.turnstileSiteKey);
 
 const partials = {};
 for (const file of readdirSync(join(site, "partials"))) {

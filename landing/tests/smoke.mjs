@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /*
   End-to-end checks against a running `wrangler dev` (local D1). Usage:
-    npx wrangler dev --ip 127.0.0.1 --port 8787          # in another terminal
+    npm run dev                                          # in another terminal (test key)
     node tests/smoke.mjs                                  # main cases
     TURNSTILE_FAILS=1 node tests/smoke.mjs                # dev started with --var TURNSTILE_SECRET:2x0000000000000000000000000000000AA
   The rate-limit case uses up this IP's hourly window; it is cleared at the start with

@@ -4,7 +4,7 @@
   "description": "Ariadne early-access page: a tiny static Worker with one form endpoint.",
   "scripts": {
     "build": "node scripts/build.mjs",
-    "dev": "wrangler dev --ip 127.0.0.1 --port 8787",
+    "dev": "LANDING_DEV=1 wrangler dev --ip 127.0.0.1 --port 8787",
     "db:migrate:local": "wrangler d1 migrations apply ariadne-early-access --local",
     "db:migrate:remote": "wrangler d1 migrations apply ariadne-early-access --remote",
     "typecheck": "tsc -p .",

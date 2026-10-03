@@ -91,7 +91,8 @@ Nothing here is deployed yet. Each step below is a change to the live Cloudflare
    ```
 2. **Turnstile:** Cloudflare dashboard → Turnstile → Add widget, hostnames
    `ariadneagents.si` and `www.ariadneagents.si`, mode Managed. Put the **site key** (public)
-   in `landing.config.json` → `turnstileSiteKey`, then set the secrets:
+   in `landing.config.json` → `turnstileSiteKey` (production; `npm run dev` sets `LANDING_DEV=1`
+   and uses `turnstileSiteKeyDev`, the test key), then set the secrets:
    ```bash
    npx wrangler secret put TURNSTILE_SECRET        # the widget's secret key
    npx wrangler secret put HASH_SALT               # any long random string: openssl rand -hex 32

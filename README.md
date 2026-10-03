@@ -4,7 +4,8 @@
 It coordinates two models on one piece of work, passing shared context and handoffs
 between them, and stops at a *knot* for a human decision before anything moves on.
 
-Live: **https://ariadneagents.si**
+Live: the product at **https://app.ariadneagents.si** (testers only, behind Cloudflare Access);
+the early-access page at **https://ariadneagents.si** (`landing/`, its own Worker).
 
 ![How a run moves through Ariadne](docs/diagrams/02-run-pipeline-sequence.png)
 
