@@ -122,9 +122,9 @@ export default function Landing() {
                 Writing got cheap. <em>Checking didn&apos;t.</em>
               </h2>
               <p className="lp-lede">
-                If you use AI for work that has to be right — reports, analysis, research, briefs — the real
-                work starts when the answer arrives. You read it line by line, chase every citation, paste it
-                into a second model and compare. That checking can take hours, and it all lands on you.
+                If you use AI for research, the real work starts when the answer arrives. You read it line by
+                line, chase every citation, paste it into a second model and compare. That checking can take
+                hours, and it all lands on you.
               </p>
             </div>
             <ul className="lp-cards">
@@ -299,14 +299,17 @@ export default function Landing() {
             <div className="lp-intro">
               <p className="lp-eyebrow">Who it&apos;s for</p>
               <h2 id="who-title">
-                Anyone who leans on AI <em>and can&apos;t afford to be wrong.</em>
+                Researchers who lean on AI <em>and can&apos;t afford to be wrong.</em>
               </h2>
             </div>
             <ul className="lp-who">
-              <li>Researchers, analysts, builders and students doing serious work with ChatGPT, Claude or both.</li>
-              <li>Your reports, analysis, research or briefs carry numbers, citations or claims that someone else will check.</li>
+              <li>You use ChatGPT, Claude or both for literature reviews, summaries, analysis or reports.</li>
+              <li>Your work carries numbers, citations or claims that someone else will check.</li>
               <li>You already paste one model&apos;s answer into another to see if it holds up.</li>
             </ul>
+            <p className="lp-lede">
+              Analysts, builders and students doing serious work come later — researchers first.
+            </p>
             <p className="lp-isnt">
               <strong>What Ariadne isn&apos;t:</strong> an autopilot, or a promise of no hallucinations. Models
               still make mistakes. Ariadne is built to make them easier to find, and the last word is always
@@ -333,7 +336,7 @@ export default function Landing() {
             <a className="lp-btn lp-btn-thread" href="/sign-up">
               Tie the Thread
             </a>
-            <p className="lp-note">Free while we test it with a small group.</p>
+            <p className="lp-note">Free while we test it with a small group of researchers.</p>
           </div>
         </section>
       </main>
@@ -360,7 +363,7 @@ export default function Landing() {
               </a>
             </nav>
           </div>
-          <p>Ariadne helps you verify AI-generated work. The judgment stays yours.</p>
+          <p>Ariadne helps researchers verify AI-generated work. The judgment stays yours.</p>
           <p>
             <a href="/sign-in">Sign in</a> · © 2026 Ariadne
           </p>

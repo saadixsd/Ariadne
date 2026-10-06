@@ -4,16 +4,20 @@ What was built, by day, summarized from `git log` on `main` (51 commits, Sep 27 
 plus the presentation cleanup of Oct 3).
 Detailed notes and how each change was verified: [docs/PROJECT_LOG.md](docs/PROJECT_LOG.md).
 
+## 2026-10-06: Phase 0.2 — researcher wedge on the landing
+- Restores the researcher one-liner: "Ariadne helps researchers verify AI-generated work by
+  having one model challenge another, while keeping the final judgment with the human."
+- Keeps the hero eyebrow "Agents draft. Agents challenge. You judge." (philosophy, not audience).
+- Problem and Who sections are researchers-first again; adjacent audiences noted as later.
+- README, CLAUDE.md, CHANGELOG, first-run dialog and metadata (via `lib/one-liner.ts`) match.
+
 ## 2026-10-06: Phase 0.1 — broader hook, not researchers-only
-- One-liner: "Ariadne helps you verify AI-generated work by having one model challenge
-  another, while keeping the final judgment yours." Landing hero eyebrow is now
-  "Agents draft. Agents challenge. You judge." Audience widened to researchers, analysts,
-  builders and students doing serious work — anyone who uses AI for work that has to be right.
+- Brief experiment widening past researchers; superseded the same day by Phase 0.2.
+- Introduced the hero eyebrow "Agents draft. Agents challenge. You judge." (kept in 0.2).
 
 ## 2026-10-06: Phase 0 — back to ariadneagents.si, no waitlist
-- One-liner and wedge (Draft → Challenge → Judge → Tie Off); later broadened in Phase 0.1.
-  `CLAUDE.md` §6 now allows challenger web search, human input mid-way, and a different
-  model as challenger.
+- Researcher one-liner and wedge (Draft → Challenge → Judge → Tie Off). `CLAUDE.md` §6 now
+  allows challenger web search, human input mid-way, and a different model as challenger.
 - A static landing page at `/` (the Door, the red thread, how the four steps work, who it's
   for, what works today and what's next). "Tie the Thread" leads to sign-up.
 - The board moved to `/dashboard`; every link and redirect follows. Old `/?project=` links
