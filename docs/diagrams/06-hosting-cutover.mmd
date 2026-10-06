@@ -1,0 +1,12 @@
+flowchart LR
+  subgraph Before["Before the cutover"]
+    A1["ariadneagents.si, www"] --> LW["Worker ariadne-landing<br/>(early-access form)"]
+    LW --> EA[("D1 ariadne-early-access")]
+    A2["app.ariadneagents.si<br/>(Cloudflare Access)"] --> AW1["Worker ariadne"]
+  end
+  subgraph After["After the cutover (docs/CUTOVER.md)"]
+    B1["ariadneagents.si, www"] --> AW2["Worker ariadne<br/>landing, sign-up, /dashboard"]
+    AW2 --> AD[("D1 ariadne")]
+    EA2[("D1 ariadne-early-access<br/>kept, exported:<br/>the first invite pool")]
+  end
+  Before ==> After

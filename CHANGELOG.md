@@ -4,6 +4,21 @@ What was built, by day, summarized from `git log` on `main` (51 commits, Sep 27 
 plus the presentation cleanup of Oct 3).
 Detailed notes and how each change was verified: [docs/PROJECT_LOG.md](docs/PROJECT_LOG.md).
 
+## 2026-10-06: Phase 0 — back to ariadneagents.si, no waitlist
+- New one-liner: "Ariadne helps researchers verify AI-generated work by having one model
+  challenge another, while keeping the final judgment with the human." The wedge is
+  Draft → Challenge → Judge → Tie Off. `CLAUDE.md` §6 now allows challenger web search,
+  human input mid-way, and a different model as challenger.
+- A static landing page at `/` (the Door, the red thread, how the four steps work, who it's
+  for, what works today and what's next). "Tie the Thread" leads to sign-up.
+- The board moved to `/dashboard`; every link and redirect follows. Old `/?project=` links
+  and signed-in visits to `/` go to `/dashboard`.
+- Open sign-up with Cloudflare Turnstile, an `INVITE_CODES` switch for invite-only mode,
+  and a first-day trial of 6 model runs. Migration `0004` adds `User.inviteCode`.
+- The first-run dialog uses the new one-liner.
+- Docs: request routing, sign-up and hosting diagrams; `docs/CUTOVER.md` for moving the
+  domain (not yet executed).
+
 ## 2026-10-03: Presentation cleanup and hardening
 - A site-wide ceiling of 200 model runs per UTC day on top of each account's 10, with its own
   message, and an output cap on GPT calls to match Claude's.

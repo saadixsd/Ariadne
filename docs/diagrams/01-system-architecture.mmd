@@ -1,26 +1,29 @@
 flowchart TB
   subgraph Browser["Browser (React client components)"]
-    Board["Board<br/>components/Dashboard.tsx"]
+    Landing["Landing /<br/>app/page.tsx (static) + public/landing/life.js"]
+    SignUp["Sign-up<br/>components/AuthForm.tsx + Turnstile widget"]
+    Board["Board /dashboard<br/>components/Dashboard.tsx"]
     Tree["Tree<br/>components/LiveTree.tsx"]
     Poll["Adaptive poll + ETag<br/>components/project-poll.ts<br/>lib/poll-schedule.ts"]
   end
 
   subgraph CF["Cloudflare"]
-    Edge["Custom domain: app.ariadneagents.si<br/>(Cloudflare Access; apex and www are the landing Worker)<br/>security headers on every response"]
+    Edge["ariadneagents.si and www<br/>(zone routes to this Worker)<br/>security headers on every response"]
     subgraph Worker["Worker 'ariadne' (Next.js 16 via OpenNext)"]
-      Proxy["proxy.ts<br/>cookie gate, door rewrite,<br/>cross-site API writes refused"]
-      Pages["App Router pages (SSR)<br/>app/page.tsx, app/tree, app/settings"]
+      Proxy["proxy.ts<br/>/ public, cookie gate, door rewrite,<br/>cross-site API writes refused"]
+      Pages["App Router pages<br/>app/page.tsx (static landing),<br/>app/dashboard, app/tree, app/settings"]
       API["Route handlers app/api/**<br/>auth, projects, tasks/:id/run|approve|rerun|runs"]
       subgraph Lib["lib/ (server)"]
-        Auth["auth.ts, password.ts<br/>rate-limit.ts"]
+        Auth["auth.ts, password.ts<br/>rate-limit.ts, signup-guard.ts"]
         Engine["agents.ts: runTask / decideTask / rerunTask"]
-        Guards["usage.ts (10 runs per account,<br/>200 site-wide, per UTC day)<br/>reclaim.ts (stuck runs &gt; 5 min)<br/>input-caps.ts, limits.ts"]
+        Guards["usage.ts (10 runs per account,<br/>6 in the first 24 h, 200 site-wide,<br/>per UTC day)<br/>reclaim.ts (stuck runs &gt; 5 min)<br/>input-caps.ts, limits.ts"]
         Hist["run-history.ts<br/>TaskRun + ActivityEvent"]
         DB["prisma.ts<br/>per-request PrismaClient + D1 adapter"]
       end
     end
     D1[("D1 database 'ariadne'<br/>User, Session, Project, Agent, Task,<br/>TaskRun, ActivityEvent, UsageDay,<br/>RateLimit, Feedback")]
-    Secrets["Worker secrets<br/>ANTHROPIC_API_KEY, OPENAI_API_KEY"]
+    Secrets["Worker secrets<br/>ANTHROPIC_API_KEY, OPENAI_API_KEY,<br/>TURNSTILE_SECRET, INVITE_CODES (optional)"]
+    TS["Turnstile siteverify<br/>challenges.cloudflare.com"]
     Logs["Workers Logs (observability)"]
   end
 
@@ -29,6 +32,8 @@ flowchart TB
   GH["GitHub saadixsd/Ariadne<br/>branch main"]
   Builds["Workers Builds<br/>push to main = production deploy"]
 
+  Landing --> Edge
+  SignUp --> Edge
   Board --> Edge
   Tree --> Edge
   Poll --> Edge
@@ -47,5 +52,7 @@ flowchart TB
   Engine -- "Messages API, 60 s timeout, 1 retry" --> Anthropic
   Engine -- "Chat Completions, 60 s timeout, 1 retry" --> OpenAI
   Secrets -.-> Engine
+  Secrets -.-> Auth
+  Auth -- "sign-up only" --> TS
   Worker -.-> Logs
   GH --> Builds --> Worker

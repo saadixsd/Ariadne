@@ -1,0 +1,17 @@
+flowchart TD
+  Req(["Request"]) --> Static{"/_next/static, /landing/*,<br/>fonts, favicon?"}
+  Static -- yes --> Assets["Workers Assets<br/>(no Worker CPU)"]
+  Static -- no --> P["proxy.ts"]
+  P --> W{"API write from<br/>another site?"}
+  W -- yes --> F403["403"]
+  W -- no --> Root{"path is / ?"}
+  Root -- yes --> Leg{"session cookie, or a legacy<br/>?project= / ?new= link?"}
+  Leg -- yes --> Dash307["307 → /dashboard<br/>(query kept)"]
+  Leg -- no --> LP["Landing<br/>(prerendered, static)"]
+  Root -- no --> DoorQ{"/sign-in or /sign-up<br/>with a session cookie?"}
+  DoorQ -- yes --> Door["rewrite to the /session variant<br/>(signed-in account → /dashboard)"]
+  DoorQ -- no --> Pub{"/sign-in, /sign-up, /verify<br/>or /api/*?"}
+  Pub -- yes --> Pass["served as is<br/>(door pages are static;<br/>API routes check the session themselves, 401)"]
+  Pub -- no --> Cookie{"session cookie?"}
+  Cookie -- no --> SignIn["307 → /sign-in"]
+  Cookie -- yes --> App["/dashboard, /tree, /settings, /feedback<br/>(page validates the session in D1)"]

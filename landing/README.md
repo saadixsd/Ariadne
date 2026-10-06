@@ -1,5 +1,11 @@
 # Ariadne · early access page
 
+> **Being retired by Phase 0 (Oct 6, 2026).** After the cutover the product itself serves
+> ariadneagents.si (landing at `/`, open sign-up, `/dashboard`). This Worker is retired by the steps in
+> [`docs/CUTOVER.md`](../docs/CUTOVER.md). Its D1 database `ariadne-early-access` is **kept**:
+> export it with `scripts/export.sh` — those people are the first invite pool. Don't delete
+> the database or this folder until the export is safe.
+
 The public page at **ariadneagents.si**: the Door, the red thread, and a short staged form
 that asks builders for early access. It's its own tiny Cloudflare Worker (`ariadne-landing`)
 with its own D1 database (`ariadne-early-access`), kept apart from the product (`ariadne`,

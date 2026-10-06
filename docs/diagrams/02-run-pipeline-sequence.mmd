@@ -14,7 +14,7 @@ sequenceDiagram
   R->>A: requireUser()
   A->>D: Session by sha256(token), with User
   A-->>R: user (401 if no session)
-  R->>E: runTask(taskId, userId)
+  R->>E: runTask(taskId, userId, dailyRunLimit(user))
   E->>D: load owned project + all tasks with agents
   opt a task is running for more than 5 min
     E->>D: reclaimStuckTasks: set pending, release quota, TaskRun reclaimed, event failed
@@ -22,9 +22,9 @@ sequenceDiagram
   E->>E: 409 if running or awaiting_approval, or dependencies not done
   alt model step (Odysseus or Daedalus)
     E->>Q: reserveModelRun(user, UTC day)
-    Q->>D: UPDATE UsageDay SET runs+1 WHERE runs < 10 (this account)
+    Q->>D: UPDATE UsageDay SET runs+1 WHERE runs < limit (this account: 6 on day one, else 10)
     Q->>D: SUM(runs) for the day across all accounts
-    Q-->>E: ok, 429 (own 10) or 503 (site 200)
+    Q-->>E: ok, 429 (own limit) or 503 (site 200)
   end
   E->>D: claim: Task status=running, startedAt (guarded updateMany)
   E->>D: Agent status=working

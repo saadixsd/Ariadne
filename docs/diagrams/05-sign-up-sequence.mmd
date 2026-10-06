@@ -1,0 +1,25 @@
+sequenceDiagram
+  autonumber
+  actor U as Visitor
+  participant F as /sign-up (AuthForm + Turnstile widget)
+  participant R as POST /api/auth/sign-up
+  participant G as lib/signup-guard.ts
+  participant C as Turnstile siteverify
+  participant A as lib/auth.ts
+  participant D as D1
+
+  U->>F: email + password (invite code if shown)
+  F->>F: widget token (invisible unless Cloudflare wants a check)
+  F->>R: {email, password, turnstileToken, inviteCode}
+  R->>D: per-IP rate limit (5 sign-ups an hour)
+  R->>A: checkSignUpInput (400 on a bad email or short password)
+  R->>G: requireHuman(token, ip)
+  G->>C: secret + token + remoteip
+  C-->>G: success, hostname, error codes
+  G-->>R: ok, or 403 {code: turnstile}, or 503 if Turnstile can't be checked
+  R->>G: checkInvite(inviteCode)
+  G-->>R: open: code or null · invite-only: code, or 403 {code: invite}
+  R->>A: signUp(email, password, {inviteCode})
+  A->>D: INSERT User (inviteCode), INSERT Session
+  A-->>U: 201 + HttpOnly session cookie → /dashboard
+  Note over U,D: First 24 hours without an invite code: 6 model runs (trial).<br/>After that, or with an invite code: 10 a day. Site-wide cap 200 a day either way.

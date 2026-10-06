@@ -25,6 +25,15 @@ Production runs on Cloudflare D1 (`ariadne`). Local dev runs on SQLite (`prisma/
 - `npm test` includes `tests/integration/migrations.test.mjs`, which checks that the migrations
   rebuild exactly `schema.prisma`, on a fresh database and on a copy of production's original shape.
 
+## Migrations so far
+
+| File | What it does |
+|---|---|
+| `0001_baseline.sql` | the tables production was first built with |
+| `0002_ship_blockers.sql` | run history, structured events, auth rate limits (additive) |
+| `0003_phase2.sql` | hands renamed, indexes for the cheap board poll |
+| `0004_invite_code.sql` | `ALTER TABLE "User" ADD COLUMN "inviteCode" TEXT` — the invite code an account signed up with (null for open sign-ups). Apply **before** pushing the Phase 0 code: the new code reads and writes this column on every sign-in and sign-up |
+
 ## One-off pre-step: `User.firstName` / `User.lastName`
 
 Production's D1 was first built by hand from an early `prisma/d1.sql` that predates the
