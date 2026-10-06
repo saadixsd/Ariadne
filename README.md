@@ -1,7 +1,7 @@
 # Ariadne
 
-**Ariadne helps researchers verify AI-generated work by having one model challenge
-another, while keeping the final judgment with the human.**
+**Ariadne helps you verify AI-generated work by having one model challenge
+another, while keeping the final judgment yours.**
 
 One model drafts, a model from a different family challenges the draft, and you judge:
 **Draft → Challenge → Judge → Tie Off.** Nothing moves past a *knot* until you decide.

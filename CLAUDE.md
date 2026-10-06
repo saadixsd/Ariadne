@@ -8,14 +8,14 @@ stop and ask — do not "helpfully" build the parked thing anyway.
 
 ## 1. What this project is
 
-**One-liner (Oct 6 2026, use it verbatim):** Ariadne helps researchers verify
-AI-generated work by having one model challenge another, while keeping the final
-judgment with the human.
+**One-liner (Oct 6 2026, use it verbatim):** Ariadne helps you verify AI-generated
+work by having one model challenge another, while keeping the final judgment yours.
 
 The wedge is one loop: **Draft → Challenge → Judge → Tie Off.** A drafter model writes,
 a challenger model from a different family looks for what is wrong, unsupported or
-missing, the human judges, and only the human ties off. The audience is researchers
-who already lean on AI and carry the verification burden themselves.
+missing, the human judges, and only the human ties off. The audience is anyone who uses
+AI for work that has to be right — researchers, analysts, builders, students doing
+serious work — and carries the verification burden themselves.
 
 The bigger vision (humans and AI agents working together, with judgment staying with
 people) stays in the background: mention it lightly, never lead with it. The old line
@@ -152,7 +152,7 @@ work on them, and do not widen them either.
   user can see it. Diagrams and animations of the steps are fine; invented results are not.
 - **Scope is Phases 0–3** of the Oct 6 plan (landing + open sign-up; answer-first draft
   with numbered claims; one-click Challenge with evidence; Judge → Revise → Tie Off),
-  then a test with 5–15 researchers. **NOT building:** BYOK / provider-account login,
+  then a test with 5–15 early users. **NOT building:** BYOK / provider-account login,
   a user-facing model picker, extra models or agents beyond the two-model roster,
   agent debate, teams / sharing, a marketplace, autonomous workflows / autopilot /
   auto-advance, eval scores, autonomous reruns. Payments come later.
@@ -164,7 +164,7 @@ work on them, and do not widen them either.
 ## 7. Current goal
 
 Build Phases 0–3 of the Oct 6 2026 plan (kept with the founder), then test with 5–15
-researchers, starting from the early-access list. Ask the founder before anything else.
+early users (researchers, analysts, builders, students), starting from the early-access list. Ask the founder before anything else.
 
 ## 8. Current work
 
@@ -208,7 +208,7 @@ Task detail (historical): `docs/archive/planning/22_CLAUDE_CODE_CLEANUP_BRIEF.md
 
 - **Oct 6:** Phase 0: public landing at `/` ("Tie the Thread"), board at `/dashboard`,
   Turnstile on sign-up, `INVITE_CODES` switch, first-day trial cap (6 runs), migration
-  0004 (`User.inviteCode`), new one-liner on the first-run dialog, section 6 rewritten.
+  0004 (`User.inviteCode`), one-liner on the first-run dialog (broadened past researchers-only), section 6 rewritten.
 - **Oct 3:** presentation cleanup branch (section 8).
 - **Oct 2:** differentiation features shipped: critique flags with "Add to note",
   v1→v2 comparison, model attribution ("Made by / Reviewed by"), run-cost labels
