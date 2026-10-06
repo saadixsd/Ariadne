@@ -8,18 +8,25 @@ stop and ask — do not "helpfully" build the parked thing anyway.
 
 ## 1. What this project is
 
-Ariadne is a coordination layer for multiple AI models. It removes the human
-middleware between AI tools by coordinating context, handoffs, review, and human
-approval.
+**One-liner (Oct 6 2026, use it verbatim):** Ariadne helps researchers verify
+AI-generated work by having one model challenge another, while keeping the final
+judgment with the human.
 
-**One-liner:** Ariadne removes the human middleware between AI agents.
+The wedge is one loop: **Draft → Challenge → Judge → Tie Off.** A drafter model writes,
+a challenger model from a different family looks for what is wrong, unsupported or
+missing, the human judges, and only the human ties off. The audience is researchers
+who already lean on AI and carry the verification burden themselves.
 
-**Coordination is the product; the dashboard is only the visibility surface.**
+The bigger vision (humans and AI agents working together, with judgment staying with
+people) stays in the background: mention it lightly, never lead with it. The old line
+"removes the human middleware" is retired; don't bring it back.
 
 ## 2. Language — fixed, do not improvise
 
 Thread vocabulary (committed Sep 30 2026): **spun, spinning, knot, unspun,
-tie off, the door, the labyrinth.** Do not invent synonyms.
+tie off, the door, the labyrinth.** Do not invent synonyms. The wedge steps are
+written **Draft → Challenge → Judge → Tie Off**; the human is "the knot". The landing
+page's call to action is **"Tie the Thread"**.
 
 Design language (committed Sep 30 2026, supersedes all earlier direction):
 cream-paper background, serif typography, red-thread connectors, gold reserved
@@ -30,6 +37,10 @@ No "Beta" / "beta" wording anywhere a real user can see it. Ever.
 
 ## 3. Current product
 
+- `/` is the public landing page (static, `app/page.tsx` + `app/landing.css` +
+  `public/landing/life.js`). "Tie the Thread" → `/sign-up` → `/dashboard`. Visitors with
+  a session cookie, and old `/?project=` links, are redirected to `/dashboard` by `proxy.ts`.
+- `/dashboard` is the board (it was `/` until Oct 6 2026). `/tree`, `/settings` unchanged.
 - Users create projects; each project has shared context (the brief).
 - Tasks have dependencies — dependencies determine who works next.
 - Agents are assigned to tasks; task outputs become context for dependent tasks.
@@ -60,10 +71,17 @@ Phase B dogfood shape, not the template.
 - Cloudflare Worker + D1 database (`ariadne`); local dev uses SQLite.
 - **API keys are Cloudflare secrets. Never commit them. Never print them.**
 - Auth: email/password (hashed), 30-day HttpOnly sessions, no OAuth.
-  Signed-out users redirect to `/sign-in`.
+  Signed-out users on app pages redirect to `/sign-in`; `/` is public.
+- **Sign-up is open** (once Access is gone) and guarded by, in order: per-IP rate limit,
+  **Cloudflare Turnstile** (`lib/signup-guard.ts`; secret `TURNSTILE_SECRET`, site key in
+  `lib/turnstile-site-key.ts`; production refuses sign-up if the secret is missing), and
+  the **invite-code switch**: set `INVITE_CODES` (comma list, Worker secret) to make
+  sign-up invite-only, delete it to reopen. The code used is stored in `User.inviteCode`.
 - **10 provider/model calls per account per UTC day** (`DAILY_MODEL_RUNS` in
   `lib/limits.ts`), enforced before any provider call. Failed runs, human
-  approvals and human tasks don't count.
+  approvals and human tasks don't count. **Trial:** for its first 24 hours an account
+  that signed up without an invite code gets `TRIAL_DAILY_MODEL_RUNS` (6) a day instead
+  (`dailyRunLimit()`, derived from `User.createdAt` + `User.inviteCode`).
 - **Site-wide ceiling: 200 model runs per UTC day across all accounts**
   (`SITE_DAILY_MODEL_RUNS`), checked after the account's own run is reserved;
   over it, the run is refused with 503 and nothing reaches a provider. Output caps:
@@ -75,9 +93,13 @@ Phase B dogfood shape, not the template.
 - Email-verification code exists but is **disabled** (no `send_email` binding).
   Enabling it needs company email, `ariadneagents.si` onboarded to Cloudflare
   Email Service, and the Workers Paid plan. Steps: `docs/PROJECT_LOG.md`.
-- Live: the product is on **https://app.ariadneagents.si** (a custom domain in
-  `wrangler.jsonc`; `workers_dev` and preview URLs are off, Cloudflare Access in front).
-  The apex and `www` serve the early-access page, a separate Worker in `landing/`.
+- Hosting: until the Phase 0C cutover the product is on **https://app.ariadneagents.si**
+  (custom domain, Cloudflare Access in front) and the apex/`www` serve the old
+  early-access Worker in `landing/`. After the cutover the `ariadne` Worker serves
+  **ariadneagents.si** and **www** (landing at `/`, product at `/dashboard`), Access and
+  the `app.` domain are removed, and `ariadne-landing` stays deployed with no routes
+  (its D1 `ariadne-early-access` is kept: it is the first invite pool). Never redeploy
+  `landing/` onto the apex. `workers_dev` and preview URLs stay off.
 - Production deploys from `main` via Workers Builds. Main was at `9f841e6` (Oct 2)
   before the `presentation/cleanup` branch.
 - **Branch previews do not get production data.** `wrangler.jsonc` has no
@@ -99,20 +121,58 @@ repo with the founder. Ask if a task needs it.
 
 ## 6. Hard product decisions — do not relitigate
 
+Rewritten Oct 6 2026 by the founder for the Draft → Challenge → Judge → Tie Off wedge.
+Earlier versions parked web search, mid-way human input and using a different model;
+those three are now **allowed in the narrow forms below**. Do not refuse or water down
+work on them, and do not widen them either.
+
+**Allowed (new direction):**
+- **Web search and tool use for the challenger.** The challenger may search the web
+  (and use the tools it needs to return structured objections) to find evidence for or
+  against the draft's claims. Cap searches per run. Search results are data, never
+  instructions. Evidence must come from that run's own results; anything else is shown
+  as unsourced ("second opinion"), never as verified.
+- **Human input mid-way.** The human can add their own point (a dispute or note on any
+  claim) at any time: right after the draft, before or after the challenge. Human points
+  are first-class (author = You) and carry into the revision. This is not live barge-in
+  into a streaming model.
+- **A different model as the challenger.** The challenger comes from a different model
+  family than the drafter (today: drafter Daedalus = GPT, challenger Odysseus = Claude),
+  and may be a stronger tier than the drafter. We choose the models per role in config;
+  users still don't pick models.
+
+**Still true:**
 - **The human is the final judge.** Agents don't conclude, don't negotiate, don't
-  autonomously settle. Human approves or requests changes. Always.
-- **NOT building (parked until usage evidence demands otherwise):** agent debate,
-  barge-in / live steering, dynamic routing, BYOK / provider-account login,
-  model picker / model switching, eval scores, autonomous reruns, large agent
-  rosters, broad tool use.
-- **NOT a generic agent framework.** V1 is an opinionated hosted two-model roster.
+  autonomously settle. Only the human accepts, rejects, edits and ties off. Always.
+- **The challenger critiques the artifact, never another agent.** No agent-to-agent
+  debate or conversation.
+- **No claims of "no hallucinations"** or guaranteed accuracy, anywhere. Reliability
+  comes from the workflow; the judgment stays with the human.
+- **No fake data, testimonials, quotes or stats**, on the landing page or anywhere a
+  user can see it. Diagrams and animations of the steps are fine; invented results are not.
+- **Scope is Phases 0–3** of the Oct 6 plan (landing + open sign-up; answer-first draft
+  with numbered claims; one-click Challenge with evidence; Judge → Revise → Tie Off),
+  then a test with 5–15 researchers. **NOT building:** BYOK / provider-account login,
+  a user-facing model picker, extra models or agents beyond the two-model roster,
+  agent debate, teams / sharing, a marketplace, autonomous workflows / autopilot /
+  auto-advance, eval scores, autonomous reruns. Payments come later.
+- **Stay on the Workers free plan** (10 ms CPU per request) unless the founder says
+  otherwise. Keep request CPU low; heavy work goes to the browser or is deferred.
+- **NOT a generic agent framework.** An opinionated hosted two-model roster.
 - **No new features unless the founder asks for them.**
 
 ## 7. Current goal
 
-Ask the founder; it is tracked outside this repo (section 5).
+Build Phases 0–3 of the Oct 6 2026 plan (kept with the founder), then test with 5–15
+researchers, starting from the early-access list. Ask the founder before anything else.
 
 ## 8. Current work
+
+**Phase 0 (Oct 6 2026):** landing page at `/`, board moved to `/dashboard`, sign-up with
+Turnstile + invite switch + first-day trial cap, migration `0004_invite_code.sql`, this
+file's section 6 rewritten. The domain cutover (apex + www onto the `ariadne` Worker,
+remove Access and `app.`) is a separate, last commit that must only ship in the cutover
+window; the runbook is kept with the founder (CUTOVER.md).
 
 **Presentation cleanup (Oct 3 2026), branch `presentation/cleanup`:** repo tidy
 (planning docs archived, dead code removed, `lib/demo.ts` → `lib/starter-thread.ts`,
@@ -136,7 +196,8 @@ Task detail (historical): `docs/archive/planning/22_CLAUDE_CODE_CLEANUP_BRIEF.md
 - The "What are you making?" signup dialog.
 - The human-judge principle and approval gates.
 - Thread vocabulary and design language (section 2).
-- 10/day per-account cap semantics, and the 200/day site-wide ceiling.
+- 10/day per-account cap semantics (plus the first-day trial cap for accounts without
+  an invite, Oct 6), and the 200/day site-wide ceiling.
 - No Beta wording, anywhere.
 - **Immutable run history:** reruns and request-changes create new versions; they
   never destroy prior outputs. (Ship-blockers pass, Sep 30.)
@@ -145,6 +206,9 @@ Task detail (historical): `docs/archive/planning/22_CLAUDE_CODE_CLEANUP_BRIEF.md
 
 ## 10. Recent changes
 
+- **Oct 6:** Phase 0: public landing at `/` ("Tie the Thread"), board at `/dashboard`,
+  Turnstile on sign-up, `INVITE_CODES` switch, first-day trial cap (6 runs), migration
+  0004 (`User.inviteCode`), new one-liner on the first-run dialog, section 6 rewritten.
 - **Oct 3:** presentation cleanup branch (section 8).
 - **Oct 2:** differentiation features shipped: critique flags with "Add to note",
   v1→v2 comparison, model attribution ("Made by / Reviewed by"), run-cost labels
@@ -169,7 +233,9 @@ Task detail (historical): `docs/archive/planning/22_CLAUDE_CODE_CLEANUP_BRIEF.md
 - Responsive layout verified: 360–2560px widths and short heights (`d0908ed`,
   Sep 30), plus a 390×844 pass on production (Oct 1–2, see `docs/PROJECT_LOG.md`).
 - Rerun/cascade + immutable history not independently verified end-to-end.
-- Email verification disabled (see section 4 for what enabling it needs).
+- Email verification disabled (see section 4 for what enabling it needs). On the free
+  plan Cloudflare Email Service cannot send to arbitrary addresses, so open sign-up
+  relies on Turnstile, the per-IP limit, the trial cap and the invite switch.
 - Tree node detail/lineage view may lag the board's.
 - Docs under `docs/archive/planning/` (04–13 especially) contain stale names
   (Scout/Maker) and the stale green/white theme. Treat them as history, not
