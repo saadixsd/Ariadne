@@ -5,7 +5,7 @@ import { currentUser } from "@/lib/auth";
 import { pickBoardProject } from "@/lib/board-project";
 import { needsProjectIntroFor } from "@/lib/starter-thread";
 import { missingSetup } from "@/lib/setup";
-import { DAILY_MODEL_RUNS, modelRunsToday } from "@/lib/usage";
+import { dailyRunLimit, modelRunsToday } from "@/lib/usage";
 import { getPrisma } from "@/lib/prisma";
 import { getProject } from "@/lib/project";
 import Link from "next/link";
@@ -13,7 +13,9 @@ import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
-export default async function Home({
+// The board. It lived at "/" until the landing page took that path; proxy.ts sends old
+// "/?project=" links here.
+export default async function DashboardPage({
   searchParams,
 }: {
   searchParams: Promise<{ project?: string; new?: string }>;
@@ -34,7 +36,8 @@ export default async function Home({
 
   const project = await getProject(existing.id, user.id);
   const account = accountDisplay(user);
-  const runsLeft = Math.max(0, DAILY_MODEL_RUNS - (await modelRunsToday(user.id)));
+  const runsLimit = dailyRunLimit(user);
+  const runsLeft = Math.max(0, runsLimit - (await modelRunsToday(user.id)));
   if (!project) {
     return (
       <main className="mx-auto flex min-h-full max-w-lg flex-col justify-center px-6">
@@ -44,7 +47,7 @@ export default async function Home({
           this screen.
         </p>
         <div className="mt-5 flex flex-wrap gap-2">
-          <Link href="/" className="rt-btn rt-btn-thread h-10 text-sm">
+          <Link href="/dashboard" className="rt-btn rt-btn-thread h-10 text-sm">
             Open my projects
           </Link>
           <Link href="/settings#projects" className="rt-btn h-10 text-sm">
@@ -64,6 +67,7 @@ export default async function Home({
       accountInitial={account.initial}
       accountName={user.firstName?.trim() || user.lastName?.trim() ? account.name : ""}
       runsLeft={runsLeft}
+      runsLimit={runsLimit}
       startNew={startNew === "1"}
     />
   );

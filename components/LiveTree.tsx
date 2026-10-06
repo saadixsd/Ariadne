@@ -96,12 +96,14 @@ export function LiveTree({
   initial,
   projects,
   runsLeft,
+  runsLimit,
   authorName,
   accountInitial,
 }: {
   initial: ProjectDTO;
   projects: { id: string; name: string }[];
   runsLeft: number;
+  runsLimit?: number;
   authorName: string;
   accountInitial: string;
 }) {
@@ -313,6 +315,7 @@ export function LiveTree({
           window.location.href = `/tree?project=${encodeURIComponent(id)}`;
         }}
         runsLeft={remaining}
+        runsLimit={runsLimit}
       >
         <button type="button" onClick={() => setDetailId("root")} className="rt-btn max-sm:hidden">
           Brief

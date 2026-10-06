@@ -28,7 +28,7 @@ export default async function FeedbackInbox() {
       <BrandMark />
       <div className="mt-2 flex items-end justify-between gap-4">
         <h1 className="font-serif text-[40px] font-normal leading-none tracking-[-0.015em]">Feedback</h1>
-        <Link href="/" className="text-sm text-thread hover:text-thread-bright">
+        <Link href="/dashboard" className="text-sm text-thread hover:text-thread-bright">
           Back to workspace
         </Link>
       </div>

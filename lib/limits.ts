@@ -4,6 +4,33 @@ export const DAILY_MODEL_RUNS = 10;
 // unchanged and is checked first.
 export const SITE_DAILY_MODEL_RUNS = 200;
 
+// Trial allowance. Sign-up is open to the internet (Turnstile, no email verification on the
+// free plan), so for its first 24 hours an account that signed up WITHOUT an invite code
+// gets a smaller daily cap: enough for one full pass of the five-step thread (4 model runs)
+// plus one round of changes (2 more). After that it gets DAILY_MODEL_RUNS like everyone else.
+// Accounts that signed up with a valid invite code skip the trial. Derived from
+// User.createdAt and User.inviteCode, so there is no extra state to keep in sync.
+export const TRIAL_DAILY_MODEL_RUNS = 6;
+export const TRIAL_PERIOD_MS = 24 * 60 * 60 * 1000;
+
+export type RunAllowanceAccount = { createdAt: Date | string; inviteCode?: string | null };
+
+/** True while a non-invited account is inside its first TRIAL_PERIOD_MS. */
+export function inTrial(account: RunAllowanceAccount, now = Date.now()): boolean {
+  if (account.inviteCode) return false;
+  const created = new Date(account.createdAt).getTime();
+  if (!Number.isFinite(created)) return false;
+  return now - created < TRIAL_PERIOD_MS;
+}
+
+/** The account's own model-run cap for today (the site-wide ceiling still applies on top). */
+export function dailyRunLimit(account: RunAllowanceAccount, now = Date.now()): number {
+  return inTrial(account, now) ? TRIAL_DAILY_MODEL_RUNS : DAILY_MODEL_RUNS;
+}
+
+// Invite codes (INVITE_CODES env var) are short shared words, not secrets.
+export const MAX_INVITE_CODE_CHARS = 64;
+
 // Input caps, enforced server-side on every POST/PATCH that accepts them.
 export const MAX_PROJECT_NAME_CHARS = 120;
 export const MAX_BRIEF_CHARS = 5_000;

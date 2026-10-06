@@ -3,7 +3,7 @@ import { accountDisplay } from "@/lib/account";
 import { currentUser } from "@/lib/auth";
 import { pickBoardProject } from "@/lib/board-project";
 import { needsProjectIntroFor } from "@/lib/starter-thread";
-import { DAILY_MODEL_RUNS, modelRunsToday } from "@/lib/usage";
+import { dailyRunLimit, modelRunsToday } from "@/lib/usage";
 import { getPrisma } from "@/lib/prisma";
 import { getProject } from "@/lib/project";
 import { redirect } from "next/navigation";
@@ -29,18 +29,20 @@ export default async function TreePage({
     orderBy: { createdAt: "asc" },
     select: { id: true, name: true, brief: true, template: true },
   });
-  if (await needsProjectIntroFor(user.id, projects)) redirect("/");
+  if (await needsProjectIntroFor(user.id, projects)) redirect("/dashboard");
   const existing = pickBoardProject(projects, requested);
-  if (!existing) redirect("/");
+  if (!existing) redirect("/dashboard");
   const project = await getProject(existing.id, user.id);
-  if (!project) redirect("/");
-  const runsLeft = Math.max(0, DAILY_MODEL_RUNS - (await modelRunsToday(user.id)));
+  if (!project) redirect("/dashboard");
+  const runsLimit = dailyRunLimit(user);
+  const runsLeft = Math.max(0, runsLimit - (await modelRunsToday(user.id)));
 
   return (
     <LiveTree
       initial={project}
       projects={projects.map(({ id, name }) => ({ id, name }))}
       runsLeft={runsLeft}
+      runsLimit={runsLimit}
       authorName={accountDisplay(user).name}
       accountInitial={accountDisplay(user).initial}
     />

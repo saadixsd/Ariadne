@@ -16,7 +16,7 @@ export function ViewSwitch({ view, projectId }: { view: "board" | "tree"; projec
     );
   return (
     <nav aria-label="View" className="flex rounded-full border border-line bg-panel p-[3px]">
-      {item("board", "Board", `/?${query}`)}
+      {item("board", "Board", `/dashboard?${query}`)}
       {item("tree", "Tree", `/tree?${query}`)}
     </nav>
   );

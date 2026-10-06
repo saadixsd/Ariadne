@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { MAX_BRIEF_CHARS, MAX_PROJECT_NAME_CHARS } from "@/lib/limits";
+import { ONE_LINER } from "@/lib/one-liner";
 
 export function ProjectIntro() {
   const [name, setName] = useState("");
@@ -32,7 +33,7 @@ export function ProjectIntro() {
         setSaving(false);
         return;
       }
-      window.location.href = `/?project=${encodeURIComponent(body.id)}`;
+      window.location.href = `/dashboard?project=${encodeURIComponent(body.id)}`;
     } catch {
       setError("Could not reach the server.");
       setSaving(false);
@@ -46,10 +47,11 @@ export function ProjectIntro() {
         <p className="mt-6 text-[13px] font-medium tracking-[0.22em] text-ink-dim">ARIADNE</p>
         <h1 className="mt-3 text-[2.75rem] font-semibold leading-[1.05] tracking-tight">What are you making?</h1>
         <p className="mt-4 font-serif text-[21px] leading-snug text-ink" data-one-liner>
-          Ariadne removes the human middleware between AI agents.
+          {ONE_LINER}
         </p>
         <p className="mt-2 text-[15px] leading-relaxed text-ink-dim" data-roster>
-          Odysseus (Claude) researches and reviews. Daedalus (GPT) drafts and builds. You judge.
+          Daedalus (GPT) drafts. Odysseus (Claude), a different model, sets out the ground first and then
+          checks the draft for what is wrong or missing. Nothing is tied off until you judge it.
         </p>
         <p className="mt-4 text-[17px] leading-relaxed text-ink-dim">
           Name the project and describe it in a sentence or two. Both of them read it first.
@@ -72,7 +74,7 @@ export function ProjectIntro() {
             value={description}
             onChange={(event) => setDescription(event.target.value)}
             maxLength={MAX_BRIEF_CHARS}
-            placeholder="e.g. Map Montreal pre-seed investors for my AI dev-tools startup — I need names, check sizes, and warm-intro paths."
+            placeholder="e.g. Check the claims in my literature review on sleep and memory. I need every claim tied to a real source, and anything shaky flagged."
             className="mt-2 min-h-36 w-full resize-none rounded-2xl bg-panel px-4 py-4 text-[17px] leading-relaxed ring-1 ring-line placeholder:text-ink-dim/50"
             aria-label="Project description"
           />

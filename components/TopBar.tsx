@@ -9,15 +9,15 @@ import { newProjectHref } from "@/lib/new-project";
 const MANAGE = "__manage_projects__";
 const NEW = "__new_project__";
 
-export function RunsMeter({ remaining }: { remaining: number }) {
-  const ratio = Math.max(0, Math.min(1, remaining / DAILY_MODEL_RUNS));
+export function RunsMeter({ remaining, limit = DAILY_MODEL_RUNS }: { remaining: number; limit?: number }) {
+  const ratio = Math.max(0, Math.min(1, remaining / limit));
   return (
     <p className="hidden shrink-0 items-center gap-2 font-mono text-xs whitespace-nowrap text-ink-dim lg:flex" title="Free agent runs left today">
       <span className="block h-1 w-16 overflow-hidden rounded bg-line" aria-hidden>
         <span className="block h-full bg-ink-dim" style={{ width: `${ratio * 100}%` }} />
       </span>
       <span className="tnum">
-        {remaining}/{DAILY_MODEL_RUNS} runs left<span className="max-xl:hidden"> today</span>
+        {remaining}/{limit} runs left<span className="max-xl:hidden"> today</span>
       </span>
     </p>
   );
@@ -30,6 +30,7 @@ export function TopBar({
   onSwitchProject,
   onNewProject,
   runsLeft,
+  runsLimit,
   children,
 }: {
   view: "board" | "tree";
@@ -39,6 +40,7 @@ export function TopBar({
   /** Opens the new-project dialog in place; without it, the button goes to the board and opens it there. */
   onNewProject?: () => void;
   runsLeft: number;
+  runsLimit?: number;
   children?: ReactNode;
 }) {
   const startNew = () => {
@@ -97,7 +99,7 @@ export function TopBar({
         <ViewSwitch view={view} projectId={projectId} />
       </div>
       <div className="min-w-0 flex-1" />
-      <RunsMeter remaining={runsLeft} />
+      <RunsMeter remaining={runsLeft} limit={runsLimit} />
       <a href={`/settings?project=${encodeURIComponent(projectId)}`} className="hidden min-h-10 shrink-0 items-center text-[13px] font-[550] text-ink-dim hover:text-ink lg:inline-flex">
         Settings
       </a>

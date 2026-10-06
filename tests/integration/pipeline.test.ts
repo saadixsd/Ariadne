@@ -44,7 +44,7 @@ async function applyMigrations() {
   }>;
   const { DatabaseSync } = await loadSqlite();
   const db = new DatabaseSync(dbFile);
-  for (const file of ["0001_baseline.sql", "0002_ship_blockers.sql"]) {
+  for (const file of ["0001_baseline.sql", "0002_ship_blockers.sql", "0003_phase2.sql", "0004_invite_code.sql"]) {
     db.exec(readFileSync(path.join(root, "migrations", file), "utf8"));
   }
   db.close();
@@ -214,6 +214,46 @@ describe("quota: only successful runs count, increment is atomic", () => {
     assert.deepEqual(unexpected, [], "only quota rejections");
     assert.equal(results.filter((r) => r.status === "fulfilled").length, limits.DAILY_MODEL_RUNS);
     assert.equal(await runsToday(user.id), limits.DAILY_MODEL_RUNS);
+  });
+
+  test("trial: a new account without an invite stops at the first-day cap (429, nothing sent)", async () => {
+    const user = await newUser("trial@test.dev");
+    const limit = limits.dailyRunLimit(user);
+    assert.equal(limit, limits.TRIAL_DAILY_MODEL_RUNS);
+    assert.ok(limits.TRIAL_DAILY_MODEL_RUNS < limits.DAILY_MODEL_RUNS);
+    const p = await newProject(user.id);
+    await prisma.usageDay.create({ data: { userId: user.id, day: usage.utcDay(), runs: limit } });
+    const callsBefore = mock.state.calls;
+    await rejects(agents.runTask(p.research.id, user.id, limit), 429, /first day includes 6 model runs/);
+    assert.equal(mock.state.calls, callsBefore, "nothing reached a provider");
+    assert.equal((await prisma.task.findUniqueOrThrow({ where: { id: p.research.id } })).status, "pending");
+    // The same account once the trial is over gets the normal cap, so the run goes through.
+    await agents.runTask(p.research.id, user.id, limits.DAILY_MODEL_RUNS);
+    assert.equal(await runsToday(user.id), limit + 1);
+  });
+
+  test("trial: concurrent reservations never exceed the first-day cap", async () => {
+    const user = await newUser("trial-race@test.dev");
+    const results = await Promise.allSettled(
+      Array.from({ length: 12 }, () => usage.reserveModelRun(user.id, usage.utcDay(), limits.dailyRunLimit(user))),
+    );
+    assert.equal(results.filter((r) => r.status === "fulfilled").length, limits.TRIAL_DAILY_MODEL_RUNS);
+    assert.equal(await runsToday(user.id), limits.TRIAL_DAILY_MODEL_RUNS);
+  });
+
+  test("trial: invited accounts and accounts older than a day get the full allowance", async () => {
+    const invited = await prisma.user.create({
+      data: { email: "invited@test.dev", passwordHash: "x", passwordSalt: "x", emailVerified: true, inviteCode: "minotaur" },
+    });
+    assert.equal(limits.dailyRunLimit(invited), limits.DAILY_MODEL_RUNS);
+    const now = Date.now();
+    assert.equal(limits.dailyRunLimit({ createdAt: new Date(now - limits.TRIAL_PERIOD_MS + 60_000) }, now), limits.TRIAL_DAILY_MODEL_RUNS);
+    assert.equal(limits.dailyRunLimit({ createdAt: new Date(now - limits.TRIAL_PERIOD_MS) }, now), limits.DAILY_MODEL_RUNS);
+    assert.equal(limits.dailyRunLimit({ createdAt: new Date(now - limits.TRIAL_PERIOD_MS).toISOString() }, now), limits.DAILY_MODEL_RUNS);
+    // A limit above the normal cap is clamped: the trial can only ever lower it.
+    const user = await newUser("clamp@test.dev");
+    await prisma.usageDay.create({ data: { userId: user.id, day: usage.utcDay(), runs: limits.DAILY_MODEL_RUNS } });
+    await rejects(usage.reserveModelRun(user.id, usage.utcDay(), 999), 429, /Daily limit of 10/);
   });
 });
 

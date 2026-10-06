@@ -2,8 +2,104 @@
 
 import { BrandMark } from "@/components/BrandMark";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { DoorThread } from "@/components/AuthArt";
+import { MAX_INVITE_CODE_CHARS } from "@/lib/limits";
+import { TURNSTILE_SCRIPT, TURNSTILE_SITE_KEY } from "@/lib/turnstile-site-key";
+
+type TurnstileApi = {
+  render: (element: HTMLElement, options: Record<string, unknown>) => string;
+  reset: (widgetId: string) => void;
+  remove: (widgetId: string) => void;
+};
+
+declare global {
+  interface Window {
+    turnstile?: TurnstileApi;
+  }
+}
+
+/**
+ * The Turnstile check on sign-up. The widget is invisible unless Cloudflare wants an
+ * interaction; its token is single-use, so the form resets it after every attempt.
+ * `token()` waits briefly for a token that is still on its way.
+ */
+function useTurnstile(enabled: boolean) {
+  const box = useRef<HTMLDivElement | null>(null);
+  const widget = useRef<string | null>(null);
+  const value = useRef("");
+  const waiters = useRef<((token: string) => void)[]>([]);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    if (!enabled) return;
+    let cancelled = false;
+    const settle = (token: string) => {
+      value.current = token;
+      const list = waiters.current;
+      waiters.current = [];
+      list.forEach((resolve) => resolve(token));
+    };
+    const render = () => {
+      if (cancelled || widget.current !== null || !box.current || !window.turnstile) return;
+      widget.current = window.turnstile.render(box.current, {
+        sitekey: TURNSTILE_SITE_KEY,
+        action: "sign-up",
+        appearance: "interaction-only",
+        theme: "light",
+        size: "flexible",
+        "refresh-expired": "auto",
+        callback: (token: string) => {
+          setFailed(false);
+          settle(token);
+        },
+        "expired-callback": () => {
+          value.current = "";
+        },
+        "error-callback": () => {
+          setFailed(true);
+          settle("");
+          return true;
+        },
+      });
+    };
+    if (!document.querySelector(`script[src="${TURNSTILE_SCRIPT}"]`)) {
+      const script = document.createElement("script");
+      script.src = TURNSTILE_SCRIPT;
+      script.async = true;
+      script.defer = true;
+      document.head.appendChild(script);
+    }
+    const poll = window.setInterval(() => {
+      if (window.turnstile) {
+        window.clearInterval(poll);
+        render();
+      }
+    }, 150);
+    render();
+    return () => {
+      cancelled = true;
+      window.clearInterval(poll);
+      if (widget.current !== null && window.turnstile) window.turnstile.remove(widget.current);
+      widget.current = null;
+    };
+  }, [enabled]);
+
+  function token(ms = 8000): Promise<string> {
+    if (value.current) return Promise.resolve(value.current);
+    return new Promise((resolve) => {
+      waiters.current.push(resolve);
+      window.setTimeout(() => resolve(value.current), ms);
+    });
+  }
+
+  function reset() {
+    value.current = "";
+    if (widget.current !== null && window.turnstile) window.turnstile.reset(widget.current);
+  }
+
+  return { box, token, reset, failed };
+}
 
 export function AuthForm({
   mode,
@@ -18,6 +114,19 @@ export function AuthForm({
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [invite, setInvite] = useState("");
+  const [askInvite, setAskInvite] = useState(false);
+  const { box: turnstileBox, token: turnstileToken, reset: resetTurnstile, failed: turnstileFailed } = useTurnstile(mode === "sign-up");
+
+  // An invite link (/sign-up?invite=CODE) fills the code in. The page itself stays static.
+  useEffect(() => {
+    if (mode !== "sign-up") return;
+    const code = new URLSearchParams(window.location.search).get("invite")?.trim();
+    if (!code) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time read of the URL after hydration
+    setInvite(code.slice(0, MAX_INVITE_CODE_CHARS));
+    setAskInvite(true);
+  }, [mode]);
 
   const copy =
     mode === "sign-up"
@@ -42,19 +151,24 @@ export function AuthForm({
           setError(body.error ?? "Could not verify that code");
           return;
         }
-        window.location.href = "/";
+        window.location.href = "/dashboard";
         return;
       }
 
-      const response = await fetch(mode === "sign-up" ? "/api/auth/sign-up" : "/api/auth/sign-in", {
+      const signUp = mode === "sign-up";
+      const humanToken = signUp ? await turnstileToken() : undefined;
+      const response = await fetch(signUp ? "/api/auth/sign-up" : "/api/auth/sign-in", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: address, password }),
+        body: JSON.stringify(signUp ? { email: address, password, turnstileToken: humanToken, inviteCode: invite } : { email: address, password }),
       });
-      const body = (await response.json().catch(() => ({}))) as { error?: string; verify?: boolean };
+      const body = (await response.json().catch(() => ({}))) as { error?: string; verify?: boolean; invite?: boolean };
       if (!response.ok) {
+        // Turnstile tokens are single-use: get a fresh one for the next attempt.
+        if (signUp) resetTurnstile();
         setError(body.error ?? "Could not continue");
-        if (response.status === 403) {
+        if (signUp && body.invite) setAskInvite(true);
+        if (!signUp && response.status === 403) {
           window.location.href = `/verify?email=${encodeURIComponent(address)}`;
         }
         return;
@@ -63,7 +177,7 @@ export function AuthForm({
         window.location.href = `/verify?email=${encodeURIComponent(address)}`;
         return;
       }
-      window.location.href = "/";
+      window.location.href = "/dashboard";
     } catch {
       setError("Could not reach the server.");
     } finally {
@@ -101,7 +215,9 @@ export function AuthForm({
         <DoorThread knot={mode === "verify" ? "gate" : "thread"} />
         <div className="relative grid gap-[22px]">
           <div className="door-rise flex justify-center">
-            <BrandMark />
+            <Link href="/" prefetch={false} aria-label="Ariadne, home" className="touch-min">
+              <BrandMark />
+            </Link>
           </div>
           <div className="door-rise grid gap-2.5 text-center" style={{ "--delay": ".15s" } as React.CSSProperties}>
             <p className="eyebrow">{copy.eyebrow}</p>
@@ -150,6 +266,28 @@ export function AuthForm({
                   />
                 </label>
               )}
+              {mode === "sign-up" && askInvite ? (
+                <label className="door-label">
+                  Invite code
+                  <input
+                    autoComplete="off"
+                    autoCapitalize="off"
+                    spellCheck={false}
+                    required
+                    maxLength={MAX_INVITE_CODE_CHARS}
+                    value={invite}
+                    onChange={(event) => setInvite(event.target.value)}
+                    placeholder="From your invitation"
+                    className="door-input"
+                  />
+                </label>
+              ) : null}
+              {mode === "sign-up" ? <div ref={turnstileBox} className="min-h-0 empty:hidden" data-turnstile /> : null}
+              {mode === "sign-up" && turnstileFailed ? (
+                <p className="text-[13px] leading-normal text-ink-dim" role="status">
+                  The human check could not load. Reload the page, or allow challenges.cloudflare.com, then try again.
+                </p>
+              ) : null}
               {error ? <p className="text-sm leading-normal text-danger" role="alert">{error}</p> : null}
               {notice ? <p className="text-sm leading-normal text-ok" role="status">{notice}</p> : null}
               <button type="submit" disabled={busy} className="rt-btn rt-btn-thread h-10 w-full text-sm">

@@ -188,8 +188,8 @@ test("account: names are trimmed, collapsed, capped at 60, and empty clears", as
 });
 
 test("new project: links open the board's dialog, keeping the project you came from", () => {
-  assert.equal(newProjectHref("abc"), "/?project=abc&new=1");
-  assert.equal(newProjectHref("a b&c"), "/?project=a%20b%26c&new=1");
-  assert.equal(newProjectHref(null), "/?new=1");
-  assert.equal(newProjectHref(), "/?new=1");
+  assert.equal(newProjectHref("abc"), "/dashboard?project=abc&new=1");
+  assert.equal(newProjectHref("a b&c"), "/dashboard?project=a%20b%26c&new=1");
+  assert.equal(newProjectHref(null), "/dashboard?new=1");
+  assert.equal(newProjectHref(), "/dashboard?new=1");
 });

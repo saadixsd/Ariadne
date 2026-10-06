@@ -166,7 +166,11 @@ async function loadRunContext(taskId: string, userId: string) {
   return { project, tasks };
 }
 
-export async function runTask(taskId: string, userId: string) {
+/**
+ * `dailyLimit` is the account's own model-run cap for today (lib/limits.ts dailyRunLimit:
+ * lower during a new account's trial). Defaults to the normal DAILY_MODEL_RUNS.
+ */
+export async function runTask(taskId: string, userId: string, dailyLimit?: number) {
   let context = await loadRunContext(taskId, userId);
   if (!context) throw new TaskRunError("Task not found", 404);
   // Lazy stuck-run recovery, as before, but only when a loaded task is actually
@@ -202,7 +206,7 @@ export async function runTask(taskId: string, userId: string) {
   // discarded, or is reclaimed as stuck, the reservation is released, so only
   // successful runs count. Invariant: a model task in `running` holds exactly one
   // reservation on utcDay(startedAt) (lib/reclaim.ts relies on this).
-  if (isModel) await reserveModelRun(userId, usageDay);
+  if (isModel) await reserveModelRun(userId, usageDay, dailyLimit);
 
   const claimed = await prisma.task.updateMany({
     where: { id: task.id, status: { notIn: ["running", "awaiting_approval"] } },
@@ -414,7 +418,7 @@ async function humanAgentIds(projectId: string, agentIds: string[]): Promise<str
   return agents.map((agent) => agent.id);
 }
 
-export async function rerunTask(taskId: string, userId: string) {
+export async function rerunTask(taskId: string, userId: string, dailyLimit?: number) {
   const task = await prisma.task.findUnique({
     where: { id: taskId },
     include: { agent: true, project: true },
@@ -452,7 +456,7 @@ export async function rerunTask(taskId: string, userId: string) {
   );
   const agentIds = [...new Set(wipe.map((item) => item.agentId))];
   for (const agentId of agentIds) await syncAgentStatus(agentId);
-  return runTask(task.id, userId);
+  return runTask(task.id, userId, dailyLimit);
 }
 
 export async function decideTask(taskId: string, approved: boolean, note: string | undefined, userId: string) {

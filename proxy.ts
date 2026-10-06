@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/sign-in", "/sign-up", "/verify"];
+// "/" is the public landing page (static). Everything else that is not a door page or the
+// API needs a session; signed-out visitors are sent to /sign-in.
+const PUBLIC_PATHS = ["/", "/sign-in", "/sign-up", "/verify"];
+// Query keys that only ever meant "open the board" when the board lived at "/".
+const LEGACY_BOARD_KEYS = ["project", "new"];
 // The door pages are static. Only a visitor who already holds a session cookie needs
 // the dynamic variant, which redirects a signed-in, verified account to the board.
 const DOOR_PATHS = ["/sign-in", "/sign-up"];
@@ -29,7 +33,19 @@ export function proxy(request: NextRequest) {
   if (pathname.startsWith("/api/") && isCrossSiteWrite(request)) {
     return NextResponse.json({ error: "This request came from another site, so Ariadne refused it." }, { status: 403 });
   }
-  if (DOOR_PATHS.includes(pathname) && request.cookies.get("ariadne_session")?.value) {
+  const hasSession = Boolean(request.cookies.get("ariadne_session")?.value);
+  if (pathname === "/") {
+    // Old links (/?project=…, /?new=1) and visitors who already hold a session go to the
+    // board. Everyone else gets the static landing page, which costs the Worker no render.
+    const legacy = LEGACY_BOARD_KEYS.some((key) => request.nextUrl.searchParams.has(key));
+    if (legacy || hasSession) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/dashboard";
+      return NextResponse.redirect(url);
+    }
+    return NextResponse.next();
+  }
+  if (DOOR_PATHS.includes(pathname) && hasSession) {
     const url = request.nextUrl.clone();
     url.pathname = `${pathname}/session`;
     return NextResponse.rewrite(url);
@@ -41,7 +57,7 @@ export function proxy(request: NextRequest) {
   ) {
     return NextResponse.next();
   }
-  if (!request.cookies.get("ariadne_session")?.value) {
+  if (!hasSession) {
     const url = request.nextUrl.clone();
     url.pathname = "/sign-in";
     url.search = "";

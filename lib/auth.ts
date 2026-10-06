@@ -17,6 +17,9 @@ export type SessionUser = {
   emailVerified: boolean;
   firstName: string | null;
   lastName: string | null;
+  /** With inviteCode, decides the account's daily run cap (lib/limits.ts dailyRunLimit). */
+  createdAt: Date;
+  inviteCode: string | null;
 };
 
 function normalizeEmail(value: string) {
@@ -43,6 +46,8 @@ export async function currentUser(): Promise<SessionUser | null> {
     emailVerified: session.user.emailVerified,
     firstName: session.user.firstName,
     lastName: session.user.lastName,
+    createdAt: session.user.createdAt,
+    inviteCode: session.user.inviteCode,
   };
 }
 
@@ -110,11 +115,20 @@ async function issueCode(userId: string, email: string) {
   return true;
 }
 
-export async function signUp(emailInput: string, password: string) {
+/**
+ * The cheap shape checks for sign-up, with no database work. The sign-up route runs them
+ * before Turnstile, so a typo does not burn the visitor's single-use Turnstile token.
+ */
+export function checkSignUpInput(emailInput: string, password: string) {
   const email = normalizeEmail(emailInput);
   if (!validEmail(email)) throw new TaskRunError("Enter a valid email address", 400);
   if (password.length < 8) throw new TaskRunError("Password must be at least 8 characters", 400);
   if (password.length > 200) throw new TaskRunError("Password is too long", 400);
+  return email;
+}
+
+export async function signUp(emailInput: string, password: string, options: { inviteCode?: string | null } = {}) {
+  const email = checkSignUpInput(emailInput, password);
 
   const prisma = await getPrisma();
   const existing = await prisma.user.findUnique({ where: { email } });
@@ -128,6 +142,7 @@ export async function signUp(emailInput: string, password: string) {
       passwordSalt: salt,
       passwordHash: hash,
       emailVerified: !mailReady,
+      inviteCode: options.inviteCode ?? null,
     },
   });
 

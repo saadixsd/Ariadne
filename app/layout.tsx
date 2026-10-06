@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
+import { ONE_LINER } from "@/lib/one-liner";
 
 const instrumentSerif = localFont({
   variable: "--font-instrument-serif",
@@ -30,8 +31,9 @@ const dmMono = localFont({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://ariadneagents.si"),
   title: "Ariadne",
-  description: "Ariadne coordinates the AI workforce teams already use.",
+  description: ONE_LINER,
 };
 
 // viewport-fit=cover lets the app paint under notches; the edges pad themselves with

@@ -35,7 +35,7 @@ function leaveIfGone(status: number) {
   if (typeof window === "undefined") return;
   if (status === 401) window.location.replace("/sign-in");
   else if (status === 403) window.location.replace("/verify");
-  else if (status === 404) window.location.replace(window.location.pathname.startsWith("/tree") ? "/tree" : "/");
+  else if (status === 404) window.location.replace(window.location.pathname.startsWith("/tree") ? "/tree" : "/dashboard");
 }
 
 /**

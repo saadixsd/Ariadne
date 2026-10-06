@@ -16,6 +16,8 @@ model User {
   emailVerified Boolean            @default(false)
   firstName     String?
   lastName      String?
+  /// The invite code used at sign-up (INVITE_CODES), or null for an open sign-up.
+  inviteCode    String?
   createdAt     DateTime           @default(now())
   sessions      Session[]
   codes         VerificationCode[]

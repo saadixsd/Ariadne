@@ -70,7 +70,7 @@ test("1a. 6 rapid signups from one IP: 5 succeed, the 6th is throttled (429 + Re
   const statuses = [];
   let last;
   for (let i = 1; i <= 6; i++) {
-    last = await call("POST", "/api/auth/sign-up", { body: { email: `burst${i}-${run}@test.dev`, password: "password123" }, from: ip(7) });
+    last = await call("POST", "/api/auth/sign-up", { body: { email: `burst${i}-${run}@test.dev`, password: "password123", turnstileToken: "pass" }, from: ip(7) });
     statuses.push(last.status);
   }
   assert.deepEqual(statuses, [201, 201, 201, 201, 201, 429]);
@@ -82,7 +82,7 @@ test("1a. 6 rapid signups from one IP: 5 succeed, the 6th is throttled (429 + Re
 });
 
 test("1b. legitimate signup from another IP still works and gets a session", async () => {
-  const res = await call("POST", "/api/auth/sign-up", { body: { email: `legit-${run}@test.dev`, password: "password123" }, from: ip(8) });
+  const res = await call("POST", "/api/auth/sign-up", { body: { email: `legit-${run}@test.dev`, password: "password123", turnstileToken: "pass" }, from: ip(8) });
   assert.equal(res.status, 201);
   assert.ok(res.cookie);
   state.cookie = res.cookie;
@@ -121,15 +121,69 @@ test("2. no project changes owners on sign-up / sign-in", () => {
   assert.equal(rows[`owned-${run}`], `owner-${run}`, "owned project untouched");
 });
 
+test("L1. signed out: / is the public landing page; /dashboard and other app pages go to /sign-in", async () => {
+  const landing = await call("GET", "/", { from: ip(40) });
+  assert.equal(landing.status, 200);
+  assert.match(landing.text, /Tie the Thread/);
+  assert.match(landing.text, /one model challenge another, while keeping the final judgment with the human/);
+  assert.match(landing.text, /href="\/sign-up"/);
+  assert.match(landing.text, /instagram\.com\/ariadne_agents/);
+  assert.match(landing.text, /x\.com\/ariadne_agents/);
+  assert.match(landing.text, /Coming next/, "the challenge step is honest about what is not built yet");
+  for (const path of ["/dashboard", "/dashboard?project=abc", "/tree", "/settings"]) {
+    const res = await call("GET", path, { from: ip(40) });
+    assert.equal(res.status, 307, path);
+    assert.equal(new URL(res.headers.get("location"), BASE).pathname, "/sign-in", path);
+  }
+  // Old board links still find the board (which then asks a signed-out visitor to sign in).
+  const old = await call("GET", "/?project=abc&new=1", { from: ip(40) });
+  assert.equal(old.status, 307);
+  const to = new URL(old.headers.get("location"), BASE);
+  assert.equal(to.pathname, "/dashboard");
+  assert.equal(to.search, "?project=abc&new=1");
+  assert.equal((await call("GET", "/sign-up", { from: ip(40) })).status, 200);
+});
+
+test("T1. sign-up needs a Turnstile pass; shape errors come first; nothing is created on failure", async () => {
+  const email = `turnstile-${run}@test.dev`;
+  const none = await call("POST", "/api/auth/sign-up", { body: { email, password: "password123" }, from: ip(41) });
+  assert.equal(none.status, 403);
+  assert.equal(none.json.code, "turnstile");
+  const failed = await call("POST", "/api/auth/sign-up", { body: { email, password: "password123", turnstileToken: "fail-token" }, from: ip(42) });
+  assert.equal(failed.status, 403);
+  assert.equal(failed.cookie, undefined);
+  assert.equal(sql(`SELECT count(*) AS n FROM "User" WHERE email = ?`, email)[0].n, 0, "no account without a pass");
+  const badEmail = await call("POST", "/api/auth/sign-up", { body: { email: "not-an-email", password: "password123" }, from: ip(43) });
+  assert.equal(badEmail.status, 400, "a typo is reported before the Turnstile token is spent");
+  const ok = await call("POST", "/api/auth/sign-up", { body: { email, password: "password123", turnstileToken: "pass-1" }, from: ip(44) });
+  assert.equal(ok.status, 201);
+  assert.ok(ok.cookie);
+  assert.equal(sql(`SELECT inviteCode FROM "User" WHERE email = ?`, email)[0].inviteCode, null, "open sign-up records no invite");
+});
+
 test("board + tree pages load for a signed-in user; onboarding creates the project", async () => {
-  const intro = await call("GET", "/", { cookie: state.cookie });
+  // A signed-in visitor to / goes straight to the board, keeping any query.
+  const home = await call("GET", "/", { cookie: state.cookie });
+  assert.equal(home.status, 307);
+  assert.equal(new URL(home.headers.get("location"), BASE).pathname, "/dashboard");
+  const intro = await call("GET", "/dashboard", { cookie: state.cookie });
   assert.equal(intro.status, 200);
+  assert.match(intro.text, /What are you making\?/);
+  assert.match(intro.text, /one model challenge another/, "first-run copy carries the new one-liner");
+  assert.doesNotMatch(intro.text, /human middleware/);
   const created = await call("POST", "/api/onboarding", { cookie: state.cookie, body: { name: "Coffee cart", brief: "Landing page for a coffee cart." } });
   assert.equal(created.status, 201);
   state.projectId = created.json.id;
-  const board = await call("GET", `/?project=${state.projectId}`, { cookie: state.cookie });
+  const board = await call("GET", `/dashboard?project=${state.projectId}`, { cookie: state.cookie });
   assert.equal(board.status, 200);
   assert.match(board.text, /Coffee cart/);
+  // A brand-new account without an invite is in its first-day trial.
+  assert.match(board.text, /6(<!-- -->)?\/(<!-- -->)?6(<!-- -->)? runs left/);
+  const settings = await call("GET", "/settings", { cookie: state.cookie });
+  assert.match(settings.text, /data-trial/);
+  const signedInHome = await call("GET", `/?project=${state.projectId}`, { cookie: state.cookie });
+  assert.equal(signedInHome.status, 307);
+  assert.equal(new URL(signedInHome.headers.get("location"), BASE).search, `?project=${state.projectId}`);
   const tree = await call("GET", `/tree?project=${state.projectId}`, { cookie: state.cookie });
   assert.equal(tree.status, 200);
   const project = await call("GET", `/api/projects/${state.projectId}`, { cookie: state.cookie });
@@ -202,12 +256,12 @@ test("full HTTP flow: run -> gate -> note cap -> request changes -> history kept
   // The board (server-rendered) shows handoffs built from the structured columns. The Red
   // Thread redesign replaced the Activity cards with a ledger that shows the latest entries;
   // after the full flow the newest handoff is the approved gate handing over to Daedalus.
-  const board = await call("GET", `/?project=${state.projectId}`, { cookie: c });
+  const board = await call("GET", `/dashboard?project=${state.projectId}`, { cookie: c });
   assert.equal(board.status, 200);
   assert.match(board.text, /You → Daedalus · approved direction/, "ledger handoff rendered from fromTaskId/payload");
 
   // Runs are private.
-  const stranger = await call("POST", "/api/auth/sign-up", { body: { email: `stranger-${run}@test.dev`, password: "password123" }, from: ip(11) });
+  const stranger = await call("POST", "/api/auth/sign-up", { body: { email: `stranger-${run}@test.dev`, password: "password123", turnstileToken: "pass" }, from: ip(11) });
   assert.equal((await call("GET", `/api/tasks/${draft.id}/runs`, { cookie: stranger.cookie })).status, 404);
 });
 
@@ -227,7 +281,7 @@ test("P2. the project poll answers 304 while nothing changed, 200 when something
   assert.equal(changed.status, 200);
   assert.notEqual(changed.headers.get("etag"), etag);
   // Someone else's ETag guess still gets 404, not 304.
-  const stranger = await call("POST", "/api/auth/sign-up", { body: { email: `etag-${run}@test.dev`, password: "password123" }, from: ip(12) });
+  const stranger = await call("POST", "/api/auth/sign-up", { body: { email: `etag-${run}@test.dev`, password: "password123", turnstileToken: "pass" }, from: ip(12) });
   assert.equal((await call("GET", `/api/projects/${state.projectId}`, { cookie: stranger.cookie, headers: { "if-none-match": etag } })).status, 404);
   // The demo reset endpoint no longer exists.
   assert.equal((await call("POST", `/api/projects/${state.projectId}/reset`, { cookie: c })).status, 404);

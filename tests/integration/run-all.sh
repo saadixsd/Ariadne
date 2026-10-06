@@ -41,6 +41,8 @@ MOCK_PID=$!
 ANTHROPIC_API_KEY=test-not-real OPENAI_API_KEY=test-not-real \
 ANTHROPIC_BASE_URL="http://127.0.0.1:$MOCK_PORT" OPENAI_BASE_URL="http://127.0.0.1:$MOCK_PORT/v1" \
 ANTHROPIC_MODEL=mock-claude OPENAI_MODEL=mock-gpt \
+TURNSTILE_SECRET=test-secret TURNSTILE_VERIFY_URL="http://127.0.0.1:$MOCK_PORT/turnstile/v0/siteverify" \
+NEXT_PUBLIC_TURNSTILE_SITE_KEY=1x00000000000000000000AA \
   npx next dev -p "$DEV_PORT" > "$OUT/dev-server.log" 2>&1 &
 DEV_PID=$!
 cleanup() {
@@ -55,12 +57,12 @@ echo "-- curl: 6 rapid signups from one IP (cf-connecting-ip: 203.0.113.50)" | t
 for i in 1 2 3 4 5 6; do
   curl -s -o /tmp/sb-curl-body -w "signup $i -> HTTP %{http_code}" -H "content-type: application/json" \
     -H "cf-connecting-ip: 203.0.113.50" -X POST "http://127.0.0.1:$DEV_PORT/api/auth/sign-up" \
-    -d "{\"email\":\"curl$i-$RANDOM@test.dev\",\"password\":\"password123\"}" | tee -a "$OUT/curl-rate-limit.txt"
+    -d "{\"email\":\"curl$i-$RANDOM@test.dev\",\"password\":\"password123\",\"turnstileToken\":\"pass\"}" | tee -a "$OUT/curl-rate-limit.txt"
   echo "  $(cat /tmp/sb-curl-body)" | tee -a "$OUT/curl-rate-limit.txt"
 done
 echo "-- curl: legitimate signup from another IP (203.0.113.51)" | tee -a "$OUT/curl-rate-limit.txt"
 curl -s -D - -o /tmp/sb-curl-body -w "HTTP %{http_code}\n" -H "content-type: application/json" -H "cf-connecting-ip: 203.0.113.51" \
-  -X POST "http://127.0.0.1:$DEV_PORT/api/auth/sign-up" -d "{\"email\":\"curl-legit-$RANDOM@test.dev\",\"password\":\"password123\"}" \
+  -X POST "http://127.0.0.1:$DEV_PORT/api/auth/sign-up" -d "{\"email\":\"curl-legit-$RANDOM@test.dev\",\"password\":\"password123\",\"turnstileToken\":\"pass\"}" \
   | grep -iE "^HTTP|set-cookie" | sed -E 's/(ariadne_session=)[^;]+/\1<redacted>/' | tee -a "$OUT/curl-rate-limit.txt"
 
 BASE_URL="http://127.0.0.1:$DEV_PORT" node --test tests/integration/http.test.mjs 2>&1 | tee "$OUT/http.test.txt" | grep -E "^(not )?ok|^# (tests|pass|fail)"

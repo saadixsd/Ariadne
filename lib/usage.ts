@@ -1,10 +1,10 @@
 import "server-only";
 
 import { TaskRunError } from "@/lib/errors";
-import { DAILY_MODEL_RUNS, SITE_DAILY_MODEL_RUNS } from "@/lib/limits";
+import { DAILY_MODEL_RUNS, SITE_DAILY_MODEL_RUNS, dailyRunLimit } from "@/lib/limits";
 import { getPrisma } from "@/lib/prisma";
 
-export { DAILY_MODEL_RUNS, SITE_DAILY_MODEL_RUNS };
+export { DAILY_MODEL_RUNS, SITE_DAILY_MODEL_RUNS, dailyRunLimit };
 
 export function utcDay(date = new Date()) {
   return date.toISOString().slice(0, 10);
@@ -25,12 +25,12 @@ export async function modelRunsToday(userId: string) {
  * the run fails, is discarded, or is reclaimed as stuck, so only successful runs
  * end up counted.
  */
-async function reserveUserRun(userId: string, day: string) {
+async function reserveUserRun(userId: string, day: string, limit: number) {
   const prisma = await getPrisma();
   const tryReserve = async () =>
     (
       await prisma.usageDay.updateMany({
-        where: { userId, day, runs: { lt: DAILY_MODEL_RUNS } },
+        where: { userId, day, runs: { lt: limit } },
         data: { runs: { increment: 1 } },
       })
     ).count === 1;
@@ -51,22 +51,26 @@ async function reserveUserRun(userId: string, day: string) {
   }
   if (!(await tryReserve())) {
     throw new TaskRunError(
-      `Daily limit of ${DAILY_MODEL_RUNS} model runs is used up. Nothing was sent to Claude or GPT.`,
+      limit < DAILY_MODEL_RUNS
+        ? `Your first day includes ${limit} model runs, and they are used up. From 24 hours after you signed up you get ${DAILY_MODEL_RUNS} a day. Nothing was sent to Claude or GPT.`
+        : `Daily limit of ${limit} model runs is used up. Nothing was sent to Claude or GPT.`,
       429,
+      { limit },
     );
   }
 }
 
 /**
  * Reserves one model run for `userId`: first the per-account quota (`reserveUserRun`,
- * 429 when used up), then the site-wide ceiling. The site check reads the day's total
+ * 429 when used up; `limit` is the account's cap from lib/limits.ts dailyRunLimit, which is
+ * lower during a new account's trial), then the site-wide ceiling. The site check reads the day's total
  * AFTER this reservation; if it is over SITE_DAILY_MODEL_RUNS the reservation is given
  * back and the run is refused with a 503. Concurrent runs at the edge can only refuse
  * each other (each sees the other's reservation), never push the total past the ceiling.
  * Like the per-account quota, a failed, discarded or reclaimed run releases its unit.
  */
-export async function reserveModelRun(userId: string, day = utcDay()) {
-  await reserveUserRun(userId, day);
+export async function reserveModelRun(userId: string, day = utcDay(), limit = DAILY_MODEL_RUNS) {
+  await reserveUserRun(userId, day, Math.min(limit, DAILY_MODEL_RUNS));
   const prisma = await getPrisma();
   const total = await prisma.usageDay.aggregate({ where: { day }, _sum: { runs: true } });
   if ((total._sum.runs ?? 0) > SITE_DAILY_MODEL_RUNS) {

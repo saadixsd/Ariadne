@@ -7,6 +7,6 @@ export const dynamic = "force-dynamic";
 // Reached only through proxy.ts, for /sign-in requests that carry a session cookie.
 export default async function SignInPageWithSession() {
   const user = await currentUser();
-  if (user?.emailVerified) redirect("/");
+  if (user?.emailVerified) redirect("/dashboard");
   return <AuthForm mode="sign-in" />;
 }

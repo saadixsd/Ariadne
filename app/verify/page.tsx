@@ -10,7 +10,7 @@ export default async function VerifyPage({
   searchParams: Promise<{ email?: string }>;
 }) {
   const user = await currentUser();
-  if (user?.emailVerified) redirect("/");
+  if (user?.emailVerified) redirect("/dashboard");
   const { email } = await searchParams;
   return <AuthForm mode="verify" email={email ?? ""} />;
 }

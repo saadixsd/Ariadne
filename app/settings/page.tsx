@@ -9,7 +9,8 @@ import { HANDS } from "@/lib/hands";
 import { MAX_PROJECT_NAME_CHARS } from "@/lib/limits";
 import { newProjectHref } from "@/lib/new-project";
 import { getPrisma } from "@/lib/prisma";
-import { DAILY_MODEL_RUNS, modelRunsToday } from "@/lib/usage";
+import { DAILY_MODEL_RUNS, dailyRunLimit, modelRunsToday } from "@/lib/usage";
+import { TRIAL_PERIOD_MS, inTrial } from "@/lib/limits";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -30,8 +31,10 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   if (!user) redirect("/sign-in");
   if (!user.emailVerified) redirect("/verify");
   const account = accountDisplay(user);
-  const used = Math.min(DAILY_MODEL_RUNS, await modelRunsToday(user.id));
-  const left = Math.max(0, DAILY_MODEL_RUNS - used);
+  const limit = dailyRunLimit(user);
+  const trialEnds = inTrial(user) ? new Date(user.createdAt.getTime() + TRIAL_PERIOD_MS) : null;
+  const used = Math.min(limit, await modelRunsToday(user.id));
+  const left = Math.max(0, limit - used);
   const prisma = await getPrisma();
   const owned = await prisma.project.findMany({
     where: { userId: user.id },
@@ -48,7 +51,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   // Back to the project the user came from, while it still exists; otherwise the board
   // opens their next project (or the new-project intro when none are left).
   const { project: from } = await searchParams;
-  const back = from && projects.some((project) => project.id === from) ? `/?project=${encodeURIComponent(from)}` : "/";
+  const back = from && projects.some((project) => project.id === from) ? `/dashboard?project=${encodeURIComponent(from)}` : "/dashboard";
 
   return (
     <div className="min-h-full text-ink">
@@ -80,7 +83,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
               Projects
             </h2>
             <p className="ml-auto font-mono text-[11.5px] text-ink-faint tnum">{projects.length} {projects.length === 1 ? "project" : "projects"}</p>
-            <a href={newProjectHref(back === "/" ? null : from)} className="rt-btn rt-btn-thread shrink-0 self-center">
+            <a href={newProjectHref(back === "/dashboard" ? null : from)} className="rt-btn rt-btn-thread shrink-0 self-center">
               ＋ New project
             </a>
           </div>
@@ -94,18 +97,27 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
             </h2>
             <p className="font-serif text-[30px] leading-none tnum">
               {left}
-              <span className="text-ink-faint">/{DAILY_MODEL_RUNS}</span>
+              <span className="text-ink-faint">/{limit}</span>
               <span className="ml-1.5 font-sans text-[13px] text-ink-dim">left</span>
             </p>
           </div>
-          <div className="mt-3 flex h-2 gap-0.5" role="img" aria-label={`${used} of ${DAILY_MODEL_RUNS} runs used today`}>
-            {Array.from({ length: DAILY_MODEL_RUNS }, (_, index) => (
+          <div className="mt-3 flex h-2 gap-0.5" role="img" aria-label={`${used} of ${limit} runs used today`}>
+            {Array.from({ length: limit }, (_, index) => (
               <i key={index} className={`block h-full flex-1 rounded-sm ${index < used ? "bg-thread" : "bg-line"}`} />
             ))}
           </div>
           <p className="mt-2.5 text-[13px] leading-normal text-ink-dim">
             {used} used today. Only a hand&apos;s successful run counts; failed runs and your own decisions at a knot never do. The count starts again at midnight UTC.
           </p>
+          {trialEnds ? (
+            <p className="mt-1.5 text-[13px] leading-normal text-ink-dim" data-trial>
+              Your first day includes {limit} runs. From{" "}
+              <time dateTime={trialEnds.toISOString()}>
+                {trialEnds.toLocaleString("en", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" })} UTC
+              </time>{" "}
+              you get {DAILY_MODEL_RUNS} a day.
+            </p>
+          ) : null}
         </section>
 
         <section aria-labelledby="hands-title" className="rt-card px-5 py-4">

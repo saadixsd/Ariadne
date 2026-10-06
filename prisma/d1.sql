@@ -12,6 +12,7 @@ CREATE TABLE "User" (
     "emailVerified" BOOLEAN NOT NULL DEFAULT false,
     "firstName" TEXT,
     "lastName" TEXT,
+    "inviteCode" TEXT,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 

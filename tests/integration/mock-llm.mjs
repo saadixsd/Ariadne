@@ -2,6 +2,7 @@
 // real provider. Point the SDKs at it with ANTHROPIC_BASE_URL / OPENAI_BASE_URL.
 //   POST /__mode {"fail": true|false}  -> make every provider call fail with 500
 //   GET  /__stats                      -> {calls, failures}
+//   POST /turnstile/v0/siteverify      -> Turnstile stand-in: tokens starting "pass" succeed
 // Run standalone: node tests/integration/mock-llm.mjs [port]
 import { createServer } from "node:http";
 
@@ -20,6 +21,14 @@ export function startMockLlm(port = 0) {
       return send(200, { fail: state.fail });
     }
     if (req.url === "/__stats") return send(200, { calls: state.calls, failures: state.failures });
+    // Stand-in for Cloudflare Turnstile siteverify (TURNSTILE_VERIFY_URL in tests). Not a
+    // provider call, so it is not counted. Tokens starting with "pass" succeed.
+    if (req.url === "/turnstile/v0/siteverify") {
+      const form = new URLSearchParams(body);
+      const ok = form.get("secret") === "test-secret" && (form.get("response") ?? "").startsWith("pass");
+      state.siteverify = (state.siteverify ?? 0) + 1;
+      return send(200, ok ? { success: true, hostname: "localhost" } : { success: false, "error-codes": ["invalid-input-response"] });
+    }
 
     state.calls++;
     if (state.fail) {

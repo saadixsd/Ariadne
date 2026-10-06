@@ -115,6 +115,7 @@ export function Dashboard({
   accountInitial,
   accountName = "",
   runsLeft,
+  runsLimit,
   startNew = false,
 }: {
   initial: ProjectDTO;
@@ -124,6 +125,8 @@ export function Dashboard({
   accountInitial: string;
   accountName?: string;
   runsLeft: number;
+  /** Today's cap for this account (lower during a new account's first-day trial). */
+  runsLimit?: number;
   /** Open the new-project dialog right away (the board was reached with ?new=1). */
   startNew?: boolean;
 }) {
@@ -471,6 +474,7 @@ export function Dashboard({
           setNewProjectOpen(true);
         }}
         runsLeft={remaining}
+        runsLimit={runsLimit}
       >
         <button
           type="button"
