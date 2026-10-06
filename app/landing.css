@@ -105,6 +105,7 @@ html:has(.lp) { scroll-behavior: smooth; }
 .lp-door::before { content: ""; position: absolute; inset: 10px 10px 0; border: 1px solid var(--color-line); border-bottom: 0; border-radius: 240px 240px 0 0; pointer-events: none; }
 .lp-threshold { position: absolute; left: -40px; right: -40px; bottom: 0; height: 1px; background: var(--color-line-strong); }
 .lp-door-inner { position: relative; z-index: 1; display: grid; gap: 20px; text-align: center; }
+.lp-title .lp-line { display: block; white-space: nowrap; }
 .lp-title { font-family: var(--lp-serif); font-weight: 400; font-size: 46px; line-height: 1.02; letter-spacing: -0.015em; }
 .lp-door .lp-lede { font-size: 15.5px; }
 .lp-cta { display: grid; gap: 12px; justify-items: center; margin-top: 4px; }

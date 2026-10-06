@@ -94,9 +94,9 @@ export default function Landing() {
             </div>
             <span className="lp-door-spill" aria-hidden />
             <div className="lp-door-inner">
-              <p className="lp-eyebrow lp-rise">Agents draft. Agents challenge. You judge.</p>
+              <p className="lp-eyebrow lp-rise">Agents draft. Agents challenge. You judge.</p>
               <h1 id="lp-title" className="lp-title lp-rise" style={{ "--delay": ".12s" } as React.CSSProperties}>
-                One model drafts. Another challenges. <em>You judge.</em>
+                <span className="lp-line">One model drafts.</span> <span className="lp-line">Another challenges.</span> <em className="lp-line">You judge.</em>
               </h1>
               <p className="lp-lede lp-rise" style={{ "--delay": ".24s" } as React.CSSProperties}>
                 {ONE_LINER}
