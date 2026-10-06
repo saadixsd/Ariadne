@@ -7,9 +7,9 @@ One model drafts, a model from a different family challenges the draft, and you 
 **Draft → Challenge → Judge → Tie Off.** Nothing moves past a *knot* until you decide.
 
 Live: **https://ariadneagents.si** — a landing page, then sign-up, then the dashboard
-(`/dashboard`). One Worker (`ariadne`) serves all of it. Until the cutover in
-[`docs/CUTOVER.md`](docs/CUTOVER.md), the product is still on app.ariadneagents.si and the apex is the old
-early-access page (`landing/`, archived).
+(`/dashboard`). One Worker (`ariadne`) serves all of it, since the cutover in
+[`docs/CUTOVER.md`](docs/CUTOVER.md). The old early-access page (`landing/`) is retired;
+its database is kept as the first invite pool.
 
 ![How a run moves through Ariadne](docs/diagrams/02-run-pipeline-sequence.png)
 

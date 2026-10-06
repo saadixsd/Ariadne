@@ -4,7 +4,7 @@
   "account_id": "7a89d9dae3714c68933b37664f2b3d71",
   "main": ".open-next/worker.js",
   // No *.workers.dev URL and no version preview URLs: the app is only reachable on
-  // app.ariadneagents.si (Cloudflare Access goes in front of that hostname).
+  // ariadneagents.si and www (the routes below).
   "workers_dev": false,
   "preview_urls": false,
   "compatibility_date": "2026-09-26",
@@ -36,14 +36,20 @@
       "fallthrough": true
     }
   ],
-  // The product lives on app.ariadneagents.si (a Workers custom domain).
-  // ariadneagents.si and www are the early-access page: a separate Worker in landing/.
+  // Phase 0 cutover: the product serves ariadneagents.si and www (landing at /, sign-up,
+  // /dashboard). Zone routes, because the zone already has proxied apex and www records.
+  // A route belongs to one Worker only: take these off ariadne-landing BEFORE deploying this
+  // (docs/CUTOVER.md). app.ariadneagents.si is no longer listed; deleting this line does not
+  // detach it, so remove that custom domain in the dashboard after the switch.
   "routes": [
-    { "pattern": "app.ariadneagents.si", "custom_domain": true }
+    { "pattern": "ariadneagents.si/*", "zone_name": "ariadneagents.si" },
+    { "pattern": "www.ariadneagents.si/*", "zone_name": "ariadneagents.si" }
   ],
   "vars": {
     "ANTHROPIC_MODEL": "claude-haiku-4-5-20251001",
-    "OPENAI_MODEL": "gpt-6-luna"
+    "OPENAI_MODEL": "gpt-6-luna",
+    // Turnstile tokens are only accepted when issued on these hostnames (lib/signup-guard.ts).
+    "TURNSTILE_HOSTNAMES": "ariadneagents.si,www.ariadneagents.si"
   },
   // No "previews" block on purpose. It used to hand every branch preview the production
   // D1 database, and the preview environment held real model API keys, so any pushed

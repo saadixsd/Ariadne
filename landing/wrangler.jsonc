@@ -45,9 +45,9 @@
   // Secrets (never in this file): TURNSTILE_SECRET, HASH_SALT, TOKEN_SECRET.
   // Local values live in .dev.vars (copy .dev.vars.example).
 
-  // The public site. The product moved to app.ariadneagents.si (the app's wrangler.jsonc).
-  "routes": [
-    { "pattern": "ariadneagents.si/*", "zone_name": "ariadneagents.si" },
-    { "pattern": "www.ariadneagents.si/*", "zone_name": "ariadneagents.si" }
-  ]
+  // Retired by the Phase 0 cutover (docs/CUTOVER.md): ariadneagents.si and www now belong to
+  // the product Worker ("ariadne"). No routes here, so a stray deploy of this Worker can't
+  // claim them back. Removing routes from this file does not detach them: that is done in
+  // the dashboard. The D1 database "ariadne-early-access" is kept (the first invite pool).
+  // To roll back, re-add the two zone routes (ariadneagents.si/*, www.ariadneagents.si/*).
 }
