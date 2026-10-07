@@ -8,6 +8,7 @@ import { Monogram } from "@/components/ThreadBits";
 import { useFresh } from "@/components/use-fresh";
 import { useClocks, useNow } from "@/components/use-now";
 import { PHASE_LABEL, attributionFor, handText, loopHands, runVerb, stepPhase } from "@/lib/attribution";
+import { latestChangeNote } from "@/lib/change-notes";
 import { hideModelIds } from "@/lib/model-label";
 import { canRunTask, dependenciesMet, taskNumber } from "@/lib/task-rules";
 import {
@@ -213,12 +214,13 @@ export function TaskColumn({
             <p className="eyebrow text-[10.5px]">How this thread works</p>
             <p className="mt-1 text-ink">
               {hands
-                ? `${hands.drafter} drafts, ${hands.challenger} tries to break the draft, and you judge at the knot.`
+                ? `Task → ${hands.drafter} drafts → you can Intervene → ${hands.challenger} challenges → you judge at the knot → revise if needed → Tie Off.`
                 : "Each step runs when you press its button. A step that waits for you opens a knot where you decide."}
             </p>
             <p className="mt-1">
               Nothing runs on its own. Start with step 1: press{" "}
               {isHumanTask(tasks[0], agents) ? "Open the knot" : runVerb(stepPhase(tasks[0], project))}.
+              Use <b className="font-semibold text-ink">Intervene</b> anytime for structured context or disputes — not a chat.
             </p>
           </div>
         ) : null}
@@ -495,9 +497,13 @@ export function TaskColumn({
                           <p className="text-sm leading-normal text-ink-dim">
                             {human
                               ? "Nothing to decide yet. This gate opens when the steps before it are spun."
-                              : index === 0 && agent
-                                ? `Run step 1 to see ${agent.name} think.`
-                                : `No output yet. Press ${runVerb(phase)} when you want this step to work.`}
+                              : latestChangeNote(task.instructions) && phase === "draft"
+                                ? "Revise — your note is in the packet. Odysseus redrafts; Daedalus will challenge the new draft in full."
+                                : latestChangeNote(task.instructions) && phase === "challenge"
+                                  ? "Re-challenge — Daedalus challenges the new draft in full (not only what changed). Press Challenge when ready."
+                                : index === 0 && agent
+                                  ? `Run step 1 to see ${agent.name} think.`
+                                  : `No output yet. Press ${runVerb(phase)} when you want this step to work.`}
                           </p>
                         ) : null}
                       </div>

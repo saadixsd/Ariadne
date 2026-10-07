@@ -6,6 +6,7 @@ import type { NewTaskInput } from "@/components/AddTaskForm";
 import { AgentColumn } from "@/components/AgentColumn";
 import { ApprovalModal } from "@/components/ApprovalModal";
 import { ContextDrawer } from "@/components/ContextDrawer";
+import { InterveneMenu } from "@/components/InterveneMenu";
 import { RunCost } from "@/components/Critique";
 import { FeedbackModal } from "@/components/FeedbackModal";
 import { HandoffInspector } from "@/components/HandoffInspector";
@@ -73,8 +74,8 @@ function HeroStatus({ data }: { data: ProjectDTO }) {
       <>
         <span aria-hidden className="h-[9px] w-[9px] rounded-full bg-gate shadow-[0_0_0_3px_rgba(201,138,18,.18)]" />
         <span>
-          The thread is waiting on <b className="font-semibold text-ink">you</b>
-          {waited ? ` · ${waited}` : ""}
+          Judge · waiting on <b className="font-semibold text-ink">you</b>
+          {waited ? ` · ${waited}` : ""} — Tie Off, Ask for changes, or Intervene
         </span>
       </>
     );
@@ -84,6 +85,7 @@ function HeroStatus({ data }: { data: ProjectDTO }) {
         <span aria-hidden className="pulse-status h-[9px] w-[9px] rounded-full bg-thread" />
         <span>
           {agentOf(running, data.agents)?.name ?? "An agent"} is spinning step {taskNumber(running.id, data.tasks)}
+          <span className="max-sm:hidden"> · Intervene saves to the brief for the next run</span>
         </span>
       </>
     );
@@ -92,9 +94,9 @@ function HeroStatus({ data }: { data: ProjectDTO }) {
   } else if (total > 0 && done === total) {
     line = <span>Every step is spun</span>;
   } else if (done === 0 && data.events.length === 0) {
-    line = <span>Nothing runs until you press a step&apos;s button.</span>;
+    line = <span>Nothing runs until you press a step&apos;s button. Intervene anytime to steer.</span>;
   } else {
-    line = <span>The thread is ready for the next step</span>;
+    line = <span>Ready for the next step · steer anytime with Intervene</span>;
   }
   return (
     <div className="text-right">
@@ -490,6 +492,24 @@ export function Dashboard({
         <button type="button" onClick={() => setContextOpen(true)} className="rt-btn max-md:hidden">
           Brief
         </button>
+        <InterveneMenu
+          brief={data.brief}
+          judging={data.tasks.some((task) => task.status === "awaiting_approval")}
+          onSaveBrief={async (brief) => {
+            const message = await saveContext(data.name, brief, { quiet: true });
+            if (!message) setToast({ tone: "ok", text: "Saved to the brief. The next step you run will read it." });
+            return message;
+          }}
+          onAppendNote={(line) => {
+            const ok = knotRef.current?.appendNote(line) ?? false;
+            if (!ok) return "Open the knot first, then try again.";
+            knotRef.current?.focusDecision();
+            setToast({ tone: "ok", text: "Added to your knot note. Ask for changes to send it back." });
+            return null;
+          }}
+          onChangeDirection={() => setContextOpen(true)}
+          onOpenKnot={() => knotRef.current?.focusDecision()}
+        />
         <div ref={menuRef} className="relative">
           <AccountButton
             initial={accountInitial}

@@ -31,7 +31,13 @@ import {
 import type { ProjectDTO, TaskDTO } from "@/lib/types";
 import { mayHaveEarlierVersion } from "@/lib/versions";
 
-export type KnotPanelHandle = { focusDecision: () => void };
+export type KnotPanelHandle = {
+  focusDecision: () => void;
+  /** Append a structured intervene line into the knot note. False if no knot is open. */
+  appendNote: (line: string) => boolean;
+  /** True when a knot sheet is mounted (awaiting your judgment). */
+  isJudging: () => boolean;
+};
 
 function MergeThreads({ knot, project }: { knot: Knot; project: ProjectDTO }) {
   // The door (your brief) is the first thread into every knot: you judge against it.
@@ -141,6 +147,15 @@ function KnotBody({
   const [needNote, setNeedNote] = useState(false);
   useImperativeHandle(handle, () => ({
     focusDecision: () => approveRef.current?.focus(),
+    appendNote: (line: string) => {
+      const trimmed = line.trim();
+      if (!trimmed) return false;
+      setNote((current) => (current.trim() ? `${current.trimEnd()}\n${trimmed}` : trimmed));
+      setNeedNote(false);
+      noteRef.current?.focus();
+      return true;
+    },
+    isJudging: () => true,
   }));
 
   const client = useSyncExternalStore(noopSubscribe, () => true, () => false);
@@ -228,7 +243,7 @@ function KnotBody({
             </h2>
             <p className="mt-0.5 text-[12.5px] text-ink-dim" data-knot-sub>
               You decide what survives.
-              <span className="max-sm:hidden"> Review each challenge and decide whether it should change the answer.</span>
+              <span className="max-sm:hidden"> Add the challenges you agree with to your note, or Intervene with a structured dispute. Tie Off or Ask for changes — there is no Accept/Reject per line yet.</span>
             </p>
           </div>
           <button type="button" onClick={onClose} className="rt-btn rt-btn-ghost h-8 shrink-0 px-2.5 text-xs" aria-label="Close the knot">
@@ -492,9 +507,13 @@ function StepBody({
           ? agent?.provider === "human"
             ? "Opening the knot packages earlier work for your decision. No model is called."
             : phase === "challenge"
-              ? `${tone.name} will try to find claims that are incorrect, unsupported, outdated, contradictory, or misleading. Press Challenge to start.`
+              ? carriedNote
+                ? `Revise round: ${tone.name} challenges the new draft in full (not only what changed). Press Challenge to start.`
+                : `${tone.name} will try to find claims that are incorrect, unsupported, outdated, contradictory, or misleading. Press Challenge to start. Steer first with Intervene if you want.`
               : phase === "draft"
-                ? `${tone.name} writes the answer from your brief. Press Draft to start; ${challengerOf(task, project) ?? "a different model"} challenges it next.`
+                ? carriedNote
+                  ? `Revise — your note is in the packet. ${tone.name} redrafts; then Daedalus challenges the new version in full.`
+                  : `${tone.name} writes the answer from your brief. Press Draft to start; ${challengerOf(task, project) ?? "a different model"} challenges it next. You can Intervene before that.`
                 : `Press Run to call ${tone.name}. Opening the page never does.`
           : "Locked until the steps it needs are spun.";
 
@@ -603,6 +622,12 @@ export function KnotPanel({
       setClosedFor(null);
       setReopenTick((tick) => tick + 1);
     },
+    appendNote: (line: string) => {
+      // KnotBody stays mounted while a knot exists (even if the sheet is tucked away),
+      // so the note state is always reachable.
+      return sheetRef.current?.appendNote(line) ?? false;
+    },
+    isJudging: () => !!knot,
   }));
   useEffect(() => {
     if (reopenTick > 0) sheetRef.current?.focusDecision();

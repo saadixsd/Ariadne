@@ -90,7 +90,7 @@ export function ContextDrawer({
         <p className="mt-1 text-sm leading-normal text-ink-dim">
           {prompting
             ? "Optional. Odysseus and Daedalus read this when you start a step. You can close anytime and explore the board first."
-            : "Every agent receives this automatically. This is the thread."}
+            : "Every step reads this first. Rewrite it to change direction, or use Intervene for smaller structured additions."}
         </p>
       </div>
       <button
