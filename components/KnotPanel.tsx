@@ -3,6 +3,7 @@
 import { useEffect, useImperativeHandle, useRef, useState, useSyncExternalStore, type Ref, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { AttributionLine, CritiqueFlags, RunCost, StepVersions, VersionsButton, useCritique, versionKey } from "@/components/Critique";
+import { FinalArtifactView, isTieOffWriteup } from "@/components/FinalArtifact";
 import { OutputView } from "@/components/OutputView";
 import { ContextBar, Monogram } from "@/components/ThreadBits";
 import { useClocks, useNow } from "@/components/use-now";
@@ -547,9 +548,13 @@ function StepBody({
         ) : null}
         {task.output ? (
           <div className="rounded-xl border border-line bg-panel px-3.5 py-3">
-            <p className="eyebrow text-[10px]">Output</p>
+            <p className="eyebrow text-[10px]">{isTieOffWriteup(task, project.agents, task.agentId) ? "Tied-off answer" : "Output"}</p>
             <AttributionLine attribution={attributionFor(task, project)} className="mt-0.5 mb-1" />
-            <OutputView output={task.output} onCompare={() => onOpenReader(task.id)} extraTools={<VersionsButton task={task} project={project} />} />
+            {isTieOffWriteup(task, project.agents, task.agentId) ? (
+              <FinalArtifactView output={task.output} />
+            ) : (
+              <OutputView output={task.output} onCompare={() => onOpenReader(task.id)} extraTools={<VersionsButton task={task} project={project} />} />
+            )}
           </div>
         ) : (
           <div className="rounded-xl border border-line bg-panel px-3.5 py-3">

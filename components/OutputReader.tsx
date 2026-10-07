@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { FinalArtifactView, isTieOffWriteup } from "@/components/FinalArtifact";
 import { CopyButton, Markdown } from "@/components/OutputView";
 import { useClocks } from "@/components/use-now";
 import { CHANGE_MARKER } from "@/lib/change-notes";
@@ -145,7 +146,7 @@ export function OutputReader({ task, project, onClose }: { task: TaskDTO; projec
             {run?.error ? (
               <p className="mb-3 rounded-lg border border-danger/30 bg-danger/5 px-3 py-2 font-mono text-[12px] text-danger">{hideModelIds(run.error)}</p>
             ) : null}
-            {output ? <Markdown text={output} /> : <p className="text-[13px] text-ink-dim">No output on this attempt.</p>}
+            {output ? (isTieOffWriteup(task, project.agents, task.agentId) ? <FinalArtifactView output={output} /> : <Markdown text={output} />) : <p className="text-[13px] text-ink-dim">No output on this attempt.</p>}
             {loaded && "error" in loaded ? <p className="mt-3 text-xs text-danger">{loaded.error}</p> : null}
           </section>
         </div>
