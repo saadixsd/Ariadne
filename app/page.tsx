@@ -364,8 +364,8 @@ export default function Landing() {
                 <li>
                   <p className="lp-pass-n">Draft</p>
                   <p>
-                    Odysseus writes the answer first: a shortlist, with the reasons and sources for each name
-                    underneath, and where it isn&apos;t sure.
+                    Odysseus writes the answer first: a shortlist, with the reasons for each name underneath,
+                    and where it isn&apos;t sure.
                   </p>
                   <span className="lp-badge">Today</span>
                 </li>
