@@ -35,10 +35,11 @@ export function proxy(request: NextRequest) {
   }
   const hasSession = Boolean(request.cookies.get("ariadne_session")?.value);
   if (pathname === "/") {
-    // Old links (/?project=…, /?new=1) and visitors who already hold a session go to the
-    // board. Everyone else gets the static landing page, which costs the Worker no render.
+    // Old links (/?project=…, /?new=1) still go to the board. Everyone else, signed in or
+    // not, gets the static landing page; "Tie the Thread" (/sign-up) sends a signed-in
+    // visitor on to the board.
     const legacy = LEGACY_BOARD_KEYS.some((key) => request.nextUrl.searchParams.has(key));
-    if (legacy || hasSession) {
+    if (legacy) {
       const url = request.nextUrl.clone();
       url.pathname = "/dashboard";
       return NextResponse.redirect(url);

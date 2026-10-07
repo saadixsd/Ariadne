@@ -162,10 +162,24 @@ test("T1. sign-up needs a Turnstile pass; shape errors come first; nothing is cr
 });
 
 test("board + tree pages load for a signed-in user; onboarding creates the project", async () => {
-  // A signed-in visitor to / goes straight to the board, keeping any query.
+  // A signed-in visitor still gets the landing page at /; "Tie the Thread" (/sign-up) and
+  // "Sign in" then take them on to the board.
   const home = await call("GET", "/", { cookie: state.cookie });
-  assert.equal(home.status, 307);
-  assert.equal(new URL(home.headers.get("location"), BASE).pathname, "/dashboard");
+  assert.equal(home.status, 200);
+  assert.match(home.text, /Tie the Thread/);
+  assert.match(home.text, /instagram\.com\/ariadne_agents/);
+  for (const door of ["/sign-up", "/sign-in"]) {
+    const res = await call("GET", door, { cookie: state.cookie });
+    // app/loading.tsx makes the page stream, so Next sends the redirect in the page
+    // (200 + NEXT_REDIRECT) rather than as a 307. Either way the browser lands on the board.
+    if (res.status === 307) {
+      assert.equal(new URL(res.headers.get("location"), BASE).pathname, "/dashboard", door);
+    } else {
+      assert.equal(res.status, 200, door);
+      assert.match(res.text, /NEXT_REDIRECT[^"]*\/dashboard|url=\/dashboard/, door);
+      assert.doesNotMatch(res.text, /Create your account|Create account/, door);
+    }
+  }
   const intro = await call("GET", "/dashboard", { cookie: state.cookie });
   assert.equal(intro.status, 200);
   assert.match(intro.text, /What are you making\?/);
