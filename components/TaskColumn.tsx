@@ -214,7 +214,7 @@ export function TaskColumn({
             <p className="eyebrow text-[10.5px]">How this thread works</p>
             <p className="mt-1 text-ink">
               {hands
-                ? `Task → ${hands.drafter} drafts → you can Intervene → ${hands.challenger} challenges → you judge at the knot → revise if needed → Tie Off.`
+                ? `Draft → Challenge → Judge → Tie Off. ${hands.drafter} drafts; ${hands.challenger} challenges; you judge at the knot.`
                 : "Each step runs when you press its button. A step that waits for you opens a knot where you decide."}
             </p>
             <p className="mt-1">

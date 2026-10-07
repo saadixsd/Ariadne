@@ -59,8 +59,9 @@ async function newUser(email: string) {
 async function newProject(userId: string) {
   const id = await starter.createUserProject(userId, "Test project", "Build a landing page for a coffee cart.");
   const tasks = await prisma.task.findMany({ where: { projectId: id }, orderBy: { createdAt: "asc" } });
-  const [research, draft, review, gate, build] = tasks;
-  return { id, research, draft, review, gate, build };
+  assert.equal(tasks.length, 4, "starter is Draft → Challenge → Judge → Tie Off writeup");
+  const [draft, review, gate, build] = tasks;
+  return { id, draft, review, gate, build };
 }
 
 async function runsFor(taskId: string) {
@@ -113,18 +114,18 @@ describe("3. stuck running recovery", () => {
   test("old running task is reclaimed on next read, with a recovery event, and becomes runnable", async () => {
     const user = await newUser("stuck@test.dev");
     const p = await newProject(user.id);
-    await agents.runTask(p.research.id, user.id); // done, output kept
-    const researchOutput = (await prisma.task.findUniqueOrThrow({ where: { id: p.research.id } })).output;
-    assert.ok(researchOutput);
+    await agents.runTask(p.draft.id, user.id); // done, output kept
+    const draftOutput = (await prisma.task.findUniqueOrThrow({ where: { id: p.draft.id } })).output;
+    assert.ok(draftOutput);
 
     // Simulate a run that died mid-request 10 minutes ago: it had reserved a quota
     // unit and emitted "started" with its run id, then the request was cut off.
     const startedAt = new Date(Date.now() - 10 * 60 * 1000);
     await usage.reserveModelRun(user.id, usage.utcDay(startedAt));
     const quotaBefore = await runsToday(user.id);
-    await prisma.task.update({ where: { id: p.draft.id }, data: { status: "running", startedAt } });
+    await prisma.task.update({ where: { id: p.review.id }, data: { status: "running", startedAt } });
     await prisma.activityEvent.create({
-      data: { projectId: p.id, type: "started", message: "Maker started", taskId: p.draft.id, runId: "dead-run-1", createdAt: new Date(startedAt.getTime() + 5) },
+      data: { projectId: p.id, type: "started", message: "Maker started", taskId: p.review.id, runId: "dead-run-1", createdAt: new Date(startedAt.getTime() + 5) },
     });
 
     // A task that is running but young must NOT be reclaimed.
@@ -132,18 +133,18 @@ describe("3. stuck running recovery", () => {
 
     const dto = await project.getProject(p.id, user.id); // "next read"
     assert.ok(dto);
-    const draft = dto.tasks.find((t) => t.id === p.draft.id)!;
-    assert.equal(draft.status, "pending", "stuck task back to pending");
+    const review = dto.tasks.find((t) => t.id === p.review.id)!;
+    assert.equal(review.status, "pending", "stuck task back to pending");
     assert.equal(dto.tasks.find((t) => t.id === p.build.id)!.status, "running", "young run untouched");
-    assert.equal(dto.tasks.find((t) => t.id === p.research.id)!.output, researchOutput, "upstream work intact");
+    assert.equal(dto.tasks.find((t) => t.id === p.draft.id)!.output, draftOutput, "upstream work intact");
 
-    const recovery = dto.events.find((e) => e.taskId === p.draft.id && e.payload?.reason === "stuck_run_reclaimed");
+    const recovery = dto.events.find((e) => e.taskId === p.review.id && e.payload?.reason === "stuck_run_reclaimed");
     assert.ok(recovery, "recovery event emitted");
     assert.equal(recovery.type, "failed");
-    assert.match(recovery.message, /Recovered "Draft the answer"/);
+    assert.match(recovery.message, /Recovered "Challenge the draft"/);
     assert.equal(recovery.runId, "dead-run-1");
 
-    const rows = await runsFor(p.draft.id);
+    const rows = await runsFor(p.review.id);
     assert.equal(rows.length, 1);
     assert.equal(rows[0].outcome, "reclaimed");
     assert.equal(rows[0].id, "dead-run-1");
@@ -153,13 +154,13 @@ describe("3. stuck running recovery", () => {
 
     // Reading again does not double-reclaim.
     await project.getEvents(p.id, user.id);
-    assert.equal((await runsFor(p.draft.id)).length, 1);
+    assert.equal((await runsFor(p.review.id)).length, 1);
 
     // Runnable again.
     await prisma.task.update({ where: { id: p.build.id }, data: { status: "pending", startedAt: null } });
-    const rerun = await agents.runTask(p.draft.id, user.id);
+    const rerun = await agents.runTask(p.review.id, user.id);
     assert.equal(rerun.status, "done");
-    assert.equal((await runsFor(p.draft.id)).map((r) => r.outcome).join(","), "reclaimed,succeeded");
+    assert.equal((await runsFor(p.review.id)).map((r) => r.outcome).join(","), "reclaimed,succeeded");
   });
 
   test("isStuck uses the 5-minute timeout", () => {
@@ -176,18 +177,18 @@ describe("quota: only successful runs count, increment is atomic", () => {
     const p = await newProject(user.id);
     mock.state.fail = true;
     const callsBefore = mock.state.calls;
-    await rejects(agents.runTask(p.research.id, user.id), 502, /500|mock provider is down/);
+    await rejects(agents.runTask(p.draft.id, user.id), 502, /500|mock provider is down/);
     mock.state.fail = false;
     assert.equal(mock.state.calls - callsBefore, 2, "withOneRetry: two provider tries");
     assert.equal(await runsToday(user.id), 0, "failed run not charged");
-    const failed = await runsFor(p.research.id);
+    const failed = await runsFor(p.draft.id);
     assert.equal(failed.length, 1);
     assert.equal(failed[0].outcome, "failed");
     assert.equal(failed[0].tries, 2);
     assert.ok(failed[0].error && failed[0].prompt, "failed row keeps prompt and error");
-    assert.equal((await prisma.task.findUniqueOrThrow({ where: { id: p.research.id } })).status, "failed");
+    assert.equal((await prisma.task.findUniqueOrThrow({ where: { id: p.draft.id } })).status, "failed");
 
-    await agents.runTask(p.research.id, user.id);
+    await agents.runTask(p.draft.id, user.id);
     assert.equal(await runsToday(user.id), 1, "successful run charged once");
   });
 
@@ -196,9 +197,9 @@ describe("quota: only successful runs count, increment is atomic", () => {
     const p = await newProject(user.id);
     await prisma.usageDay.create({ data: { userId: user.id, day: usage.utcDay(), runs: limits.DAILY_MODEL_RUNS } });
     const callsBefore = mock.state.calls;
-    await rejects(agents.runTask(p.research.id, user.id), 429, /Daily limit/);
+    await rejects(agents.runTask(p.draft.id, user.id), 429, /Daily limit/);
     assert.equal(mock.state.calls, callsBefore);
-    const task = await prisma.task.findUniqueOrThrow({ where: { id: p.research.id } });
+    const task = await prisma.task.findUniqueOrThrow({ where: { id: p.draft.id } });
     assert.equal(task.status, "pending");
     assert.equal(await runsToday(user.id), limits.DAILY_MODEL_RUNS);
   });
@@ -224,11 +225,11 @@ describe("quota: only successful runs count, increment is atomic", () => {
     const p = await newProject(user.id);
     await prisma.usageDay.create({ data: { userId: user.id, day: usage.utcDay(), runs: limit } });
     const callsBefore = mock.state.calls;
-    await rejects(agents.runTask(p.research.id, user.id, limit), 429, /first day includes 6 model runs/);
+    await rejects(agents.runTask(p.draft.id, user.id, limit), 429, /first day includes 6 model runs/);
     assert.equal(mock.state.calls, callsBefore, "nothing reached a provider");
-    assert.equal((await prisma.task.findUniqueOrThrow({ where: { id: p.research.id } })).status, "pending");
+    assert.equal((await prisma.task.findUniqueOrThrow({ where: { id: p.draft.id } })).status, "pending");
     // The same account once the trial is over gets the normal cap, so the run goes through.
-    await agents.runTask(p.research.id, user.id, limits.DAILY_MODEL_RUNS);
+    await agents.runTask(p.draft.id, user.id, limits.DAILY_MODEL_RUNS);
     assert.equal(await runsToday(user.id), limit + 1);
   });
 
@@ -272,12 +273,12 @@ describe("site-wide daily ceiling and output caps", () => {
       const user = await newUser("site-cap@test.dev");
       const p = await newProject(user.id);
       const callsBefore = mock.state.calls;
-      await rejects(agents.runTask(p.research.id, user.id), 503, /spun all 200 runs .* nothing was sent to Claude or GPT/);
+      await rejects(agents.runTask(p.draft.id, user.id), 503, /spun all 200 runs .* nothing was sent to Claude or GPT/);
       assert.equal(mock.state.calls, callsBefore, "provider not called");
-      assert.equal((await prisma.task.findUniqueOrThrow({ where: { id: p.research.id } })).status, "pending");
+      assert.equal((await prisma.task.findUniqueOrThrow({ where: { id: p.draft.id } })).status, "pending");
       assert.equal(await runsToday(user.id), 0, "the refused run gave its reservation back");
       // The knot is not a model run, so it still opens when the site is at the ceiling.
-      await prisma.task.updateMany({ where: { id: { in: [p.research.id, p.draft.id, p.review.id] } }, data: { status: "done", output: "x" } });
+      await prisma.task.updateMany({ where: { id: { in: [p.draft.id, p.review.id] } }, data: { status: "done", output: "x" } });
       assert.equal((await agents.runTask(p.gate.id, user.id)).status, "awaiting_approval");
     } finally {
       await cleanup();
@@ -289,8 +290,8 @@ describe("site-wide daily ceiling and output caps", () => {
     try {
       const user = await newUser("site-edge@test.dev");
       const p = await newProject(user.id);
-      assert.equal((await agents.runTask(p.research.id, user.id)).status, "done");
-      await rejects(agents.runTask(p.draft.id, user.id), 503);
+      assert.equal((await agents.runTask(p.draft.id, user.id)).status, "done");
+      await rejects(agents.runTask(p.review.id, user.id), 503);
       assert.equal(await runsToday(user.id), 1);
     } finally {
       await cleanup();
@@ -303,7 +304,7 @@ describe("site-wide daily ceiling and output caps", () => {
       const user = await newUser("both-caps@test.dev");
       const p = await newProject(user.id);
       await prisma.usageDay.create({ data: { userId: user.id, day: usage.utcDay(), runs: limits.DAILY_MODEL_RUNS } });
-      await rejects(agents.runTask(p.research.id, user.id), 429, /Daily limit/);
+      await rejects(agents.runTask(p.draft.id, user.id), 429, /Daily limit/);
     } finally {
       await cleanup();
       await prisma.usageDay.deleteMany({ where: { user: { email: "both-caps@test.dev" } } });
@@ -313,7 +314,6 @@ describe("site-wide daily ceiling and output caps", () => {
   test("provider calls carry output caps (Claude 8,192; GPT 16,384 including reasoning)", async () => {
     const user = await newUser("token-caps@test.dev");
     const p = await newProject(user.id);
-    await agents.runTask(p.research.id, user.id); // Odysseus -> Anthropic
     await agents.runTask(p.draft.id, user.id); // Odysseus (the Drafter) -> Anthropic
     await agents.runTask(p.review.id, user.id); // Daedalus (the Challenger) -> OpenAI
     assert.equal(mock.state.lastBody.anthropic.max_tokens, limits.MAX_OUTPUT_TOKENS_ANTHROPIC);
@@ -327,18 +327,18 @@ describe("4. immutable run history", () => {
   test("rerun twice: a TaskRun row per attempt, all outputs retrievable, latest shown", async () => {
     const user = await newUser("rerun@test.dev");
     const p = await newProject(user.id);
-    await agents.runTask(p.research.id, user.id);
-    await agents.rerunTask(p.research.id, user.id);
-    await agents.rerunTask(p.research.id, user.id);
-    const rows = await runsFor(p.research.id);
+    await agents.runTask(p.draft.id, user.id);
+    await agents.rerunTask(p.draft.id, user.id);
+    await agents.rerunTask(p.draft.id, user.id);
+    const rows = await runsFor(p.draft.id);
     assert.equal(rows.length, 3, "initial run + 2 reruns");
     assert.deepEqual(rows.map((r) => r.attempt), [1, 2, 3]);
     assert.ok(rows.every((r) => r.outcome === "succeeded" && r.output && r.prompt && r.systemPrompt && r.model === "mock-claude"));
     assert.equal(new Set(rows.map((r) => r.output)).size, 3, "three distinct outputs kept");
     assert.ok(rows.every((r) => typeof r.latencyMs === "number" && r.startedAt && r.completedAt));
-    const task = await prisma.task.findUniqueOrThrow({ where: { id: p.research.id } });
+    const task = await prisma.task.findUniqueOrThrow({ where: { id: p.draft.id } });
     assert.equal(task.output, rows[2].output, "task.output = latest run");
-    const events = await prisma.activityEvent.findMany({ where: { taskId: p.research.id, type: "completed" } });
+    const events = await prisma.activityEvent.findMany({ where: { taskId: p.draft.id, type: "completed" } });
     assert.deepEqual(new Set(events.map((e) => e.runId)), new Set(rows.map((r) => r.id)), "completed events point at their run");
   });
 
@@ -346,11 +346,11 @@ describe("4. immutable run history", () => {
     const user = await newUser("legacy@test.dev");
     const p = await newProject(user.id);
     await prisma.task.update({
-      where: { id: p.research.id },
+      where: { id: p.draft.id },
       data: { status: "done", output: "LEGACY OUTPUT", model: "old-model", completedAt: new Date() },
     });
-    await agents.rerunTask(p.research.id, user.id);
-    const rows = await runsFor(p.research.id);
+    await agents.rerunTask(p.draft.id, user.id);
+    const rows = await runsFor(p.draft.id);
     assert.equal(rows[0].outcome, "legacy");
     assert.equal(rows[0].output, "LEGACY OUTPUT");
     assert.equal(rows[1].outcome, "succeeded");
@@ -359,7 +359,6 @@ describe("4. immutable run history", () => {
   test("request changes: prior outputs stay as rows, note appended, cap enforced", async () => {
     const user = await newUser("changes@test.dev");
     const p = await newProject(user.id);
-    await agents.runTask(p.research.id, user.id);
     await agents.runTask(p.draft.id, user.id);
     await agents.runTask(p.review.id, user.id); // opens the human gate automatically
     const gate = await prisma.task.findUniqueOrThrow({ where: { id: p.gate.id } });
@@ -414,20 +413,20 @@ describe("5. structured events", () => {
   test("handoff events carry fromTaskId/toTaskId/runId/payload and the UI parsers read them", async () => {
     const user = await newUser("events@test.dev");
     const p = await newProject(user.id);
-    await agents.runTask(p.research.id, user.id);
     await agents.runTask(p.draft.id, user.id);
+    await agents.runTask(p.review.id, user.id);
     const dto = (await project.getProject(p.id, user.id))!;
-    const hand = dto.events.find((e) => e.type === "handoff" && e.taskId === p.draft.id)!;
-    assert.equal(hand.fromTaskId, p.research.id);
-    assert.equal(hand.toTaskId, p.draft.id);
-    const draftRun = (await runsFor(p.draft.id))[0];
-    assert.equal(hand.runId, draftRun.id);
+    const hand = dto.events.find((e) => e.type === "handoff" && e.taskId === p.review.id)!;
+    assert.equal(hand.fromTaskId, p.draft.id);
+    assert.equal(hand.toTaskId, p.review.id);
+    const reviewRun = (await runsFor(p.review.id))[0];
+    assert.equal(hand.runId, reviewRun.id);
     assert.equal(hand.payload?.fromAgent, "Odysseus");
-    assert.equal(hand.message, 'Handoff: Odysseus handed "Research the brief" to Odysseus', "human-readable message still written");
+    assert.equal(hand.message, 'Handoff: Odysseus handed "Draft the answer" to Daedalus', "human-readable message still written");
 
     // Prove the parser ignores the message: garble it and keep the columns.
     const parsed = handoff.handoffFromEvent({ ...hand, message: "garbled" } as typeof hand, dto.tasks, dto.agents);
-    assert.deepEqual(parsed, { fromTaskId: p.research.id, toTaskId: p.draft.id, from: "Odysseus", title: "Research the brief", to: "Odysseus" });
+    assert.deepEqual(parsed, { fromTaskId: p.draft.id, toTaskId: p.review.id, from: "Odysseus", title: "Draft the answer", to: "Daedalus" });
     // Columns without payload (e.g. partially backfilled) fall back to task/agent rows.
     const bare = handoff.handoffFromEvent({ ...hand, payload: null }, dto.tasks, dto.agents);
     assert.equal(bare?.from, "Odysseus");
@@ -442,7 +441,6 @@ describe("5. structured events", () => {
   test("lineage approval reads the payload, not the message", async () => {
     const user = await newUser("lineage@test.dev");
     const p = await newProject(user.id);
-    await agents.runTask(p.research.id, user.id);
     await agents.runTask(p.draft.id, user.id);
     await agents.runTask(p.review.id, user.id);
     await agents.decideTask(p.gate.id, true, undefined, user.id);
@@ -466,10 +464,9 @@ describe("5. structured events", () => {
 });
 
 describe("existing board + tree flow", () => {
-  test("full 5-step flow end to end: run, auto-gate, approve, build; tree + lineage render", async () => {
+  test("full 4-step flow end to end: draft, challenge, auto-gate, approve, writeup; tree + lineage render", async () => {
     const user = await newUser("flow@test.dev");
     const p = await newProject(user.id);
-    await agents.runTask(p.research.id, user.id);
     await agents.runTask(p.draft.id, user.id);
     await rejects(agents.runTask(p.build.id, user.id), 409, /Dependencies are not done/);
     await agents.runTask(p.review.id, user.id);
@@ -478,17 +475,17 @@ describe("existing board + tree flow", () => {
     const built = await agents.runTask(p.build.id, user.id);
     assert.equal(built.status, "done");
     const dto = (await project.getProject(p.id, user.id))!;
-    assert.deepEqual(dto.tasks.map((t) => t.status), ["done", "done", "done", "done", "done"]);
+    assert.deepEqual(dto.tasks.map((t) => t.status), ["done", "done", "done", "done"]);
     assert.ok(dto.agents.every((a) => a.status === "done"));
-    assert.equal(await runsToday(user.id), 4, "4 model runs, gate is free");
+    assert.equal(await runsToday(user.id), 3, "3 model runs, gate is free");
     const types = dto.events.map((e) => e.type);
     for (const type of ["started", "handoff", "completed", "approval_requested", "approved"]) assert.ok(types.includes(type), type);
     const tree = liveTree.workflowTree(dto);
-    assert.ok(tree.nodes.length >= 5);
-    assert.ok(lineage.buildLineage(dto, p.build.id)!.length >= 6);
+    assert.ok(tree.nodes.length >= 4);
+    assert.ok(lineage.buildLineage(dto, p.build.id)!.length >= 5);
     // Another user cannot read or run it.
     const stranger = await newUser("stranger@test.dev");
     assert.equal(await project.getProject(p.id, stranger.id), null);
-    await rejects(agents.runTask(p.research.id, stranger.id), 404);
+    await rejects(agents.runTask(p.draft.id, stranger.id), 404);
   });
 });

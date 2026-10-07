@@ -4,16 +4,14 @@ import { useState } from "react";
 import { MAX_BRIEF_CHARS, MAX_PROJECT_NAME_CHARS } from "@/lib/limits";
 import { ONE_LINER } from "@/lib/one-liner";
 
-// First-run orientation: what Ariadne does, in six plain steps, before the blank box.
-// The steps describe what the starter thread really does today (see lib/starter-thread.ts);
-// the note under them says which parts are still manual.
+// First-run orientation: Draft → Challenge → Judge → Tie Off, before the blank box.
+// Matches lib/starter-thread.ts and the landing wedge.
 const HOW_IT_WORKS = [
   "Give us a task.",
-  "One AI creates the answer.",
-  "Another AI tries to break it.",
-  "You decide which challenges are valid.",
-  "Ariadne revises the answer.",
-  "Tie it off when you’re satisfied.",
+  "Odysseus drafts the answer.",
+  "Daedalus challenges it — claim by claim.",
+  "You judge: keep, change, or intervene.",
+  "Tie it off into Answer / Sources / Disagreements.",
 ] as const;
 
 // A suggestion the user can take, never data: nothing is created until they press Continue.
@@ -85,8 +83,8 @@ export function ProjectIntro() {
             ))}
           </ol>
           <p className="mt-3 text-[13.5px] leading-relaxed text-ink-dim" data-roster>
-            Odysseus (Claude) drafts. Daedalus (GPT), a different model, challenges. Today you press Run for each
-            step, and you choose which challenges count by adding them to your note.
+            Odysseus (Claude) drafts. Daedalus (GPT) challenges. You press each step; add the disputes you agree
+            with to your note. No web search on the free plan — points without a source in the draft are Opinion.
           </p>
         </section>
         <label className="mt-8 block">

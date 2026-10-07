@@ -75,7 +75,7 @@ function HeroStatus({ data }: { data: ProjectDTO }) {
         <span aria-hidden className="h-[9px] w-[9px] rounded-full bg-gate shadow-[0_0_0_3px_rgba(201,138,18,.18)]" />
         <span>
           Judge · waiting on <b className="font-semibold text-ink">you</b>
-          {waited ? ` · ${waited}` : ""} — Tie Off, Ask for changes, or Intervene
+          {waited ? ` · ${waited}` : ""} — Tie Off or Ask for changes
         </span>
       </>
     );
@@ -85,7 +85,7 @@ function HeroStatus({ data }: { data: ProjectDTO }) {
         <span aria-hidden className="pulse-status h-[9px] w-[9px] rounded-full bg-thread" />
         <span>
           {agentOf(running, data.agents)?.name ?? "An agent"} is spinning step {taskNumber(running.id, data.tasks)}
-          <span className="max-sm:hidden"> · Intervene saves to the brief for the next run</span>
+          
         </span>
       </>
     );
@@ -94,9 +94,9 @@ function HeroStatus({ data }: { data: ProjectDTO }) {
   } else if (total > 0 && done === total) {
     line = <span>Every step is spun</span>;
   } else if (done === 0 && data.events.length === 0) {
-    line = <span>Nothing runs until you press a step&apos;s button. Intervene anytime to steer.</span>;
+    line = <span>Nothing runs until you press a step&apos;s button.</span>;
   } else {
-    line = <span>Ready for the next step · steer anytime with Intervene</span>;
+    line = <span>Ready for the next step</span>;
   }
   return (
     <div className="text-right">
@@ -150,6 +150,7 @@ export function Dashboard({
   const [selectedId, setSelectedId] = useState(initial.id);
   const selectedIdRef = useRef(initial.id);
   const [lineageId, setLineageId] = useState<string | null>(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [menu, setMenu] = useState<null | "account">(null);
   const [toast, setToast] = useState<{ tone: "danger" | "ok"; text: string } | null>(null);
@@ -492,6 +493,15 @@ export function Dashboard({
         <button type="button" onClick={() => setContextOpen(true)} className="rt-btn max-md:hidden">
           Brief
         </button>
+        <button
+          type="button"
+          aria-pressed={detailsOpen}
+          onClick={() => setDetailsOpen((value) => !value)}
+          className={`rt-btn max-lg:hidden ${detailsOpen ? "rt-btn-ghost" : ""}`}
+          title={detailsOpen ? "Hide hands and ledger" : "Show hands and ledger"}
+        >
+          Details
+        </button>
         <InterveneMenu
           brief={data.brief}
           judging={data.tasks.some((task) => task.status === "awaiting_approval")}
@@ -578,18 +588,26 @@ export function Dashboard({
           </div>
           <HeroStatus data={data} />
         </section>
-        <main className="gutter-safe mx-auto grid w-full max-w-[1920px] flex-none grid-cols-1 gap-[22px] lg:grid-cols-[236px_minmax(0,1fr)] xl:grid-cols-[236px_minmax(0,1fr)_400px] 2xl:grid-cols-[252px_minmax(0,1fr)_436px] tall-xl:min-h-0 tall-xl:flex-1">
-          <AgentColumn
-            project={data}
-            expandedId={expandedAgentId}
-            onToggle={toggleAgent}
-            onSelectTask={(id) => {
-              setExpandedTaskId(id);
-              requestAnimationFrame(() =>
-                document.querySelector(`[data-task-id="${CSS.escape(id)}"]`)?.scrollIntoView({ block: "nearest" }),
-              );
-            }}
-          />
+        <main
+          className={`gutter-safe mx-auto grid w-full max-w-[1920px] flex-none grid-cols-1 gap-[22px] tall-xl:min-h-0 tall-xl:flex-1 ${
+            detailsOpen
+              ? "lg:grid-cols-[236px_minmax(0,1fr)] xl:grid-cols-[236px_minmax(0,1fr)_400px] 2xl:grid-cols-[252px_minmax(0,1fr)_436px]"
+              : "xl:grid-cols-[minmax(0,1fr)_400px] 2xl:grid-cols-[minmax(0,1fr)_436px]"
+          }`}
+        >
+          {detailsOpen ? (
+            <AgentColumn
+              project={data}
+              expandedId={expandedAgentId}
+              onToggle={toggleAgent}
+              onSelectTask={(id) => {
+                setExpandedTaskId(id);
+                requestAnimationFrame(() =>
+                  document.querySelector(`[data-task-id="${CSS.escape(id)}"]`)?.scrollIntoView({ block: "nearest" }),
+                );
+              }}
+            />
+          ) : null}
           <RegionBoundary name="Workflow">
             <TaskColumn
               project={data}
