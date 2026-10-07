@@ -153,7 +153,9 @@ test("L1. signed out: / is the public landing page; /dashboard and other app pag
   const to = new URL(old.headers.get("location"), BASE);
   assert.equal(to.pathname, "/dashboard");
   assert.equal(to.search, "?project=abc&new=1");
-  assert.equal((await call("GET", "/sign-up", { from: ip(40) })).status, 200);
+  const signUp = await call("GET", "/sign-up", { from: ip(40) });
+  assert.equal(signUp.status, 200);
+  assert.match(signUp.text, /one AI drafts the answer, another tries to break it, and you decide/, "sign-up says what comes next");
 });
 
 test("T1. sign-up needs a Turnstile pass; shape errors come first; nothing is created on failure", async () => {
@@ -196,6 +198,10 @@ test("board + tree pages load for a signed-in user; onboarding creates the proje
   assert.equal(intro.status, 200);
   assert.match(intro.text, /What are you making\?/);
   assert.match(intro.text, /one AI model challenge another, while you remain the final judge/, "first-run copy carries the one-liner");
+  assert.match(intro.text, /How Ariadne works/, "first-run orientation");
+  assert.match(intro.text, /Another AI tries to break it\./);
+  assert.match(intro.text, /What are you trying to figure out\?/, "the empty box asks a question");
+  assert.match(intro.text, /Nothing runs yet/, "Continue is honest: it does not call a model");
   assert.doesNotMatch(intro.text, /human middleware/);
   const created = await call("POST", "/api/onboarding", { cookie: state.cookie, body: { name: "Coffee cart", brief: "Landing page for a coffee cart." } });
   assert.equal(created.status, 201);

@@ -4,6 +4,24 @@ import { useState } from "react";
 import { MAX_BRIEF_CHARS, MAX_PROJECT_NAME_CHARS } from "@/lib/limits";
 import { ONE_LINER } from "@/lib/one-liner";
 
+// First-run orientation: what Ariadne does, in six plain steps, before the blank box.
+// The steps describe what the starter thread really does today (see lib/starter-thread.ts);
+// the note under them says which parts are still manual.
+const HOW_IT_WORKS = [
+  "Give us a task.",
+  "One AI creates the answer.",
+  "Another AI tries to break it.",
+  "You decide which challenges are valid.",
+  "Ariadne revises the answer.",
+  "Tie it off when you’re satisfied.",
+] as const;
+
+// A suggestion the user can take, never data: nothing is created until they press Continue.
+const EXAMPLE = {
+  name: "Montreal pre-seed AI investors",
+  brief: "Research the 10 strongest pre-seed AI investors in Montreal and explain why each is a fit.",
+} as const;
+
 export function ProjectIntro() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -49,39 +67,67 @@ export function ProjectIntro() {
         <p className="mt-4 font-serif text-[21px] leading-snug text-ink" data-one-liner>
           {ONE_LINER}
         </p>
-        <p className="mt-2 text-[15px] leading-relaxed text-ink-dim" data-roster>
-          Daedalus (GPT) drafts. Odysseus (Claude), a different model, sets out the ground first and then
-          checks the draft for what is wrong or missing. Nothing is tied off until you judge it.
-        </p>
-        <p className="mt-4 text-[17px] leading-relaxed text-ink-dim">
-          Name the project and describe it in a sentence or two. Both of them read it first.
-        </p>
-        <label className="mt-10 block">
+        <section aria-labelledby="how-title" data-orientation className="mt-6 rounded-2xl bg-panel/70 px-5 py-4 ring-1 ring-line">
+          <h2 id="how-title" className="text-[13px] font-semibold tracking-[0.08em] text-ink-dim uppercase">
+            How Ariadne works
+          </h2>
+          <ol className="mt-2.5 grid gap-1.5">
+            {HOW_IT_WORKS.map((step, index) => (
+              <li key={step} className="grid grid-cols-[1.4rem_minmax(0,1fr)] items-baseline text-[16px] leading-snug text-ink">
+                <span className="font-serif text-[18px] text-thread" aria-hidden>
+                  {index + 1}
+                </span>
+                <span>
+                  <span className="sr-only">{index + 1}. </span>
+                  {step}
+                </span>
+              </li>
+            ))}
+          </ol>
+          <p className="mt-3 text-[13.5px] leading-relaxed text-ink-dim" data-roster>
+            Odysseus (Claude) drafts. Daedalus (GPT), a different model, challenges. Today you press Run for each
+            step, and you choose which challenges count by adding them to your note.
+          </p>
+        </section>
+        <label className="mt-8 block">
           <span className="text-[13px] text-ink-dim">Project name</span>
           <input
             value={name}
             onChange={(event) => setName(event.target.value)}
             maxLength={MAX_PROJECT_NAME_CHARS}
             autoFocus
-            placeholder="Name"
+            placeholder={`e.g. ${EXAMPLE.name}`}
             className="mt-2 w-full rounded-2xl bg-panel px-4 py-4 text-[17px] ring-1 ring-line placeholder:text-ink-dim/50"
             aria-label="Project name"
           />
         </label>
         <label className="mt-5 block">
-          <span className="text-[13px] text-ink-dim">Description</span>
+          <span className="text-[15px] font-medium text-ink">What are you trying to figure out?</span>
           <textarea
             value={description}
             onChange={(event) => setDescription(event.target.value)}
             maxLength={MAX_BRIEF_CHARS}
-            placeholder="e.g. Check the claims in my literature review on sleep and memory. I need every claim tied to a real source, and anything shaky flagged."
+            placeholder={`e.g. ${EXAMPLE.brief}`}
             className="mt-2 min-h-36 w-full resize-none rounded-2xl bg-panel px-4 py-4 text-[17px] leading-relaxed ring-1 ring-line placeholder:text-ink-dim/50"
             aria-label="Project description"
           />
           <span className="mt-2 block text-[13px] leading-normal text-ink-dim">
-            Tip: state the goal, who it&apos;s for, and what a good result looks like.
+            Say what you need to know or produce, who it&apos;s for, and what a good answer looks like.
           </span>
         </label>
+        {!name && !description ? (
+          <button
+            type="button"
+            onClick={() => {
+              setName(EXAMPLE.name);
+              setDescription(EXAMPLE.brief);
+              setError(null);
+            }}
+            className="mt-2 text-[13px] font-medium text-thread underline decoration-1 underline-offset-[3px] hover:text-thread-bright"
+          >
+            Use the example
+          </button>
+        ) : null}
         {error ? (
           <p role="alert" className="mt-4 text-sm text-danger">
             {error}
@@ -94,6 +140,9 @@ export function ProjectIntro() {
         >
           {saving ? "Starting" : "Continue"}
         </button>
+        <p className="mt-3 text-center text-[13px] leading-normal text-ink-dim">
+          Nothing runs yet. Next you&apos;ll see the steps; press Run on step 1 when you&apos;re ready.
+        </p>
       </form>
     </main>
   );

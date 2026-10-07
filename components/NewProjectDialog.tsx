@@ -105,17 +105,18 @@ export function NewProjectDialog({
             />
           </label>
           <label className="mt-4 block">
-            <span className="text-[13px] text-ink-dim">Brief</span>
+            <span className="text-[13px] text-ink-dim">What are you trying to figure out?</span>
             <textarea
               value={brief}
               onChange={(event) => setBrief(event.target.value)}
               maxLength={MAX_BRIEF_CHARS}
-              placeholder="A sentence or two. Both of them read it before they work."
+              placeholder="e.g. Research the 10 strongest pre-seed AI investors in Montreal and explain why each is a fit."
               className="mt-1.5 min-h-28 w-full resize-none rounded-xl bg-canvas px-3.5 py-2.5 text-[15px] leading-normal ring-1 ring-line placeholder:text-ink-dim/50"
               aria-label="Project brief"
             />
             <span className="mt-1.5 block text-[12.5px] leading-normal text-ink-faint">
-              Tip: state the goal, who it&apos;s for, and what a good result looks like.
+              Say what you need to know or produce, who it&apos;s for, and what a good answer looks like. Odysseus
+              drafts from it, Daedalus challenges the draft, you judge.
             </span>
           </label>
           {error ? (
