@@ -345,8 +345,11 @@ function KnotBody({
                   {busy === "changes" ? "Sending back…" : "Ask for changes"}
                 </button>
               </div>
-              <p className="truncate text-[11.5px] text-ink-faint max-sm:hidden" data-knot-hint>
-                {unlock ? (
+              <p className={`text-[11.5px] text-ink-faint ${note.trim() ? "leading-snug" : "truncate max-sm:hidden"}`} data-knot-hint>
+                {note.trim() ? (
+                  // Approving ignores the note (decideTask), so say so before it is lost.
+                  "↳ Your note goes with Ask for changes. Tie Off keeps this version as it is."
+                ) : unlock ? (
                   <>
                     ↳ Unlocks{" "}
                     <b className="font-semibold text-ink-dim">
