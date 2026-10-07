@@ -117,25 +117,50 @@ export function CritiqueFlags({
       </p>
       {onAdd ? (
         <p className="mt-0.5 px-0.5 text-[12px] text-ink-faint" data-judge-hint>
-          A second opinion, not a verdict. Add the ones you agree with to your note.
+          Disputes, not a verdict. Opinion means no source in the draft (no web search on the free plan). Add the ones you agree with to your note.
         </p>
       ) : null}
-      {verdict ? <p className="mt-1 px-0.5 text-ink">Verdict: {verdict}</p> : null}
+      {verdict ? <p className="mt-1 px-0.5 text-[12px] text-ink-faint">Summary: {verdict}</p> : null}
       <ol className="mt-2 grid gap-2">
         {shown.map((flag, index) => {
           const line = noteLineFor(flag);
           const added = !!note && note.split("\n").some((existing) => existing.trim().replace(/^[-•]\s*/, "") === line);
           return (
-            <li key={flag.id} data-flag={flag.id} className="rounded-lg border border-line bg-raised px-3 py-2.5 [overflow-wrap:anywhere]">
-              <p className="flex items-baseline gap-2">
+            <li key={flag.id} data-flag={flag.id} data-opinion={flag.opinion ? "true" : "false"} className="rounded-lg border border-line bg-raised px-3 py-2.5 [overflow-wrap:anywhere]">
+              <p className="flex flex-wrap items-baseline gap-2">
                 <span className="shrink-0 font-mono text-[10.5px] text-ink-faint tnum">{String(index + 1).padStart(2, "0")}</span>
-                <span className="min-w-0">
-                  {flag.section ? (
-                    <span className="mr-1.5 rounded bg-panel px-1.5 py-px font-mono text-[10.5px] tracking-[0.04em] text-ink-dim uppercase ring-1 ring-line">{flag.section}</span>
-                  ) : null}
-                  <span className="text-ink">{flag.issue}</span>
-                </span>
+                {flag.section ? (
+                  <span className="rounded bg-panel px-1.5 py-px font-mono text-[10.5px] tracking-[0.04em] text-ink-dim uppercase ring-1 ring-line">{flag.section}</span>
+                ) : null}
+                {flag.opinion ? (
+                  <span className="rounded bg-panel px-1.5 py-px font-mono text-[10.5px] tracking-[0.04em] text-ink-dim uppercase ring-1 ring-line">Opinion</span>
+                ) : flag.evidence ? (
+                  <span className="rounded bg-panel px-1.5 py-px font-mono text-[10.5px] tracking-[0.04em] text-ok uppercase ring-1 ring-line">Evidence</span>
+                ) : null}
+                {flag.confidence ? (
+                  <span className="font-mono text-[10.5px] tracking-[0.04em] text-ink-faint uppercase">{flag.confidence}</span>
+                ) : null}
               </p>
+              {flag.claim ? (
+                <p className="mt-1.5 pl-[26px] text-[12.5px]">
+                  <span className="font-mono text-[10.5px] tracking-[0.06em] text-ink-faint uppercase">Claim</span>{" "}
+                  <span className="text-ink">{flag.claim}</span>
+                </p>
+              ) : null}
+              <p className={`pl-[26px] text-ink ${flag.claim ? "mt-1" : "mt-1.5"}`}>
+                {flag.claim ? (
+                  <>
+                    <span className="font-mono text-[10.5px] tracking-[0.06em] text-ink-faint uppercase">Objection</span> {flag.issue}
+                  </>
+                ) : (
+                  flag.issue
+                )}
+              </p>
+              {flag.evidence ? (
+                <p className="mt-1 pl-[26px] text-[12.5px] text-ink-dim">
+                  <span className="font-mono text-[10.5px] tracking-[0.06em] text-ink-faint uppercase">{flag.opinion ? "Opinion" : "Evidence"}</span> {flag.evidence}
+                </p>
+              ) : null}
               <div className="mt-1.5 flex flex-wrap items-end justify-between gap-x-3 gap-y-1.5 pl-[26px]">
                 {flag.fix ? (
                   <p className="min-w-0 flex-1 basis-[12rem] text-[12.5px]">

@@ -1,18 +1,29 @@
 /*
   Critique flags and before/after, derived from text Ariadne already has. Pure and
-  deterministic: no model is called, nothing is stored. The knot shows Odysseus's
-  review as discrete flags; a re-spun draft is compared with the version before it.
+  deterministic: no model is called, nothing is stored. The knot shows Daedalus's
+  challenge as discrete disputes; a re-spun draft is compared with the version before it.
 
   Everything here is a heuristic over plain text, so the UI labels it as such
-  ("looks addressed" / "not yet"), never as a verdict.
+  ("looks addressed" / "not yet"), never as a verdict. Points without a source in
+  the draft are labelled Opinion — the Worker does not search the web on the free plan.
 */
+
+export type DisputeConfidence = "high" | "medium" | "low";
 
 export type CritiqueFlag = {
   /** Stable within one review: "f1", "f2", ... */
   id: string;
   /** What part of the work the flag is about ("Hero", "Pricing"), when the review says. */
   section: string | null;
+  /** The claim under challenge, when the dispute names one. */
+  claim: string | null;
+  /** What is wrong (objection). Always present. */
   issue: string;
+  /** Quote/citation from the draft, when given. */
+  evidence: string | null;
+  /** True when the point rests on the challenger's knowledge, not a source in the draft. */
+  opinion: boolean;
+  confidence: DisputeConfidence | null;
   /** The suggested fix, when the review gives one. */
   fix: string | null;
 };
@@ -96,7 +107,107 @@ export function parseFlagText(raw: string, fallbackSection: string | null = null
   }
   if (!issue) return null;
   if (fix) fix = fix.charAt(0).toUpperCase() + fix.slice(1);
-  return { section: section ?? fallbackSection, issue, fix: fix || null };
+  return {
+    section: section ?? fallbackSection,
+    claim: null,
+    issue,
+    evidence: null,
+    opinion: false,
+    confidence: null,
+    fix: fix || null,
+  };
+}
+
+const FIELD_LINE =
+  /^(?:\*\*|__)?(claim|objection|issue|problem|evidence|opinion|confidence|suggested fix|proposed fix|fix|suggestion)(?:\*\*|__)?\s*[:—–]\s*(.*)$/i;
+const CONFIDENCE = /\b(high|medium|low)\b/i;
+
+function parseConfidence(raw: string): DisputeConfidence | null {
+  const match = raw.match(CONFIDENCE);
+  return match ? (match[1].toLowerCase() as DisputeConfidence) : null;
+}
+
+/**
+ * One atomic dispute from a multi-line list item that already carries Claim /
+ * Objection / Evidence|Opinion / Confidence / Fix lines (the Challenge prompt shape).
+ */
+export function parseAtomicDispute(raw: string, fallbackSection: string | null = null): Omit<CritiqueFlag, "id"> | null {
+  const lines = raw
+    .replace(/\r\n?/g, "\n")
+    .split(/\n|(?:;\s+)(?=(?:\*\*|__)?(?:claim|objection|issue|problem|evidence|opinion|confidence|suggested fix|proposed fix|fix|suggestion)\b)/i)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (lines.length === 0) return null;
+
+  let claim: string | null = null;
+  let issue = "";
+  let evidence: string | null = null;
+  let opinion = false;
+  let confidence: DisputeConfidence | null = null;
+  let fix: string | null = null;
+  let section: string | null = fallbackSection;
+  let sawField = false;
+  const loose: string[] = [];
+
+  for (const line of lines) {
+    const field = line.match(FIELD_LINE);
+    if (!field) {
+      loose.push(line);
+      continue;
+    }
+    sawField = true;
+    const key = field[1].toLowerCase();
+    const value = tidy(field[2]);
+    if (key === "claim") claim = value || null;
+    else if (key === "objection" || key === "issue" || key === "problem") issue = value;
+    else if (key === "evidence") {
+      evidence = value || null;
+      opinion = false;
+    } else if (key === "opinion") {
+      opinion = true;
+      evidence = value || null;
+    } else if (key === "confidence") confidence = parseConfidence(value);
+    else if (key === "fix" || key === "suggested fix" || key === "proposed fix" || key === "suggestion") {
+      fix = value ? value.charAt(0).toUpperCase() + value.slice(1) : null;
+    }
+  }
+
+  if (!sawField) return null;
+
+  // A bold/plain section label above the fields ("**Price table**") names the part of the work.
+  for (const line of loose) {
+    const bold = line.match(/^(?:\*\*|__)([^*_]{1,60}?)(?:\*\*|__)$/);
+    const label = bold ? bold[1].replace(/[:\s]+$/, "").trim() : plain(line).replace(/[:\s]+$/, "");
+    if (looksLikeSection(label) && !ISSUE_LABEL.test(`${label}:`) && !FIX_WORD.test(label)) {
+      section = label; // local label beats a generic heading above the list
+      break;
+    }
+  }
+
+  if (!issue && claim) {
+    // Claim alone with other fields still counts; objection may be missing on a sloppy model.
+    const leftover = loose.find((line) => {
+      const bold = line.match(/^(?:\*\*|__)([^*_]{1,60}?)(?:\*\*|__)$/);
+      const label = bold ? bold[1] : plain(line);
+      return !looksLikeSection(label.replace(/[:\s]+$/, ""));
+    });
+    issue = leftover ? tidy(leftover) : "Challenged without a stated objection.";
+  }
+  if (!issue) {
+    const legacy = parseFlagText(raw, fallbackSection);
+    return legacy;
+  }
+  // A dispute that never named Evidence is Opinion unless it already set opinion from the Opinion: line.
+  if (!evidence && !opinion) opinion = true;
+  return {
+    section,
+    claim,
+    issue,
+    evidence,
+    opinion,
+    confidence,
+    fix: fix || null,
+  };
 }
 
 type Item = { indent: number; text: string; heading: string | null };
@@ -146,7 +257,8 @@ export function parseCritique(text: string | null | undefined): Critique {
     const last = items.at(-1);
     if (last && /^\s{2,}/.test(line)) {
       // A wrapped or indented continuation of the point above.
-      last.text += ` ${trimmed}`;
+      // Keep a newline so atomic Claim/Objection/Evidence lines stay parseable.
+      last.text += `\n${trimmed}`;
       continue;
     }
     loose.push({ text: trimmed, heading });
@@ -157,8 +269,14 @@ export function parseCritique(text: string | null | undefined): Critique {
   const base = items.length > 0 ? Math.min(...items.map((item) => item.indent)) : 0;
   for (const item of items) {
     const parent = top.at(-1);
-    if (parent && item.indent > base) parent.text += `; ${item.text}`;
-    else top.push({ ...item });
+    if (parent && item.indent > base) {
+      // Field-shaped nested bullets ("- Objection: ...") keep a newline for atomic parse;
+      // other nested notes still fold with a semicolon.
+      const glue = /^(?:\*\*|__)?(claim|objection|issue|problem|evidence|opinion|confidence|suggested fix|proposed fix|fix|suggestion)\b/i.test(item.text.trim())
+        ? "\n"
+        : "; ";
+      parent.text += `${glue}${item.text}`;
+    } else top.push({ ...item });
   }
 
   const sectionFrom = (value: string | null) => (value && !GENERIC.test(value) && !NOT_FLAGS.test(value) && looksLikeSection(value) ? value : null);
@@ -170,7 +288,8 @@ export function parseCritique(text: string | null | undefined): Critique {
 
   const flags: CritiqueFlag[] = [];
   for (const item of candidates.slice(0, MAX_FLAGS)) {
-    const parsed = parseFlagText(item.text, sectionFrom(item.heading));
+    const section = sectionFrom(item.heading);
+    const parsed = parseAtomicDispute(item.text, section) ?? parseFlagText(item.text, section);
     if (parsed) flags.push({ id: `f${flags.length + 1}`, ...parsed });
   }
   return { verdict, flags, prose: source.trim() };
@@ -190,7 +309,7 @@ export function critiqueOf(text: string): Critique {
 
 /** The line "Add to note" appends: the fix when there is one, else the issue to address. */
 export function noteLineFor(flag: CritiqueFlag): string {
-  const where = flag.section ? `${flag.section}: ` : "";
+  const where = flag.section ? `${flag.section}: ` : flag.claim ? `Re “${flag.claim.replace(/[.]$/, "")}”: ` : "";
   return flag.fix ? `${where}${flag.fix.replace(/\.?$/, ".")}` : `${where}address “${flag.issue.replace(/[.]$/, "")}”.`;
 }
 

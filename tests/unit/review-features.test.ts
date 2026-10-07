@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { attributionFor, attributionLine, isReviewStep, loopHands, stepPhase } from "../../lib/attribution";
 import { appendToNote, compareVersions, markAddressed, noteLineFor, parseCritique } from "../../lib/critique";
+import { parseFinalArtifact } from "../../lib/final-artifact";
 import { carriedNoun } from "../../lib/thread";
 import type { AgentDTO, ProjectDTO, TaskDTO, TaskRunDTO } from "../../lib/types";
 import { critiqueBetween, mayHaveEarlierVersion, versionsOf } from "../../lib/versions";
@@ -22,7 +23,11 @@ test("flags: numbered points with a labelled fix", () => {
   assert.deepEqual(critique.flags[0], {
     id: "f1",
     section: null,
+    claim: null,
     issue: "The call to action is buried below the fold.",
+    evidence: null,
+    opinion: false,
+    confidence: null,
     fix: "Move the signup button into the hero.",
   });
   assert.equal(critique.flags[1].fix, "Add a short pricing line with the monthly price.");
@@ -213,16 +218,15 @@ test("attribution: made by, reviewed by only once the review is spun, tied off b
 
 test("attribution on the Oct 6 thread: Odysseus (Claude) drafts, Daedalus (GPT) challenges", () => {
   const legacy = project({ research: "done", draft: "done", review: "done", approve: "done", build: "done" });
-  // The starter thread from lib/starter-thread.ts: same five steps, roles swapped, Challenge titles.
+  // New starter: Draft → Challenge → Judge → Tie Off writeup (research folded into Draft).
   const current: ProjectDTO = {
     ...legacy,
     agents: [agent("ody", "Odysseus", "anthropic"), agent("dae", "Daedalus", "openai"), agent("you", "You", "human")],
     tasks: [
-      task("research", "ody", "Research the brief", [], "done"),
-      task("draft", "ody", "Draft the answer", ["research"], "done"),
+      task("draft", "ody", "Draft the answer", [], "done"),
       task("review", "dae", "Challenge the draft", ["draft"], "done"),
       task("approve", "you", "Judge the draft", ["review"], "done"),
-      task("build", "ody", "Write the final version", ["approve"], "done"),
+      task("build", "ody", "Write the tied-off answer", ["approve"], "done"),
     ],
   };
   const byId = (id: string) => current.tasks.find((item) => item.id === id) as TaskDTO;
@@ -232,12 +236,12 @@ test("attribution on the Oct 6 thread: Odysseus (Claude) drafts, Daedalus (GPT) 
   assert.equal(attributionFor(byId("draft"), current).tiedOff, true);
   assert.equal(attributionLine(attributionFor(byId("draft"), current)), "Made by Claude · Odysseus — Challenged by GPT · Daedalus · tied off by You");
   // Where each step sits in the loop: labelled only when the graph says so.
-  assert.deepEqual(current.tasks.map((item) => stepPhase(item, current)), [null, "draft", "challenge", "judge", null]);
+  assert.deepEqual(current.tasks.map((item) => stepPhase(item, current)), ["draft", "challenge", "judge", null]);
   assert.deepEqual(loopHands(current), { drafter: "Odysseus", challenger: "Daedalus" });
   assert.deepEqual(loopHands(legacy), { drafter: "Daedalus", challenger: "Odysseus" }, "older projects keep their own roles");
   assert.equal(carriedNoun(byId("review"), current.agents), "challenge");
   assert.equal(carriedNoun(byId("approve"), current.agents), "approved draft");
-  // The shape the Challenge instructions ask for still splits into flags for the knot.
+  // Legacy Challenge shape still splits into flags for the knot.
   const challenge = parseCritique(
     [
       "Verdict: two claims don't hold up.",
@@ -248,6 +252,33 @@ test("attribution on the Oct 6 thread: Odysseus (Claude) drafts, Daedalus (GPT) 
   assert.equal(challenge.verdict, "two claims don't hold up.");
   assert.equal(challenge.flags.length, 2);
   assert.ok(challenge.flags.every((flag) => flag.fix));
+});
+
+test("atomic disputes: Claim / Objection / Evidence|Opinion / Confidence / Fix", () => {
+  const critique = parseCritique(
+    [
+      "1. Claim: Montreal has ten strong pre-seed AI funds.",
+      "   Objection: unsupported — the draft lists firms without saying why they are pre-seed.",
+      "   Opinion: most named firms are known for Series A, not pre-seed.",
+      "   Confidence: medium",
+      "   Fix: keep only funds with a clear pre-seed thesis.",
+      "",
+      "2. Claim: Fund X led the last three AI rounds in the city.",
+      "   Objection: contradicted by the draft's own table.",
+      "   Evidence: \"Fund X participated in 1 of 3 rounds\" in the draft table.",
+      "   Confidence: high",
+      "   Fix: say participated, not led.",
+    ].join("\n"),
+  );
+  assert.equal(critique.flags.length, 2);
+  assert.equal(critique.flags[0].claim, "Montreal has ten strong pre-seed AI funds.");
+  assert.match(critique.flags[0].issue, /unsupported/i);
+  assert.equal(critique.flags[0].opinion, true);
+  assert.equal(critique.flags[0].confidence, "medium");
+  assert.match(critique.flags[0].fix ?? "", /pre-seed thesis/);
+  assert.equal(critique.flags[1].opinion, false);
+  assert.match(critique.flags[1].evidence ?? "", /participated in 1 of 3/);
+  assert.equal(critique.flags[1].confidence, "high");
 });
 
 function run(attempt: number, outcome: string, output: string | null, startedAt: string, completedAt: string): TaskRunDTO {
@@ -306,4 +337,28 @@ test("bounds: small comparisons are unchanged by the caps", () => {
   assert.equal(comparison.same, 3);
   assert.equal(comparison.changed, 1);
   assert.equal(comparison.added, 1);
+});
+
+test("final artifact: Answer / Sources / Disagreements / Attention", () => {
+  const artifact = parseFinalArtifact(
+    [
+      "## Answer",
+      "Hire locally first.",
+      "",
+      "## Sources",
+      "The draft's market table.",
+      "",
+      "## Disagreements",
+      "None.",
+      "",
+      "## Attention required",
+      "Confirm Fund X's latest cheque size.",
+    ].join("\n"),
+  );
+  assert.equal(artifact.structured, true);
+  assert.match(artifact.answer, /Hire locally/);
+  assert.match(artifact.sources ?? "", /market table/);
+  assert.equal(artifact.disagreements, "None.");
+  assert.match(artifact.attention ?? "", /Fund X/);
+  assert.equal(parseFinalArtifact("Just a plain answer.").structured, false);
 });
