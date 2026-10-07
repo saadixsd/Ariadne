@@ -13,8 +13,8 @@ import type { ProjectDTO, TaskDTO, TaskRunDTO } from "@/lib/types";
 /* ---------- attribution ---------- */
 
 /**
- * "Made by GPT · Daedalus — Reviewed by Claude · Odysseus". Built from the agent and
- * task graph (lib/attribution.ts); never names a reviewer that has not spun.
+ * "Made by Claude · Odysseus — Challenged by GPT · Daedalus". Built from the agent and
+ * task graph (lib/attribution.ts); never names a challenger that has not spun.
  */
 export function AttributionLine({ attribution, tone = "paper", className = "" }: { attribution: AttributionData; tone?: "paper" | "ink"; className?: string }) {
   const { madeBy } = attribution;
@@ -34,15 +34,15 @@ export function AttributionLine({ attribution, tone = "paper", className = "" }:
       {attribution.reviews ? (
         <>
           {" "}
-          — Reviewing <b className={strong}>{handText(attribution.reviews)}</b>
+          — Challenging <b className={strong}>{handText(attribution.reviews)}</b>
         </>
       ) : attribution.reviewedBy ? (
         <>
           {" "}
-          — Reviewed by <b className={strong}>{handText(attribution.reviewedBy)}</b>
+          — Challenged by <b className={strong}>{handText(attribution.reviewedBy)}</b>
         </>
       ) : attribution.reviewPending ? (
-        <> — review by {handText(attribution.reviewPending)} not spun yet</>
+        <> — challenge by {handText(attribution.reviewPending)} not spun yet</>
       ) : null}
       {attribution.tiedOff ? <> · tied off by You</> : null}
     </p>
@@ -65,8 +65,8 @@ export function RunCost({ className = "" }: { className?: string }) {
 const FLAGS_SHOWN = 6;
 
 /**
- * Odysseus's review as discrete flags: what part, what's wrong, the suggested fix, and
- * a one-tap "Add to note". When no flags parse out, the review is shown as written.
+ * The challenger's points as discrete challenges: what part, what's wrong, the suggested
+ * fix, and a one-tap "Add to note". When none parse out, the challenge is shown as written.
  */
 export function CritiqueFlags({
   critique,
@@ -88,10 +88,10 @@ export function CritiqueFlags({
   if (flags.length === 0) {
     const plan = foldPlan(critique.prose);
     return (
-      <section aria-label="Review" data-critique="prose" className="rounded-xl border border-line bg-tint px-4 py-3.5 text-[13px] leading-normal text-ink-dim">
+      <section aria-label="Challenge" data-critique="prose" className="rounded-xl border border-line bg-tint px-4 py-3.5 text-[13px] leading-normal text-ink-dim">
         <p className="flex items-baseline gap-2">
           <span aria-hidden>⚑</span>
-          <b className="text-ink">{reviewer}&apos;s review</b>
+          <b className="text-ink">{reviewer}&apos;s challenge</b>
         </p>
         <div className={!open && plan.fold ? "fold-fade mt-1.5 max-h-[16rem] overflow-hidden" : "mt-1.5"}>
           <Markdown text={critique.prose} />
@@ -106,15 +106,20 @@ export function CritiqueFlags({
   }
 
   return (
-    <section aria-label="Review flags" data-critique="flags" className="rounded-xl border border-line bg-tint px-3.5 py-3 text-[13px] leading-normal text-ink-dim">
+    <section aria-label="Challenges" data-critique="flags" className="rounded-xl border border-line bg-tint px-3.5 py-3 text-[13px] leading-normal text-ink-dim">
       <p className="flex items-baseline gap-2 px-0.5">
         <span aria-hidden className="text-thread">
           ⚑
         </span>
         <b className="text-ink">
-          {reviewer} flagged {flags.length} {flags.length === 1 ? "point" : "points"}
+          {reviewer} raised {flags.length} {flags.length === 1 ? "challenge" : "challenges"}
         </b>
       </p>
+      {onAdd ? (
+        <p className="mt-0.5 px-0.5 text-[12px] text-ink-faint" data-judge-hint>
+          A second opinion, not a verdict. Add the ones you agree with to your note.
+        </p>
+      ) : null}
       {verdict ? <p className="mt-1 px-0.5 text-ink">Verdict: {verdict}</p> : null}
       <ol className="mt-2 grid gap-2">
         {shown.map((flag, index) => {
@@ -144,7 +149,7 @@ export function CritiqueFlags({
                     type="button"
                     disabled={added}
                     onClick={() => onAdd(line)}
-                    aria-label={added ? `Flag ${index + 1} is in your note` : `Add flag ${index + 1} to your note`}
+                    aria-label={added ? `Challenge ${index + 1} is in your note` : `Add challenge ${index + 1} to your note`}
                     className={`rt-btn h-7 shrink-0 px-2.5 text-xs ${added ? "rt-btn-ghost text-ok" : ""}`}
                   >
                     {added ? "In your note ✓" : "Add to note"}
@@ -157,7 +162,7 @@ export function CritiqueFlags({
       </ol>
       {flags.length > FLAGS_SHOWN ? (
         <button type="button" aria-expanded={open} onClick={() => setOpen((value) => !value)} className="touch-pad mt-2 text-xs font-[560] text-thread hover:text-thread-bright">
-          {open ? "Fold it back" : `Show ${hidden} more ${hidden === 1 ? "flag" : "flags"}`}
+          {open ? "Fold it back" : `Show ${hidden} more ${hidden === 1 ? "challenge" : "challenges"}`}
         </button>
       ) : null}
     </section>

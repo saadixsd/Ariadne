@@ -7,7 +7,7 @@ import { OutputView } from "@/components/OutputView";
 import { Monogram } from "@/components/ThreadBits";
 import { useFresh } from "@/components/use-fresh";
 import { useClocks, useNow } from "@/components/use-now";
-import { attributionFor, handText } from "@/lib/attribution";
+import { PHASE_LABEL, attributionFor, handText, loopHands, runVerb, stepPhase } from "@/lib/attribution";
 import { hideModelIds } from "@/lib/model-label";
 import { canRunTask, dependenciesMet, taskNumber } from "@/lib/task-rules";
 import {
@@ -197,6 +197,10 @@ export function TaskColumn({
     setPeek({ taskId, left, top: rect.top / zoom - 6 });
   }
 
+  // Before anything has run: one line on what this thread does and where to start.
+  const untouched = tasks.length > 0 && events.length === 0 && tasks.every((task) => task.status === "pending");
+  const hands = untouched ? loopHands(project) : null;
+
   const peekTask = peek ? tasks.find((task) => task.id === peek.taskId) : undefined;
   const peekCarried = peekTask ? carriedInto(peekTask, project) : null;
   const peekData = peekCarried ? peekLines(peekCarried) : null;
@@ -204,6 +208,20 @@ export function TaskColumn({
   return (
     <section id="workflow" aria-label="The thread" className="flex min-h-0 flex-col">
       <div className="min-h-0 flex-1 overflow-y-auto pr-1" onScroll={() => setPeek(null)}>
+        {untouched ? (
+          <div data-orientation className="mb-4 ml-[78px] rounded-[14px] border border-line bg-raised/70 px-4 py-3 text-[13.5px] leading-snug text-ink-dim">
+            <p className="eyebrow text-[10.5px]">How this thread works</p>
+            <p className="mt-1 text-ink">
+              {hands
+                ? `${hands.drafter} drafts, ${hands.challenger} tries to break the draft, and you judge at the knot.`
+                : "Each step runs when you press its button. A step that waits for you opens a knot where you decide."}
+            </p>
+            <p className="mt-1">
+              Nothing runs on its own. Start with step 1: press{" "}
+              {isHumanTask(tasks[0], agents) ? "Open the knot" : runVerb(stepPhase(tasks[0], project))}.
+            </p>
+          </div>
+        ) : null}
         <div ref={spool} className="relative pt-1.5 pb-2">
           <svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" aria-hidden>
             {segments.map((segment) => (
@@ -243,6 +261,7 @@ export function TaskColumn({
               const runnable = canRunTask(task, tasks);
               const busy = state === "spinning";
               const human = agent?.provider === "human";
+              const phase = stepPhase(task, project);
               const summary = state === "spun" ? outputGist(task, agents) : null;
               const rawError = task.status === "failed" ? failureReason(task.id, events) : null;
               const errorText = rawError ? hideModelIds(rawError) : null;
@@ -303,6 +322,11 @@ export function TaskColumn({
                         </button>
                       </h3>
                       <p className={`mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[12.5px] ${state === "unspun" ? "text-ink-faint" : "text-ink-dim"}`}>
+                        {phase ? (
+                          <span data-phase={phase} className={`rounded px-1.5 py-px font-mono text-[10.5px] tracking-[0.06em] uppercase ring-1 ${phase === "judge" ? "bg-gate-bg text-gate-ink ring-gate-line" : "bg-panel text-thread ring-line"}`}>
+                            {PHASE_LABEL[phase]}
+                          </span>
+                        ) : null}
                         <span className="inline-flex items-center gap-1.5">
                           <Monogram tone={tone} dim={state === "unspun"} />
                           {tone.name}
@@ -316,11 +340,11 @@ export function TaskColumn({
                           <span data-attribution-chip className="text-[11.5px] text-ink-faint">
                             {attribution.reviewedBy ? (
                               <>
-                                reviewed by <b className="font-semibold text-ink-dim">{handText(attribution.reviewedBy)}</b>
+                                challenged by <b className="font-semibold text-ink-dim">{handText(attribution.reviewedBy)}</b>
                               </>
                             ) : attribution.reviews ? (
                               <>
-                                reviewing <b className="font-semibold text-ink-dim">{handText(attribution.reviews)}</b>
+                                challenging <b className="font-semibold text-ink-dim">{handText(attribution.reviews)}</b>
                               </>
                             ) : null}
                           </span>
@@ -342,7 +366,7 @@ export function TaskColumn({
                           <span className="font-mono text-[11.5px] text-ink-faint">
                             {human
                               ? `ready · packages ${carriedInto(task, project).arrived.length} inputs for you`
-                              : `ready · nothing runs until you press Run`}
+                              : `ready · nothing runs until you press ${runVerb(phase)}`}
                           </span>
                         ) : null}
                         {state === "unspun" ? (
@@ -363,7 +387,7 @@ export function TaskColumn({
                     <div className="flex items-start gap-1.5">
                       {state === "knot" ? (
                         <button type="button" onClick={() => onTieOff(task.id)} className="rt-btn rt-btn-knot">
-                          Tie off →
+                          Judge →
                         </button>
                       ) : state === "spun" ? (
                         <>
@@ -389,7 +413,7 @@ export function TaskColumn({
                           }
                           className={`rt-btn gap-1 ${runnable && !busy ? "rt-btn-thread" : "rt-btn-ghost"}`}
                         >
-                          {busy ? "Spinning…" : task.status === "failed" ? "Respin" : human && runnable ? "Open the knot" : "Run"}
+                          {busy ? "Spinning…" : task.status === "failed" ? "Respin" : human ? "Open the knot" : runVerb(phase)}
                           {busy || human ? null : <RunCost />}
                         </button>
                       )}
@@ -473,7 +497,7 @@ export function TaskColumn({
                               ? "Nothing to decide yet. This gate opens when the steps before it are spun."
                               : index === 0 && agent
                                 ? `Run step 1 to see ${agent.name} think.`
-                                : "No output yet. Press Run when you want this step to work."}
+                                : `No output yet. Press ${runVerb(phase)} when you want this step to work.`}
                           </p>
                         ) : null}
                       </div>

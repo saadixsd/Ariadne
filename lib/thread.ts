@@ -339,7 +339,7 @@ export function beadText(carried: Carried, project: ProjectDTO): BeadText {
       ? "on approval"
       : blocker
         ? `when ${taskNumber(blocker.id, project.tasks)} is spun`
-        : "when you press Run";
+        : `when you start ${taskNumber(carried.target.id, project.tasks)}`;
     const noun = carried.human
       ? "Everything spun upstream"
       : list.length === 1

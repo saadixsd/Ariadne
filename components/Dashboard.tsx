@@ -92,7 +92,7 @@ function HeroStatus({ data }: { data: ProjectDTO }) {
   } else if (total > 0 && done === total) {
     line = <span>Every step is spun</span>;
   } else if (done === 0 && data.events.length === 0) {
-    line = <span>Nothing runs until you press Run.</span>;
+    line = <span>Nothing runs until you press a step&apos;s button.</span>;
   } else {
     line = <span>The thread is ready for the next step</span>;
   }
@@ -552,7 +552,7 @@ export function Dashboard({
                 onClick={() => setContextOpen(true)}
                 className="text-xs font-semibold whitespace-nowrap text-thread underline decoration-1 underline-offset-[3px] hover:text-thread-bright"
               >
-                The thread every agent reads · edit
+                Edit the brief every step reads
               </button>
             </div>
           </div>

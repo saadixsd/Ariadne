@@ -46,7 +46,7 @@ function nextAction(project: ProjectDTO): NextAction {
           {unlock ? ` Approving lets ${who(unlock)} ${lowerFirst(unlock.title)}.` : " Approving finishes the thread."}
         </>
       ),
-      action: { label: "Review →", taskId: waiting.id, kind: "review" },
+      action: { label: "Judge →", taskId: waiting.id, kind: "review" },
     };
   }
   const running = tasks.find((task) => task.status === "running");

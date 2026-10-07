@@ -6,7 +6,7 @@ import { AttributionLine, CritiqueFlags, RunCost, StepVersions, VersionsButton, 
 import { OutputView } from "@/components/OutputView";
 import { ContextBar, Monogram } from "@/components/ThreadBits";
 import { useClocks, useNow } from "@/components/use-now";
-import { attributionFor, reviewStepFor } from "@/lib/attribution";
+import { attributionFor, reviewStepFor, runVerb, stepPhase } from "@/lib/attribution";
 import { latestChangeNote } from "@/lib/change-notes";
 import { appendToNote } from "@/lib/critique";
 import { MAX_NOTE_CHARS } from "@/lib/limits";
@@ -156,7 +156,7 @@ function KnotBody({
 
   const reviewer = knot.reviewers.find((item) => item.output) ?? null;
   const critique = useCritique(reviewer?.output);
-  const reviewerName = agentOf(reviewer ?? undefined, agents)?.name ?? "The reviewer";
+  const reviewerName = agentOf(reviewer ?? undefined, agents)?.name ?? "The challenger";
   const judged = knot.artifact?.output ? knot.artifact : null;
   const respun = !!judged && mayHaveEarlierVersion(judged, project);
   const [view, setView] = useState<"latest" | "compare">("compare");
@@ -217,7 +217,7 @@ function KnotBody({
         <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[#f0ddb0] bg-[linear-gradient(180deg,#fcf1d6,#fbf6ea)] px-4 pt-3 pb-2.5 sm:px-6 sm:pt-4 sm:pb-3">
           <div className="min-w-0">
             <p className="eyebrow text-gate-ink">
-              ● The knot · step {number} of {total}
+              ● Judge · the knot · step {number} of {total}
               <span className="ml-2 font-mono text-[11px] tracking-normal normal-case tnum max-sm:hidden">
                 {clock(knot.openedAt) ? `opened ${clock(knot.openedAt)}` : null}
                 <Waited openedAt={knot.openedAt} />
@@ -226,7 +226,10 @@ function KnotBody({
             <h2 id="knot-title" className="mt-1 font-serif text-[24px] leading-[1.05] sm:text-[30px]">
               {task.title}
             </h2>
-            <p className="mt-0.5 text-[12.5px] text-ink-dim max-sm:hidden" data-knot-sub>Nothing moves past here until you decide.</p>
+            <p className="mt-0.5 text-[12.5px] text-ink-dim" data-knot-sub>
+              You decide what survives.
+              <span className="max-sm:hidden"> Review each challenge and decide whether it should change the answer.</span>
+            </p>
           </div>
           <button type="button" onClick={onClose} className="rt-btn rt-btn-ghost h-8 shrink-0 px-2.5 text-xs" aria-label="Close the knot">
             Close ✕
@@ -336,7 +339,7 @@ function KnotBody({
                   onClick={() => void submit(true)}
                   className="rt-btn rt-btn-knot h-10 flex-1 px-4 text-sm whitespace-nowrap"
                 >
-                  {busy === "approve" ? "Tying off…" : "Tie off (Approve)"}
+                  {busy === "approve" ? "Tying off…" : "Tie Off"}
                 </button>
                 <button type="button" disabled={busy !== null} onClick={() => void submit(false)} className="rt-btn h-10 flex-1 px-4 text-sm whitespace-nowrap">
                   {busy === "changes" ? "Sending back…" : "Ask for changes"}
@@ -352,7 +355,7 @@ function KnotBody({
                     for {unlockAgent?.name ?? "the next step"}
                   </>
                 ) : (
-                  "↳ Tying off marks this step done."
+                  "↳ Tie Off approves this version as your answer."
                 )}
               </p>
             </div>
@@ -396,14 +399,14 @@ function KnotSummary({ knot, project, onOpen }: { knot: Knot; project: ProjectDT
   const { clock } = useClocks();
   const reviewer = knot.reviewers.find((item) => item.output);
   const flagCount = useCritique(reviewer?.output)?.flags.length ?? 0;
-  const reviewerName = agentOf(reviewer, project.agents)?.name ?? "the reviewer";
+  const reviewerName = agentOf(reviewer, project.agents)?.name ?? "the challenger";
   const artifactAgent = agentOf(knot.artifact ?? undefined, project.agents);
   return (
     <>
       <div className="border-b border-[#f0ddb0] bg-[linear-gradient(180deg,#fcf1d6,#fbf6ea)] px-5 pt-4 pb-3.5">
         <div className="flex items-center justify-between gap-3">
           <p className="eyebrow text-gate-ink">
-            ● The knot · step {taskNumber(knot.task.id, project.tasks)} of {project.tasks.length}
+            ● Judge · the knot · step {taskNumber(knot.task.id, project.tasks)} of {project.tasks.length}
           </p>
           <p className="font-mono text-[11.5px] text-gate-ink tnum">
             {clock(knot.openedAt) ? `opened ${clock(knot.openedAt)}` : null}
@@ -413,12 +416,12 @@ function KnotSummary({ knot, project, onOpen }: { knot: Knot; project: ProjectDT
         <h2 id="knot-title-card" className="mt-1.5 font-serif text-[30px] leading-[1.05]">
           {knot.task.title}
         </h2>
-        <p className="mt-1 text-[13px] text-ink-dim">Nothing moves past here until you decide.</p>
+        <p className="mt-1 text-[13px] text-ink-dim">You decide what survives. Nothing moves on until you do.</p>
       </div>
       <div className="grid content-start gap-3 px-5 py-4">
         <p className="text-[13px] leading-normal text-ink-dim">
           {knot.artifact?.output ? `${artifactAgent?.name ?? "The hands"}’s work is ready for you to judge` : "The work upstream is ready for you"}
-          {flagCount > 0 ? `, with ${flagCount} ${flagCount === 1 ? "flag" : "flags"} from ${reviewerName}.` : "."}
+          {flagCount > 0 ? `, with ${flagCount} ${flagCount === 1 ? "challenge" : "challenges"} from ${reviewerName}.` : "."}
         </p>
         <button type="button" onClick={onOpen} className="rt-btn rt-btn-knot h-10 text-sm">
           Open the knot
@@ -427,6 +430,11 @@ function KnotSummary({ knot, project, onOpen }: { knot: Knot; project: ProjectDT
     </>
   );
 }
+/** The name of the hand that challenges this draft step, if the thread has one. */
+function challengerOf(task: TaskDTO, project: ProjectDTO): string | null {
+  return agentOf(reviewStepFor(task, project) ?? undefined, project.agents)?.name ?? null;
+}
+
 function SpinningLine({ name, startedAt }: { name: string; startedAt: string | null }) {
   const now = useNow();
   const seconds = since(startedAt, now);
@@ -460,6 +468,8 @@ function StepBody({
   const running = task.status === "running" || pendingId === task.id;
   const runnable = canRunTask(task, project.tasks);
   const failure = failureReason(task.id, project.events);
+  const phase = stepPhase(task, project);
+  const verb = runVerb(phase);
   const eyebrow = running
     ? "Spinning"
     : task.status === "failed"
@@ -478,7 +488,11 @@ function StepBody({
         : runnable
           ? agent?.provider === "human"
             ? "Opening the knot packages earlier work for your decision. No model is called."
-            : `Press Run to call ${tone.name}. Opening the page never does.`
+            : phase === "challenge"
+              ? `${tone.name} will try to find claims that are incorrect, unsupported, outdated, contradictory, or misleading. Press Challenge to start.`
+              : phase === "draft"
+                ? `${tone.name} writes the answer from your brief. Press Draft to start; ${challengerOf(task, project) ?? "a different model"} challenges it next.`
+                : `Press Run to call ${tone.name}. Opening the page never does.`
           : "Locked until the steps it needs are spun.";
 
   return (
@@ -534,7 +548,7 @@ function StepBody({
             onClick={() => onRun(task.id)}
             className="rt-btn rt-btn-thread h-10 gap-1 text-sm"
           >
-            {running ? "Spinning…" : task.status === "failed" ? "Respin" : agent?.provider === "human" ? "Open the knot" : "Run"}
+            {running ? "Spinning…" : task.status === "failed" ? "Respin" : agent?.provider === "human" ? "Open the knot" : verb}
             {running || agent?.provider === "human" ? null : <RunCost />}
           </button>
         )}

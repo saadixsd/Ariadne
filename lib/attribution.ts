@@ -104,16 +104,54 @@ export function attributionFor(task: TaskDTO, project: Pick<ProjectDTO, "tasks" 
   };
 }
 
-/** "Made by GPT · Daedalus — Reviewed by Claude · Odysseus" (plain text, for labels and tests). */
+/** "Made by Claude · Odysseus — Challenged by GPT · Daedalus" (plain text, for labels and tests). */
 export function attributionLine(attribution: Attribution): string | null {
   const { madeBy } = attribution;
   if (!madeBy) return null;
   if (madeBy.human) return "Judged by You";
   const parts = [`Made by ${handText(madeBy)}`];
-  if (attribution.reviews) parts.push(`Reviewing ${handText(attribution.reviews)}`);
-  else if (attribution.reviewedBy) parts.push(`Reviewed by ${handText(attribution.reviewedBy)}`);
-  else if (attribution.reviewPending) parts.push(`Review by ${handText(attribution.reviewPending)} not spun yet`);
+  if (attribution.reviews) parts.push(`Challenging ${handText(attribution.reviews)}`);
+  else if (attribution.reviewedBy) parts.push(`Challenged by ${handText(attribution.reviewedBy)}`);
+  else if (attribution.reviewPending) parts.push(`Challenge by ${handText(attribution.reviewPending)} not spun yet`);
   let line = parts.join(" — ");
   if (attribution.tiedOff) line += " · tied off by You";
   return line;
+}
+
+/* ---------- where a step sits in the loop ---------- */
+
+/**
+ * Draft → Challenge → Judge, read from the graph (not from titles alone): a model step
+ * whose output a critique step reads is a Draft, the critique step is the Challenge, and
+ * a human step is where you Judge. Anything else (research, the final write-up, steps
+ * you added) gets no label rather than a wrong one.
+ */
+export type StepPhase = "draft" | "challenge" | "judge";
+
+export const PHASE_LABEL: Record<StepPhase, string> = { draft: "Draft", challenge: "Challenge", judge: "Judge" };
+
+/** What a model step's run button says: "Draft", "Challenge", or plain "Run" for the rest. */
+export function runVerb(phase: StepPhase | null): string {
+  return phase === "draft" ? "Draft" : phase === "challenge" ? "Challenge" : "Run";
+}
+
+export function stepPhase(task: TaskDTO, project: Pick<ProjectDTO, "tasks" | "agents">): StepPhase | null {
+  const agent = agentFor(task, project.agents);
+  if (!agent) return null;
+  if (agent.provider === "human") return "judge";
+  if (isReviewStep(task, project.agents)) return "challenge";
+  if (reviewStepFor(task, project)) return "draft";
+  return null;
+}
+
+/** Who drafts and who challenges on this thread (from its first critique step), if it has one. */
+export function loopHands(project: Pick<ProjectDTO, "tasks" | "agents">): { drafter: string; challenger: string } | null {
+  const challenge = project.tasks.find((task) => isReviewStep(task, project.agents));
+  if (!challenge) return null;
+  const draft = challenge.dependsOn
+    .map((id) => project.tasks.find((item) => item.id === id))
+    .find((item) => item && agentFor(item, project.agents)?.provider !== "human");
+  const drafter = handLabel(draft ? agentFor(draft, project.agents) : undefined);
+  const challenger = handLabel(agentFor(challenge, project.agents));
+  return drafter && challenger ? { drafter: drafter.name, challenger: challenger.name } : null;
 }
