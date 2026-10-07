@@ -45,7 +45,7 @@ export function startMockLlm(port = 0) {
         role: "assistant",
         model: request.model,
         stop_reason: "end_turn",
-        content: [{ type: "text", text: `Scout mock output #${n}\n- angle one\n- angle two` }],
+        content: [{ type: "text", text: `Claude mock output #${n}\n- angle one\n- angle two` }],
         usage: { input_tokens: 10, output_tokens: 10 },
       });
     }
@@ -55,7 +55,7 @@ export function startMockLlm(port = 0) {
         object: "chat.completion",
         created: Math.floor(Date.now() / 1000),
         model: request.model,
-        choices: [{ index: 0, finish_reason: "stop", message: { role: "assistant", content: `Maker mock output #${n}\nHero line.\nCTA.` } }],
+        choices: [{ index: 0, finish_reason: "stop", message: { role: "assistant", content: `GPT mock output #${n}\nVerdict: mock verdict.\n1. Mock claim one is unsupported. Fix: mock fix one.\n2. Mock claim two is outdated. Fix: mock fix two.` } }],
         usage: { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20 },
       });
     }

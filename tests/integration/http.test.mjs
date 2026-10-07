@@ -269,10 +269,11 @@ test("full HTTP flow: run -> gate -> note cap -> request changes -> history kept
 
   // The board (server-rendered) shows handoffs built from the structured columns. The Red
   // Thread redesign replaced the Activity cards with a ledger that shows the latest entries;
-  // after the full flow the newest handoff is the approved gate handing over to Daedalus.
+  // after the full flow the newest handoff is the approved gate handing over to Odysseus,
+  // who writes the final version.
   const board = await call("GET", `/dashboard?project=${state.projectId}`, { cookie: c });
   assert.equal(board.status, 200);
-  assert.match(board.text, /You → Daedalus · approved direction/, "ledger handoff rendered from fromTaskId/payload");
+  assert.match(board.text, /You → Odysseus · approved draft/, "ledger handoff rendered from fromTaskId/payload");
 
   // Runs are private.
   const stranger = await call("POST", "/api/auth/sign-up", { body: { email: `stranger-${run}@test.dev`, password: "password123", turnstileToken: "pass" }, from: ip(11) });

@@ -140,7 +140,7 @@ describe("3. stuck running recovery", () => {
     const recovery = dto.events.find((e) => e.taskId === p.draft.id && e.payload?.reason === "stuck_run_reclaimed");
     assert.ok(recovery, "recovery event emitted");
     assert.equal(recovery.type, "failed");
-    assert.match(recovery.message, /Recovered "Draft from the brief"/);
+    assert.match(recovery.message, /Recovered "Draft the answer"/);
     assert.equal(recovery.runId, "dead-run-1");
 
     const rows = await runsFor(p.draft.id);
@@ -314,7 +314,8 @@ describe("site-wide daily ceiling and output caps", () => {
     const user = await newUser("token-caps@test.dev");
     const p = await newProject(user.id);
     await agents.runTask(p.research.id, user.id); // Odysseus -> Anthropic
-    await agents.runTask(p.draft.id, user.id); // Daedalus -> OpenAI
+    await agents.runTask(p.draft.id, user.id); // Odysseus (the Drafter) -> Anthropic
+    await agents.runTask(p.review.id, user.id); // Daedalus (the Challenger) -> OpenAI
     assert.equal(mock.state.lastBody.anthropic.max_tokens, limits.MAX_OUTPUT_TOKENS_ANTHROPIC);
     assert.equal(mock.state.lastBody.openai.max_completion_tokens, limits.MAX_OUTPUT_TOKENS_OPENAI);
     assert.equal(limits.MAX_OUTPUT_TOKENS_ANTHROPIC, 8192);
@@ -422,11 +423,11 @@ describe("5. structured events", () => {
     const draftRun = (await runsFor(p.draft.id))[0];
     assert.equal(hand.runId, draftRun.id);
     assert.equal(hand.payload?.fromAgent, "Odysseus");
-    assert.equal(hand.message, 'Handoff: Odysseus handed "Research the brief" to Daedalus', "human-readable message still written");
+    assert.equal(hand.message, 'Handoff: Odysseus handed "Research the brief" to Odysseus', "human-readable message still written");
 
     // Prove the parser ignores the message: garble it and keep the columns.
     const parsed = handoff.handoffFromEvent({ ...hand, message: "garbled" } as typeof hand, dto.tasks, dto.agents);
-    assert.deepEqual(parsed, { fromTaskId: p.research.id, toTaskId: p.draft.id, from: "Odysseus", title: "Research the brief", to: "Daedalus" });
+    assert.deepEqual(parsed, { fromTaskId: p.research.id, toTaskId: p.draft.id, from: "Odysseus", title: "Research the brief", to: "Odysseus" });
     // Columns without payload (e.g. partially backfilled) fall back to task/agent rows.
     const bare = handoff.handoffFromEvent({ ...hand, payload: null }, dto.tasks, dto.agents);
     assert.equal(bare?.from, "Odysseus");

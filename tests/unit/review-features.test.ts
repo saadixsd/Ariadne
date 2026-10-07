@@ -2,8 +2,9 @@
 // fixtures only. No model, no database.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { attributionFor, attributionLine } from "../../lib/attribution";
+import { attributionFor, attributionLine, isReviewStep } from "../../lib/attribution";
 import { appendToNote, compareVersions, markAddressed, noteLineFor, parseCritique } from "../../lib/critique";
+import { carriedNoun } from "../../lib/thread";
 import type { AgentDTO, ProjectDTO, TaskDTO, TaskRunDTO } from "../../lib/types";
 import { critiqueBetween, mayHaveEarlierVersion, versionsOf } from "../../lib/versions";
 
@@ -208,6 +209,40 @@ test("attribution: made by, reviewed by only once the review is spun, tied off b
   assert.equal(attributionFor(byId("research"), judged).reviewedBy, null);
   assert.equal(attributionLine(attributionFor(byId("build"), judged)), "Made by GPT · Daedalus");
   assert.equal(attributionLine(attributionFor(byId("approve"), judged)), "Judged by You");
+});
+
+test("attribution on the Oct 6 thread: Odysseus (Claude) drafts, Daedalus (GPT) challenges", () => {
+  const legacy = project({ research: "done", draft: "done", review: "done", approve: "done", build: "done" });
+  // The starter thread from lib/starter-thread.ts: same five steps, roles swapped, Challenge titles.
+  const current: ProjectDTO = {
+    ...legacy,
+    agents: [agent("ody", "Odysseus", "anthropic"), agent("dae", "Daedalus", "openai"), agent("you", "You", "human")],
+    tasks: [
+      task("research", "ody", "Research the brief", [], "done"),
+      task("draft", "ody", "Draft the answer", ["research"], "done"),
+      task("review", "dae", "Challenge the draft", ["draft"], "done"),
+      task("approve", "you", "Judge the draft", ["review"], "done"),
+      task("build", "ody", "Write the final version", ["approve"], "done"),
+    ],
+  };
+  const byId = (id: string) => current.tasks.find((item) => item.id === id) as TaskDTO;
+  assert.equal(isReviewStep(byId("review"), current.agents), true, "a Challenge step is the critique step");
+  assert.equal(attributionFor(byId("draft"), current).reviewedBy?.name, "Daedalus");
+  assert.equal(attributionFor(byId("review"), current).reviews?.name, "Odysseus");
+  assert.equal(attributionFor(byId("draft"), current).tiedOff, true);
+  assert.equal(carriedNoun(byId("review"), current.agents), "challenge");
+  assert.equal(carriedNoun(byId("approve"), current.agents), "approved draft");
+  // The shape the Challenge instructions ask for still splits into flags for the knot.
+  const challenge = parseCritique(
+    [
+      "Verdict: two claims don't hold up.",
+      "1. The fund is described as leading pre-seed rounds. Outdated: its recent rounds are Series A. Suggested fix: drop it or say so.",
+      "2. The draft cites a report for the market size, but the report gives a different figure. Fix: quote the report's figure.",
+    ].join("\n"),
+  );
+  assert.equal(challenge.verdict, "two claims don't hold up.");
+  assert.equal(challenge.flags.length, 2);
+  assert.ok(challenge.flags.every((flag) => flag.fix));
 });
 
 function run(attempt: number, outcome: string, output: string | null, startedAt: string, completedAt: string): TaskRunDTO {

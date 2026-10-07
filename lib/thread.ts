@@ -103,7 +103,7 @@ export function groupDigits(value: number): string {
 }
 
 const VERBS =
-  /^(research|draft|write|review|build|create|make|approve|design|plan|summari[sz]e|critique|check|edit|outline|test|find|map|collect|gather|compare|analy[sz]e|produce|prepare|polish|revise|rewrite|ship|publish|sign off on|decide on|decide)\s+/i;
+  /^(research|draft|write|review|challenge|judge|build|create|make|approve|design|plan|summari[sz]e|critique|check|edit|outline|test|find|map|collect|gather|compare|analy[sz]e|produce|prepare|polish|revise|rewrite|ship|publish|sign off on|decide on|decide)\s+/i;
 
 /** The object of a step title: "Draft landing page copy" → "landing page copy". */
 export function objectOf(title: string): string {
@@ -131,6 +131,7 @@ function plainText(value: string): string {
 export function carriedNoun(task: TaskDTO, agents: AgentDTO[]): string {
   if (isHumanTask(task, agents)) return `approved ${objectOf(task.title)}`;
   const first = task.title.trim().split(/\s+/)[0]?.toLowerCase() ?? "";
+  if (first === "challenge") return "challenge";
   if (["review", "critique", "check"].includes(first)) return "review";
   const output = task.output ?? "";
   const items = output && !/^#{1,3}\s/m.test(output) ? listItems(output).length : 0;

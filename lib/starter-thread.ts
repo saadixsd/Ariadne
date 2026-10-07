@@ -13,45 +13,55 @@ type TaskSpec = {
 // The starting thread for a project the user names. It carries no content of its
 // own: every step works from the brief the user wrote. (The old example projects
 // and "Reset demo" are gone; nothing here seeds fake data.)
+//
+// Roles (fixed by the founder, Oct 6 2026): Odysseus (Claude) is the Drafter: he
+// researches, drafts and writes the final version. Daedalus (GPT) is the Challenger:
+// he attacks the draft he is handed and never writes an answer of his own. You judge.
+// Same five steps and the same number of model calls as before; only who runs each
+// model step changed (it was Daedalus drafting and Odysseus reviewing).
 const OWN_TASKS: TaskSpec[] = [
   {
     key: "research",
     agent: "Odysseus",
     title: "Research the brief",
     instructions:
-      "Read the shared context. List the goals, constraints, and the questions that have to be answered before anyone builds.",
+      "Read the shared context. List the goals, the constraints, and the questions the answer has to settle. Note what you already know that bears on them, and where you are unsure.",
     dependsOn: [],
     requiresApproval: false,
   },
   {
     key: "draft",
-    agent: "Daedalus",
-    title: "Draft from the brief",
-    instructions: "Using the shared context and the research, draft the work the brief asks for.",
+    agent: "Odysseus",
+    title: "Draft the answer",
+    instructions:
+      "Using the shared context and the research, write what the brief asks for. Lead with the answer. Then give the supporting points, with a source or your reasoning for each, and say plainly where you are unsure.",
     dependsOn: ["research"],
     requiresApproval: false,
   },
   {
     key: "review",
-    agent: "Odysseus",
-    title: "Review the draft",
-    instructions: "Critique the draft against the shared context. Flag anything off-brief and suggest fixes.",
+    agent: "Daedalus",
+    title: "Challenge the draft",
+    instructions:
+      "Try to prove the draft wrong. Do not write your own answer. Start with a one-line Verdict. Then list each problem as a numbered item: the claim, what is wrong with it (incorrect, unsupported, outdated, contradicted, a weak source, missing, or misleading), and a suggested fix. You cannot search the web here, so say when a point rests on your own knowledge rather than on a source in the draft.",
     dependsOn: ["draft"],
     requiresApproval: false,
   },
   {
     key: "approve",
     agent: "You",
-    title: "Approve the direction",
-    instructions: "Read the draft and the review. Approve it, or request changes.",
+    title: "Judge the draft",
+    instructions:
+      "Read the draft and the challenge. Tie it off, or ask for changes: add the challenges you agree with to your note, and Odysseus revises.",
     dependsOn: ["review"],
     requiresApproval: true,
   },
   {
     key: "build",
-    agent: "Daedalus",
-    title: "Produce the work",
-    instructions: "Produce the artifact the shared context asks for, using the approved direction.",
+    agent: "Odysseus",
+    title: "Write the final version",
+    instructions:
+      "Write the final version of the draft the human approved. Lead with the answer. Keep its claims and conclusions as approved; do not add new claims.",
     dependsOn: ["approve"],
     requiresApproval: false,
   },
@@ -70,7 +80,7 @@ export async function createRoster(projectId: string) {
       name: ODYSSEUS,
       provider: "anthropic",
       model: modelFor("anthropic"),
-      role: "Researcher + reviewer. Reads context, investigates, critiques.",
+      role: "The Drafter. Researches the brief, writes the answer and revises it.",
       status: "idle",
     },
   });
@@ -80,7 +90,7 @@ export async function createRoster(projectId: string) {
       name: DAEDALUS,
       provider: "openai",
       model: modelFor("openai"),
-      role: "Builder + writer. Drafts, generates, produces artifacts.",
+      role: "The Challenger. Tries to prove the draft wrong: what is incorrect, unsupported, outdated, contradicted or missing. Critiques the work, never writes an answer of its own.",
       status: "idle",
     },
   });
@@ -90,7 +100,7 @@ export async function createRoster(projectId: string) {
       name: "You",
       provider: "human",
       model: modelFor("human"),
-      role: "Human director and approver. Nothing ships without you.",
+      role: "The judge. Nothing is final until you tie it off.",
       status: "idle",
     },
   });

@@ -21,8 +21,9 @@ export type Attribution = {
   tiedOff: boolean;
 };
 
-const REVIEW_TITLE = /^(review|critique|check|audit|proofread|assess|evaluate)\b/i;
-const REVIEW_INSTRUCTIONS = /^(review|critique|check|audit|proofread|assess|evaluate)\b/i;
+// "Challenge" is the wedge's name for the critique step (Oct 6 2026).
+const REVIEW_TITLE = /^(challenge|review|critique|check|audit|proofread|assess|evaluate)\b/i;
+const REVIEW_INSTRUCTIONS = /^(challenge|review|critique|check|audit|proofread|assess|evaluate|try to prove)\b/i;
 
 function family(agent: AgentDTO): string | null {
   if (agent.provider === "anthropic") return "Claude";
