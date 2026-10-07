@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type FormEvent } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent } from "react";
+import { createPortal } from "react-dom";
 import {
   INTERVENE_ACTIONS,
   type ChallengeFields,
@@ -51,11 +52,13 @@ export function InterveneMenu({
   useEffect(() => {
     if (!open && !form) return;
     function onDoc(event: MouseEvent) {
-      if (!rootRef.current?.contains(event.target as Node)) {
-        setOpen(false);
-        setForm(null);
-        setError(null);
-      }
+      const target = event.target as Node | null;
+      if (!target) return;
+      if (rootRef.current?.contains(target)) return;
+      if ((target as Element).closest?.("[data-intervene-panel]")) return;
+      setOpen(false);
+      setForm(null);
+      setError(null);
     }
     function onKey(event: KeyboardEvent) {
       if (event.key === "Escape") {
@@ -142,9 +145,87 @@ export function InterveneMenu({
     }
   }
 
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const [anchor, setAnchor] = useState<{ top: number; right: number } | null>(null);
+  useLayoutEffect(() => {
+    if (!open && !form) {
+      setAnchor(null);
+      return;
+    }
+    const sync = () => {
+      const rect = buttonRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      setAnchor({ top: rect.bottom + 8, right: window.innerWidth - rect.right });
+    };
+    sync();
+    window.addEventListener("resize", sync);
+    window.addEventListener("scroll", sync, true);
+    return () => {
+      window.removeEventListener("resize", sync);
+      window.removeEventListener("scroll", sync, true);
+    };
+  }, [open, form]);
+
+  const panel =
+    open && anchor ? (
+      <div
+        id={menuId}
+        role="menu"
+        aria-label="Intervene"
+        data-intervene-panel
+        style={{ top: anchor.top, right: anchor.right }}
+        className="fixed z-[60] w-[min(100vw-2rem,22rem)] rounded-xl border border-line bg-raised p-1 shadow-[0_18px_40px_-16px_rgba(31,26,20,.35)]"
+      >
+        <p className="px-3 pt-2 pb-1 font-mono text-[10.5px] tracking-[0.06em] text-ink-faint uppercase">
+          Steer the thread · not a chat
+        </p>
+        {INTERVENE_ACTIONS.map((action) => (
+          <button
+            key={action.kind}
+            type="button"
+            role="menuitem"
+            onClick={() => pick(action.kind)}
+            className="w-full rounded-lg px-3 py-2 text-left hover:bg-panel"
+          >
+            <span className="block text-sm font-[560] text-ink">{action.label}</span>
+            <span className="mt-0.5 block text-[12px] leading-snug text-ink-dim">{action.hint}</span>
+          </button>
+        ))}
+        <p className="px-3 pt-1 pb-2 text-[11.5px] leading-snug text-ink-faint">
+          {judging
+            ? "Challenges and corrections go into your knot note. Add context still updates the brief."
+            : "Saved into the brief every step reads. At the knot, challenges and corrections go into your note instead."}
+        </p>
+      </div>
+    ) : form && form !== "direction" && anchor ? (
+      <div
+        id={menuId}
+        role="dialog"
+        aria-label={INTERVENE_ACTIONS.find((item) => item.kind === form)?.label ?? "Intervene"}
+        data-intervene-panel
+        style={{ top: anchor.top, right: anchor.right }}
+        className="fixed z-[60] w-[min(100vw-2rem,24rem)] rounded-xl border border-gate-line bg-raised p-4 shadow-[0_18px_40px_-16px_rgba(31,26,20,.35)]"
+      >
+        <InterveneForm
+          kind={form}
+          judging={judging}
+          busy={busy}
+          error={error}
+          onCancel={() => {
+            setForm(null);
+            setError(null);
+          }}
+          onContext={(fields) => void submitContext(fields)}
+          onChallenge={(fields) => void submitChallengeOrCorrect("challenge", fields)}
+          onCorrect={(fields) => void submitChallengeOrCorrect("correct", fields)}
+        />
+      </div>
+    ) : null;
+
   return (
     <div ref={rootRef} className="relative">
       <button
+        ref={buttonRef}
         type="button"
         data-intervene
         aria-expanded={open || !!form}
@@ -163,57 +244,7 @@ export function InterveneMenu({
       >
         Intervene
       </button>
-      {open ? (
-        <div
-          id={menuId}
-          role="menu"
-          aria-label="Intervene"
-          className="absolute right-0 z-40 mt-2 w-[min(100vw-2rem,22rem)] rounded-xl border border-line bg-raised p-1 shadow-[0_18px_40px_-16px_rgba(31,26,20,.35)]"
-        >
-          <p className="px-3 pt-2 pb-1 font-mono text-[10.5px] tracking-[0.06em] text-ink-faint uppercase">
-            Steer the thread · not a chat
-          </p>
-          {INTERVENE_ACTIONS.map((action) => (
-            <button
-              key={action.kind}
-              type="button"
-              role="menuitem"
-              onClick={() => pick(action.kind)}
-              className="w-full rounded-lg px-3 py-2 text-left hover:bg-panel"
-            >
-              <span className="block text-sm font-[560] text-ink">{action.label}</span>
-              <span className="mt-0.5 block text-[12px] leading-snug text-ink-dim">{action.hint}</span>
-            </button>
-          ))}
-          <p className="px-3 pt-1 pb-2 text-[11.5px] leading-snug text-ink-faint">
-            {judging
-              ? "Challenges and corrections go into your knot note. Add context still updates the brief."
-              : "Saved into the brief every step reads. At the knot, challenges and corrections go into your note instead."}
-          </p>
-        </div>
-      ) : null}
-      {form && form !== "direction" ? (
-        <div
-          id={menuId}
-          role="dialog"
-          aria-label={INTERVENE_ACTIONS.find((item) => item.kind === form)?.label ?? "Intervene"}
-          className="absolute right-0 z-40 mt-2 w-[min(100vw-2rem,24rem)] rounded-xl border border-gate-line bg-raised p-4 shadow-[0_18px_40px_-16px_rgba(31,26,20,.35)]"
-        >
-          <InterveneForm
-            kind={form}
-            judging={judging}
-            busy={busy}
-            error={error}
-            onCancel={() => {
-              setForm(null);
-              setError(null);
-            }}
-            onContext={(fields) => void submitContext(fields)}
-            onChallenge={(fields) => void submitChallengeOrCorrect("challenge", fields)}
-            onCorrect={(fields) => void submitChallengeOrCorrect("correct", fields)}
-          />
-        </div>
-      ) : null}
+      {panel && typeof document !== "undefined" ? createPortal(panel, document.body) : null}
     </div>
   );
 }
