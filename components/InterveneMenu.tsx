@@ -16,17 +16,23 @@ import {
 import { MAX_NOTE_CHARS } from "@/lib/limits";
 
 export type InterveneSaveBrief = (brief: string) => Promise<string | null>;
+/** Returns an error string, or null on success. */
+export type InterveneSteerStep = (taskId: string, note: string) => Promise<string | null>;
 
 /**
  * Persistent Intervene control: four structured actions, never a chat box.
- * Add context / Challenge / Correct write the brief (or the knot note while
- * judging). Change direction opens the existing ContextDrawer.
+ * Add context → brief. Challenge / Correct → knot note while judging, otherwise
+ * the current model step's next run (then that step re-runs). Change direction →
+ * ContextDrawer.
  */
 export function InterveneMenu({
   brief,
   judging,
+  stepId,
+  stepTitle,
   onSaveBrief,
   onAppendNote,
+  onSteerStep,
   onChangeDirection,
   onOpenKnot,
   compact = false,
@@ -34,11 +40,13 @@ export function InterveneMenu({
   brief: string;
   /** True when a knot is awaiting approval (Human Check #2). */
   judging: boolean;
+  /** Current model step to steer (Draft / Challenge / Tie Off writeup). Null = brief only. */
+  stepId: string | null;
+  stepTitle: string | null;
   onSaveBrief: InterveneSaveBrief;
-  /** Returns an error string, or null on success. */
   onAppendNote: (line: string) => string | null;
+  onSteerStep: InterveneSteerStep;
   onChangeDirection: () => void;
-  /** Open the knot sheet when the user needs to land a note there. */
   onOpenKnot?: () => void;
   compact?: boolean;
 }) {
@@ -48,6 +56,7 @@ export function InterveneMenu({
   const [busy, setBusy] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const menuId = useId();
+  const hasModelStep = !!stepId && !judging;
 
   useEffect(() => {
     if (!open && !form) return;
@@ -110,7 +119,7 @@ export function InterveneMenu({
   }
 
   async function submitChallengeOrCorrect(kind: "challenge" | "correct", fields: ChallengeFields | CorrectFields) {
-    const dest = interveneDestination(kind, judging);
+    const dest = interveneDestination(kind, judging, hasModelStep);
     setBusy(true);
     setError(null);
     try {
@@ -125,6 +134,20 @@ export function InterveneMenu({
         else {
           setForm(null);
           onOpenKnot?.();
+        }
+        return;
+      }
+      if (dest === "step" && stepId) {
+        const line = formatNoteLine(kind, fields);
+        if (line.length > MAX_NOTE_CHARS) {
+          setError(`That line is too long (${MAX_NOTE_CHARS} characters max).`);
+          return;
+        }
+        const message = await onSteerStep(stepId, line);
+        if (message) setError(message);
+        else {
+          setForm(null);
+          setError(null);
         }
         return;
       }
@@ -166,6 +189,12 @@ export function InterveneMenu({
     };
   }, [open, form]);
 
+  const footer = judging
+    ? "Challenges and corrections go into your knot note. Add context still updates the brief."
+    : hasModelStep
+      ? `Challenge / Correct re-runs “${stepTitle ?? "this step"}” with your note in the packet (1 run). Add context updates the brief.`
+      : "Saved into the brief every step reads. Select a step first to steer that step’s next run.";
+
   const panel =
     open && anchor ? (
       <div
@@ -191,11 +220,7 @@ export function InterveneMenu({
             <span className="mt-0.5 block text-[12px] leading-snug text-ink-dim">{action.hint}</span>
           </button>
         ))}
-        <p className="px-3 pt-1 pb-2 text-[11.5px] leading-snug text-ink-faint">
-          {judging
-            ? "Challenges and corrections go into your knot note. Add context still updates the brief."
-            : "Saved into the brief every step reads. At the knot, challenges and corrections go into your note instead."}
-        </p>
+        <p className="px-3 pt-1 pb-2 text-[11.5px] leading-snug text-ink-faint">{footer}</p>
       </div>
     ) : form && form !== "direction" && anchor ? (
       <div
@@ -209,6 +234,8 @@ export function InterveneMenu({
         <InterveneForm
           kind={form}
           judging={judging}
+          hasModelStep={hasModelStep}
+          stepTitle={stepTitle}
           busy={busy}
           error={error}
           onCancel={() => {
@@ -240,7 +267,7 @@ export function InterveneMenu({
           setOpen((value) => !value);
         }}
         className={compact ? "rt-btn rt-btn-ghost h-8 px-2.5 text-xs" : "rt-btn"}
-        title="Steer the thread with structured context or disputes — not a chat"
+        title="Steer any step with a short note — not a chat"
       >
         Intervene
       </button>
@@ -252,6 +279,8 @@ export function InterveneMenu({
 function InterveneForm({
   kind,
   judging,
+  hasModelStep,
+  stepTitle,
   busy,
   error,
   onCancel,
@@ -261,6 +290,8 @@ function InterveneForm({
 }: {
   kind: Exclude<InterveneKind, "direction">;
   judging: boolean;
+  hasModelStep: boolean;
+  stepTitle: string | null;
   busy: boolean;
   error: string | null;
   onCancel: () => void;
@@ -273,7 +304,7 @@ function InterveneForm({
   const [issue, setIssue] = useState("");
   const [was, setWas] = useState("");
   const [shouldBe, setShouldBe] = useState("");
-  const dest = interveneDestination(kind, judging);
+  const dest = interveneDestination(kind, judging, hasModelStep);
   const title = INTERVENE_ACTIONS.find((item) => item.kind === kind)?.label ?? "Intervene";
 
   function submit(event: FormEvent) {
@@ -283,15 +314,20 @@ function InterveneForm({
     else onCorrect({ was, shouldBe });
   }
 
+  const destCopy =
+    dest === "note"
+      ? "This becomes a line in your knot note. Use Ask for changes to send it back to Odysseus."
+      : dest === "step"
+        ? `This note goes into “${stepTitle ?? "this step"}” and the step re-runs with it in the packet (1 run). Downstream steps clear.`
+        : "This is appended to the brief. The next step you run will read it.";
+
+  const submitLabel = busy ? "Saving…" : dest === "note" ? "Add to note" : dest === "step" ? "Save & re-run" : "Save to brief";
+
   return (
     <form onSubmit={submit} className="grid gap-3">
       <div>
         <p className="eyebrow text-[10px] text-gate-ink">Intervene · {title}</p>
-        <p className="mt-1 text-[12.5px] leading-snug text-ink-dim">
-          {dest === "note"
-            ? "This becomes a line in your knot note. Use Ask for changes to send it back to Odysseus."
-            : "This is appended to the brief. The next step you run will read it."}
-        </p>
+        <p className="mt-1 text-[12.5px] leading-snug text-ink-dim">{destCopy}</p>
       </div>
       {kind === "context" ? (
         <label className="block text-[13px]">
@@ -358,7 +394,7 @@ function InterveneForm({
       {error ? <p className="text-[12.5px] text-danger">{error}</p> : null}
       <div className="flex gap-2">
         <button type="submit" disabled={busy} className="rt-btn rt-btn-knot h-9 flex-1 px-3 text-sm">
-          {busy ? "Saving…" : dest === "note" ? "Add to note" : "Save to brief"}
+          {submitLabel}
         </button>
         <button type="button" disabled={busy} onClick={onCancel} className="rt-btn h-9 px-3 text-sm">
           Cancel

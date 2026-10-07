@@ -425,7 +425,9 @@ export async function rerunTask(taskId: string, userId: string, dailyLimit?: num
   });
   if (!task || task.project.userId !== userId) throw new TaskRunError("Task not found", 404);
   await reclaimStuckTasks(task.projectId);
-  if (task.status !== "done") throw new TaskRunError("Only a finished task can be re-run", 409);
+  if (task.status !== "done" && task.status !== "failed") {
+    throw new TaskRunError("Only a finished or frayed step can be re-run", 409);
+  }
 
   const tasks = await prisma.task.findMany({ where: { projectId: task.projectId } });
   const downstream = dependentTasks(task.id, tasks);
@@ -457,6 +459,52 @@ export async function rerunTask(taskId: string, userId: string, dailyLimit?: num
   const agentIds = [...new Set(wipe.map((item) => item.agentId))];
   for (const agentId of agentIds) await syncAgentStatus(agentId);
   return runTask(task.id, userId, dailyLimit);
+}
+
+/**
+ * Per-step Intervene: append a structured note into this model step's instructions
+ * (same marker as Ask for changes), then re-run it so the packet includes the note.
+ * Downstream steps clear like a normal re-run. Pending steps only store the note
+ * for the next Run. Human/knot steps are refused — use the knot note there.
+ */
+export async function steerTask(taskId: string, note: string, userId: string, dailyLimit?: number) {
+  const trimmed = note.trim();
+  if (!trimmed) throw new TaskRunError("Write a short note first", 400);
+  assertMaxLength("Note", trimmed, MAX_NOTE_CHARS);
+
+  const task = await prisma.task.findUnique({
+    where: { id: taskId },
+    include: { agent: true, project: true },
+  });
+  if (!task || task.project.userId !== userId) throw new TaskRunError("Task not found", 404);
+  await reclaimStuckTasks(task.projectId);
+  if (task.agent.provider === "human") {
+    throw new TaskRunError("At the knot, add your note and Ask for changes — Intervene steers a model step.", 409);
+  }
+  if (task.status === "running") {
+    throw new TaskRunError("Wait until this step finishes, then Intervene again.", 409);
+  }
+  if (task.status === "awaiting_approval") {
+    throw new TaskRunError("Open the knot to judge this step.", 409);
+  }
+
+  const withNote = appendChangeNote(task.instructions, trimmed);
+  await prisma.task.update({ where: { id: task.id }, data: { instructions: withNote } });
+  await emit(
+    task.projectId,
+    "note",
+    `You steered "${task.title}": ${trimmed}`,
+    task.id,
+    { payload: { kind: "step_steer", note: trimmed } },
+  );
+
+  // Never spun yet: the note waits for the next Run.
+  if (task.status === "pending") {
+    return serializeTask(await prisma.task.findUniqueOrThrow({ where: { id: task.id } }));
+  }
+
+  // done / failed: clear this step and downstream, then run it with the note in the packet.
+  return rerunTask(task.id, userId, dailyLimit);
 }
 
 export async function decideTask(taskId: string, approved: boolean, note: string | undefined, userId: string) {

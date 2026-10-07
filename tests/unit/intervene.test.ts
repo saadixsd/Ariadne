@@ -16,12 +16,15 @@ test("intervene actions are the four structured kinds, never a chat", () => {
   );
 });
 
-test("destination: context always brief; challenge/correct prefer note while judging; direction is drawer", () => {
+test("destination: context always brief; challenge/correct → note at knot, step when a model step is open, else brief", () => {
   assert.equal(interveneDestination("context", false), "brief");
   assert.equal(interveneDestination("context", true), "brief");
   assert.equal(interveneDestination("challenge", false), "brief");
+  assert.equal(interveneDestination("challenge", false, true), "step");
   assert.equal(interveneDestination("challenge", true), "note");
+  assert.equal(interveneDestination("challenge", true, true), "note", "knot wins over step");
   assert.equal(interveneDestination("correct", true), "note");
+  assert.equal(interveneDestination("correct", false, true), "step");
   assert.equal(interveneDestination("direction", false), "drawer");
 });
 

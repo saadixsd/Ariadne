@@ -349,6 +349,56 @@ export function Dashboard({
     return null;
   }
 
+  /** Per-step Intervene: note into this model step, then re-run it with the note in the packet. */
+  async function steerStep(taskId: string, note: string): Promise<string | null> {
+    setPendingId(taskId);
+    setExpandedTaskId(taskId);
+    try {
+      const response = await fetch(`/api/tasks/${taskId}/steer`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ note }),
+      });
+      const body = (await response.json().catch(() => ({}))) as { error?: string; task?: { status?: string } };
+      if (!response.ok) {
+        if (response.status === 429) setRemaining(0);
+        setPendingId(null);
+        const message = hideModelIds(body.error ?? "Could not steer that step");
+        setToast({
+          tone: "danger",
+          text: `${message}. ${runFailureNext(response.status)}`,
+        });
+        await refresh();
+        return message;
+      }
+      // steer may only have stored the note (pending) or already re-run the step.
+      if (data.agents.find((agent) => agent.id === data.tasks.find((task) => task.id === taskId)?.agentId)?.provider !== "human") {
+        // A successful re-run spent a model call; pending-only does not.
+        if (body.task?.status && body.task.status !== "pending") {
+          setRemaining((count) => Math.max(0, count - 1));
+        }
+      }
+      const next = await refresh();
+      setPendingId(null);
+      const updated = next?.tasks.find((task) => task.id === taskId);
+      if (updated?.status === "pending") {
+        setToast({ tone: "ok", text: "Saved to this step. Press Run when you want it to work with your note." });
+      } else {
+        setToast({ tone: "ok", text: "Re-running with your note in the packet." });
+      }
+      const knot = next?.tasks.find((task) => task.status === "awaiting_approval");
+      if (knot) {
+        setExpandedTaskId(knot.id);
+        focusKnot();
+      }
+      return null;
+    } catch {
+      setPendingId(null);
+      await refresh().catch(() => null);
+      return "Could not reach the server.";
+    }
+  }
+
   async function switchProject(id: string) {
     if (id === selectedIdRef.current) return;
     const previous = selectedIdRef.current;
@@ -464,6 +514,20 @@ export function Dashboard({
   const handoffTask = handoffId ? data.tasks.find((task) => task.id === handoffId) : undefined;
   const readerTask = readerId ? data.tasks.find((task) => task.id === readerId) : undefined;
 
+  // Step Intervene targets: the open step detail, else the knot, else the latest model step.
+  const judgingNow = data.tasks.some((task) => task.status === "awaiting_approval");
+  const steerTarget = (() => {
+    const byId = (id: string | null) => (id ? data.tasks.find((task) => task.id === id) : undefined);
+    const selected = byId(expandedTaskId);
+    const candidates = [selected, byId(data.tasks.find((task) => task.status === "awaiting_approval")?.id ?? null), [...data.tasks].reverse().find((task) => task.status === "done" || task.status === "failed"), data.tasks.find((task) => task.status === "pending")];
+    for (const task of candidates) {
+      if (!task) continue;
+      const agent = data.agents.find((item) => item.id === task.agentId);
+      if (agent && agent.provider !== "human") return task;
+    }
+    return null;
+  })();
+
   return (
     <div className="flex h-full min-h-0 flex-col text-ink">
       <SetupBanner missing={missingSetup} />
@@ -504,7 +568,9 @@ export function Dashboard({
         </button>
         <InterveneMenu
           brief={data.brief}
-          judging={data.tasks.some((task) => task.status === "awaiting_approval")}
+          judging={judgingNow}
+          stepId={judgingNow ? null : (steerTarget?.id ?? null)}
+          stepTitle={judgingNow ? null : (steerTarget?.title ?? null)}
           onSaveBrief={async (brief) => {
             const message = await saveContext(data.name, brief, { quiet: true });
             if (!message) setToast({ tone: "ok", text: "Saved to the brief. The next step you run will read it." });
@@ -517,6 +583,7 @@ export function Dashboard({
             setToast({ tone: "ok", text: "Added to your knot note. Ask for changes to send it back." });
             return null;
           }}
+          onSteerStep={steerStep}
           onChangeDirection={() => setContextOpen(true)}
           onOpenKnot={() => knotRef.current?.focusDecision()}
         />

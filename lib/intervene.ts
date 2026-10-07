@@ -139,12 +139,22 @@ export function appendInterventionToNote(
   return { ok: true, note: next };
 }
 
-/** Where a kind should land given whether the knot is open for judgment. */
+/**
+ * Where a kind should land.
+ * - direction → brief drawer
+ * - context → always the shared brief
+ * - challenge/correct at the knot → knot note
+ * - challenge/correct on a model step → that step's next run (then re-run)
+ * - otherwise → brief
+ */
 export function interveneDestination(
   kind: InterveneKind,
   judging: boolean,
-): "brief" | "note" | "drawer" {
+  hasModelStep = false,
+): "brief" | "note" | "drawer" | "step" {
   if (kind === "direction") return "drawer";
   if (kind === "context") return "brief";
-  return judging ? "note" : "brief";
+  if (judging) return "note";
+  if (hasModelStep) return "step";
+  return "brief";
 }

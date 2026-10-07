@@ -463,6 +463,35 @@ describe("5. structured events", () => {
   });
 });
 
+describe("per-step Intervene (steer)", () => {
+  test("note lands in instructions and the step re-runs with it in the prompt", async () => {
+    const user = await newUser("steer@test.dev");
+    const p = await newProject(user.id);
+    await agents.runTask(p.draft.id, user.id);
+    const before = (await prisma.task.findUniqueOrThrow({ where: { id: p.draft.id } })).instructions;
+    const steered = await agents.steerTask(p.draft.id, "Challenge I raise: Fund X — unsupported", user.id);
+    assert.equal(steered.status, "done");
+    const draft = await prisma.task.findUniqueOrThrow({ where: { id: p.draft.id } });
+    assert.match(draft.instructions, /Human requested changes: Challenge I raise: Fund X — unsupported/);
+    assert.ok(draft.instructions.startsWith(before) || draft.instructions.includes(before.slice(0, 40)));
+    const rows = await runsFor(p.draft.id);
+    assert.ok(rows.length >= 2, "original run + steer re-run");
+    assert.match(rows.at(-1)!.prompt ?? "", /Challenge I raise: Fund X/);
+    // Downstream challenge was cleared then left pending (only the steered step re-ran).
+    assert.equal((await prisma.task.findUniqueOrThrow({ where: { id: p.review.id } })).status, "pending");
+  });
+
+  test("pending step only stores the note until Run", async () => {
+    const user = await newUser("steer-pending@test.dev");
+    const p = await newProject(user.id);
+    const steered = await agents.steerTask(p.draft.id, "Correction: A → B", user.id);
+    assert.equal(steered.status, "pending");
+    const draft = await prisma.task.findUniqueOrThrow({ where: { id: p.draft.id } });
+    assert.match(draft.instructions, /Human requested changes: Correction: A → B/);
+    assert.equal(await runsToday(user.id), 0);
+  });
+});
+
 describe("existing board + tree flow", () => {
   test("full 4-step flow end to end: draft, challenge, auto-gate, approve, writeup; tree + lineage render", async () => {
     const user = await newUser("flow@test.dev");
