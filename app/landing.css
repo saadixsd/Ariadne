@@ -75,12 +75,13 @@ html:has(.lp) { scroll-behavior: smooth; }
 .lp-btn-ghost { border-color: transparent; background: transparent; color: var(--color-ink-dim) !important; }
 .lp-btn-sm { height: 38px; padding: 0 14px; font-size: 13.5px; }
 .lp-monogram { position: relative; display: inline-grid; place-items: center; flex: none; width: 34px; height: 34px; border-radius: 999px; color: var(--color-raised); font: 700 16px/1 var(--lp-sans); box-shadow: 0 0 0 6px var(--color-canvas); transition: transform 300ms ease; }
-.lp-mono-d { background: var(--color-agent-1); }
-.lp-mono-o { background: var(--color-agent-2); }
+/* Same tones as the app: Odysseus (the Drafter) slate, Daedalus (the Challenger) umber. */
+.lp-mono-o { background: var(--color-agent-1); }
+.lp-mono-d { background: var(--color-agent-2); }
 .lp-mono-y { background: var(--color-gate); box-shadow: 0 0 0 6px var(--color-canvas), 0 0 0 11px rgba(201, 138, 18, 0.22); }
 .lp-mono-t { background: var(--color-raised); color: var(--color-thread); border: 1.5px solid var(--color-thread); }
 .lp-mono-t svg { width: 20px; height: 20px; }
-.lp h2 { font-family: var(--lp-serif); font-weight: 400; font-size: 38px; line-height: 1.05; letter-spacing: -0.012em; }
+.lp h2 { text-wrap: balance; font-family: var(--lp-serif); font-weight: 400; font-size: 38px; line-height: 1.05; letter-spacing: -0.012em; }
 .lp h1 em, .lp h2 em { font-style: italic; color: var(--color-thread); }
 .lp-lede { font-size: 16px; line-height: 1.6; color: var(--color-ink-dim); }
 
@@ -111,6 +112,10 @@ html:has(.lp) { scroll-behavior: smooth; }
 .lp-cta { display: grid; gap: 12px; justify-items: center; margin-top: 4px; }
 .lp-cta .lp-btn { width: 100%; height: 48px; font-size: 16px; }
 .lp-note { font-size: 13.5px; line-height: 1.5; color: var(--color-ink-dim); }
+/* the loop in one breath, under the hero line: items joined by small red arrows */
+.lp-flow { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px 0; font-size: 13.5px; line-height: 1.5; color: var(--color-ink); }
+.lp-flow li { white-space: nowrap; }
+.lp-flow li:not(:last-child)::after { content: "→"; margin: 0 7px; color: var(--color-thread); }
 
 /* The red thread: one smooth curve laid out by life.js from the real geometry. The svg
    covers the whole hero but lives inside the door, so it passes behind the leaves. */
@@ -165,7 +170,7 @@ html:has(.lp) { scroll-behavior: smooth; }
 .lp-section + .lp-section { border-top: 1px solid var(--color-line); }
 .lp-intro { display: grid; gap: 12px; justify-items: center; text-align: center; margin-bottom: 40px; }
 .lp-intro .lp-lede { max-width: 600px; }
-.lp-close { text-align: center; margin-top: 36px; font-family: var(--lp-serif); font-style: italic; font-size: 23px; line-height: 1.3; color: var(--color-ink-dim); }
+.lp .lp-close { text-align: center; margin-top: 36px; text-wrap: balance; font-family: var(--lp-serif); font-style: italic; font-size: 23px; line-height: 1.3; color: var(--color-ink-dim); }
 
 /* the labyrinth: three ways AI work goes wrong */
 .lp-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
@@ -233,10 +238,47 @@ html:has(.lp) { scroll-behavior: smooth; }
 .lp-status-col.next li::before { background: var(--color-gate); }
 .lp-status-col li strong { color: var(--color-ink); font-weight: 600; }
 
+/* the line that names the step */
+.lp .lp-quote { max-width: 760px; margin: 40px auto 0; padding: 0; text-align: center; }
+.lp-quote p { text-wrap: balance; font-family: var(--lp-serif); font-size: 28px; line-height: 1.2; letter-spacing: -0.01em; color: var(--color-ink); }
+.lp-quote em { font-style: italic; color: var(--color-thread); }
+.lp-quote footer { margin-top: 10px; font-family: var(--lp-mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-ink-faint); }
+
+/* the questions you end up asking */
+.lp-questions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.lp-questions li { padding: 18px 20px; background: var(--color-raised); border: 1px solid var(--color-line); border-left: 2px solid var(--color-thread); border-radius: 12px; font-family: var(--lp-serif); font-style: italic; font-size: 21px; line-height: 1.2; color: var(--color-ink); }
+.lp .lp-center { text-align: center; margin-top: 26px; }
+
+/* an example pass: the question, then each step down a thread */
+.lp-example { max-width: 760px; margin: 0 auto; }
+.lp-ask { display: grid; gap: 8px; padding: 20px 24px; background: var(--color-raised); border: 1px solid var(--color-line-strong); border-radius: 14px; font-family: var(--lp-serif); font-size: 22px; line-height: 1.3; color: var(--color-ink); box-shadow: 0 1px 0 rgba(31, 26, 20, 0.04), 0 6px 18px -10px rgba(31, 26, 20, 0.16); }
+.lp .lp-pass { position: relative; margin-top: 8px; padding-left: 30px; }
+.lp-pass::before { content: ""; position: absolute; left: 9px; top: 6px; bottom: 22px; width: 2px; background: var(--color-thread); }
+.lp-pass li { position: relative; display: grid; justify-items: start; gap: 6px; padding: 18px 0 4px; }
+.lp-pass li::before { content: ""; position: absolute; left: -26px; top: 22px; width: 10px; height: 10px; border-radius: 999px; background: var(--color-raised); border: 2px solid var(--color-thread); }
+.lp-pass li p:not(.lp-pass-n) { font-size: 15px; line-height: 1.6; color: var(--color-ink-dim); }
+.lp-pass-n { font-family: var(--lp-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-thread); }
+.lp .lp-example-note { margin-top: 22px; padding: 14px 18px; border: 1px dashed var(--color-gate-line); border-radius: 12px; background: rgba(251, 239, 210, 0.45); font-size: 14px; line-height: 1.55; color: var(--color-ink-dim); }
+
+/* where the judgment sits */
+.lp-philo { text-align: center; }
+.lp-philo .lp-wrap { display: grid; justify-items: center; gap: 16px; }
+.lp-philo h2 .lp-line { display: block; }
+.lp-philo .lp-lede { max-width: 560px; }
+.lp-chores { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; max-width: 760px; }
+.lp-chores li { padding: 6px 12px; border: 1px solid var(--color-line-strong); border-radius: 999px; background: var(--color-raised); font-size: 14px; color: var(--color-ink-dim); }
+
+/* two ways in */
+.lp .lp-ways { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; max-width: 860px; margin: 0 auto; }
+.lp-ways li { display: grid; align-content: start; justify-items: start; gap: 8px; padding: 22px 24px 24px; border-radius: 14px; border: 1px solid var(--color-gate-line); background: rgba(251, 239, 210, 0.45); }
+.lp-ways h3 { font-family: var(--lp-serif); font-weight: 400; font-size: 27px; line-height: 1.1; }
+.lp-ways p { font-size: 14.5px; line-height: 1.6; color: var(--color-ink-dim); }
+.lp-ways p.lp-ways-lead { color: var(--color-ink); font-weight: 560; }
+
 /* who it's for */
 .lp-who { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; counter-reset: who; }
 .lp-who li { counter-increment: who; position: relative; padding: 22px 22px 22px 24px; border-left: 2px solid var(--color-thread); font-size: 15.5px; line-height: 1.55; color: var(--color-ink); background: linear-gradient(90deg, rgba(251, 248, 242, 0.9), rgba(251, 248, 242, 0)); }
-.lp-isnt { max-width: 660px; margin: 34px auto 0; text-align: center; font-size: 15px; line-height: 1.6; color: var(--color-ink-dim); }
+.lp .lp-isnt { max-width: 660px; margin: 22px auto 0; text-align: center; font-size: 15px; line-height: 1.6; color: var(--color-ink-dim); }
 .lp-isnt strong { color: var(--color-ink); font-weight: 600; }
 
 /* the last door */
@@ -263,10 +305,13 @@ html:has(.lp) { scroll-behavior: smooth; }
 /* ---------- responsive ---------- */
 @media (max-width: 900px) {
   .lp-steps { grid-template-columns: 1fr 1fr; row-gap: 8px; }
+  .lp-questions { grid-template-columns: 1fr 1fr; }
   .lp-steps::before { display: none; }
 }
 @media (max-width: 760px) {
-  .lp-cards, .lp-who, .lp-status { grid-template-columns: 1fr; }
+  .lp-cards, .lp-who, .lp-status, .lp-questions, .lp .lp-ways { grid-template-columns: 1fr; }
+  .lp-quote p { font-size: 24px; }
+  .lp-ask { font-size: 19px; padding: 16px 18px; }
   .lp-steps { grid-template-columns: 1fr; gap: 4px; }
   .lp-steps::before { display: block; left: 25px; right: auto; top: 34px; bottom: 34px; width: 2px; height: auto; }
   /* stacked: a timeline, the thread down the left so it never runs behind the text */

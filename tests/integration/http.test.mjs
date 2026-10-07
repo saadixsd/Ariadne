@@ -125,11 +125,23 @@ test("L1. signed out: / is the public landing page; /dashboard and other app pag
   const landing = await call("GET", "/", { from: ip(40) });
   assert.equal(landing.status, 200);
   assert.match(landing.text, /Tie the Thread/);
-  assert.match(landing.text, /one model challenge another, while keeping the final judgment with the human/);
+  assert.match(landing.text, /Ariadne helps you verify important AI-generated work by having one AI model challenge another, while you remain the final judge\./, "the one-liner");
+  assert.match(landing.text, /Important AI work/);
+  assert.match(landing.text, /Ariadne has one AI create the work and another try to break it/);
+  assert.match(landing.text, /Already have an account\? <a href="\/sign-in">Sign in<\/a>/);
   assert.match(landing.text, /href="\/sign-up"/);
   assert.match(landing.text, /instagram\.com\/ariadne_agents/);
   assert.match(landing.text, /x\.com\/ariadne_agents/);
-  assert.match(landing.text, /Coming next/, "the challenge step is honest about what is not built yet");
+  // Roles as fixed by the founder: Odysseus (Claude) drafts, Daedalus (GPT) challenges.
+  assert.match(landing.text, /Odysseus drafts/);
+  assert.match(landing.text, /Daedalus challenges/);
+  assert.doesNotMatch(landing.text, /Daedalus drafts|Odysseus challenges|\bScout\b|\bMaker\b/);
+  // Honest status: what is not built yet is labelled, never shown as working.
+  assert.match(landing.text, /Coming next/, "unbuilt steps are labelled");
+  for (const unbuilt of ["Quick Answer", "Deep Work", "Re-challenge", "web search"]) assert.match(landing.text, new RegExp(unbuilt), unbuilt);
+  assert.match(landing.text, /They don(&#x27;|')t search the web yet/);
+  assert.match(landing.text, /not real output/, "the example is labelled as an illustration");
+  assert.doesNotMatch(landing.text, /eliminates hallucinations|hallucination-free|guaranteed accura/i, "no reliability claims");
   for (const path of ["/dashboard", "/dashboard?project=abc", "/tree", "/settings"]) {
     const res = await call("GET", path, { from: ip(40) });
     assert.equal(res.status, 307, path);
@@ -183,7 +195,7 @@ test("board + tree pages load for a signed-in user; onboarding creates the proje
   const intro = await call("GET", "/dashboard", { cookie: state.cookie });
   assert.equal(intro.status, 200);
   assert.match(intro.text, /What are you making\?/);
-  assert.match(intro.text, /one model challenge another/, "first-run copy carries the new one-liner");
+  assert.match(intro.text, /one AI model challenge another, while you remain the final judge/, "first-run copy carries the one-liner");
   assert.doesNotMatch(intro.text, /human middleware/);
   const created = await call("POST", "/api/onboarding", { cookie: state.cookie, body: { name: "Coffee cart", brief: "Landing page for a coffee cart." } });
   assert.equal(created.status, 201);

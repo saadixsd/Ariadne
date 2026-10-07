@@ -272,6 +272,7 @@
     var dot = hs.querySelector(".hn-pulse");
     var measure = hs.querySelector(".hn-measure");
     var status = document.getElementById("lp-demo-status");
+    // Keys name the step, not the agent: d = draft, o = challenge, y = you judge, t = tie off.
     var nodes = {
       d: row.querySelector('[data-step="draft"]'),
       o: row.querySelector('[data-step="challenge"]'),
@@ -373,17 +374,17 @@
       waiting(false);
       place(0);
       active("d");
-      say("Daedalus writes the draft from your brief.");
+      say("Odysseus writes the draft from your brief.");
       return pause(1500, id)
-        .then(function (ok) { if (!ok) return; say("He hands it along the thread…"); return travel(at.d, at.o, 1400, id); })
-        .then(function () { if (id !== run) return; active("o"); say("Odysseus, a different model, looks for what is wrong, unsupported or missing."); return pause(2100, id); })
+        .then(function (ok) { if (!ok) return; say("Ariadne hands it along the thread…"); return travel(at.d, at.o, 1400, id); })
+        .then(function () { if (id !== run) return; active("o"); say("Daedalus, a different model, tries to break it: what is wrong, unsupported or missing."); return pause(2100, id); })
         .then(function (ok) { if (!ok) return; return travel(at.o, at.y, 1400, id); })
         .then(function () { if (id !== run) return; stopAtKnot(); });
     }
     function stopAtKnot() {
       active("y");
       waiting(true);
-      say("It stops at your knot. Nothing moves on until you decide.");
+      say("It stops at your knot. You decide what survives.");
     }
 
     tie.addEventListener("click", function () {
@@ -403,10 +404,10 @@
       if (back.disabled) return;
       var id = (run += 1);
       waiting(false);
-      say("Sent back with your note. Daedalus revises…");
+      say("Sent back with your note. Odysseus revises…");
       travel(at.y, at.d, 1400, id)
         .then(function () { if (id !== run) return; active("d"); return pause(1200, id); })
-        .then(function (ok) { if (!ok) return; say("…Odysseus checks the new draft, and it comes back to you."); return travel(at.d, at.y, 1600, id); })
+        .then(function (ok) { if (!ok) return; say("…Daedalus challenges the new draft, and it comes back to you."); return travel(at.d, at.y, 1600, id); })
         .then(function () { if (id !== run) return; stopAtKnot(); tie.focus({ preventScroll: true }); });
     });
     again.addEventListener("click", function () { pass(); });

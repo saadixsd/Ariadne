@@ -5,21 +5,23 @@ import { ONE_LINER } from "@/lib/one-liner";
 import "./landing.css";
 
 // The public front door at ariadneagents.si. Fully static: built once at deploy, so a
-// visit costs the Worker no rendering. proxy.ts sends anyone who already holds a session
-// (and any old "/?project=" link) straight to /dashboard, so this never reads a cookie.
+// visit costs the Worker no rendering. Everyone gets it, signed in or not (proxy.ts only
+// sends old "/?project=" links on to /dashboard), so this never reads a cookie.
+// Honesty rule: every step is labelled "Works today" / "Today" or "Coming next"; nothing
+// that is not built yet (Phases 1-4 of the Oct 6 plan) is shown as working.
 // The moving parts (the thread, the Door, the pass in miniature) are public/landing/life.js;
 // without JavaScript the page is complete and still. No numbers, quotes or results on this
 // page are invented: the walkthrough is an animation of the steps, not a fake output.
 
 export const metadata: Metadata = {
-  title: "Ariadne · One model drafts, another challenges, you judge",
+  title: "Ariadne · One AI drafts, another tries to break it, you decide",
   description: ONE_LINER,
   alternates: { canonical: "/" },
   openGraph: {
     type: "website",
     siteName: "Ariadne",
     url: "/",
-    title: "Ariadne · One model drafts, another challenges, you judge",
+    title: "Ariadne · One AI drafts, another tries to break it, you decide",
     description: ONE_LINER,
   },
 };
@@ -94,13 +96,23 @@ export default function Landing() {
             </div>
             <span className="lp-door-spill" aria-hidden />
             <div className="lp-door-inner">
-              <p className="lp-eyebrow lp-rise">Agents draft. Agents challenge. You judge.</p>
+              <p className="lp-eyebrow lp-rise">Draft → Challenge → Judge → Tie Off</p>
               <h1 id="lp-title" className="lp-title lp-rise" style={{ "--delay": ".12s" } as React.CSSProperties}>
-                <span className="lp-line">One model drafts.</span> <span className="lp-line">Another challenges.</span> <em className="lp-line">You judge.</em>
+                <span className="lp-line">Important AI work</span> <span className="lp-line">shouldn&apos;t depend</span>{" "}
+                <span className="lp-line">
+                  on <em>one model.</em>
+                </span>
               </h1>
               <p className="lp-lede lp-rise" style={{ "--delay": ".24s" } as React.CSSProperties}>
-                {ONE_LINER}
+                Ariadne has one AI create the work and another try to break it — while you make the final call.
               </p>
+              <ol className="lp-flow lp-rise" aria-label="What happens" style={{ "--delay": ".3s" } as React.CSSProperties}>
+                <li>AI does the research</li>
+                <li>another AI tries to break it</li>
+                <li>you decide what&apos;s right</li>
+                <li>Ariadne revises it</li>
+                <li>you approve the final result</li>
+              </ol>
               <div className="lp-cta lp-rise" style={{ "--delay": ".36s" } as React.CSSProperties}>
                 <a className="lp-btn lp-btn-thread" href="/sign-up" data-door-cta>
                   Tie the Thread
@@ -113,53 +125,17 @@ export default function Landing() {
           </div>
         </section>
 
-        {/* ---------- the problem ---------- */}
-        <section className="lp-section" aria-labelledby="problem-title">
-          <div className="lp-wrap">
-            <div className="lp-intro">
-              <p className="lp-eyebrow">The labyrinth</p>
-              <h2 id="problem-title">
-                Writing got cheap. <em>Checking didn&apos;t.</em>
-              </h2>
-              <p className="lp-lede">
-                If you use AI for research, the real work starts when the answer arrives. You read it line by
-                line, chase every citation, paste it into a second model and compare. That checking can take
-                hours, and it all lands on you.
-              </p>
-            </div>
-            <ul className="lp-cards">
-              <li className="lp-card">
-                <span className="lp-card-mark" aria-hidden />
-                <h3>Confident mistakes</h3>
-                <p>A wrong number, date or name reads exactly like a right one. Nothing in the text tells you which is which.</p>
-              </li>
-              <li className="lp-card">
-                <span className="lp-card-mark" aria-hidden />
-                <h3>Sources that aren&apos;t there</h3>
-                <p>A citation can look real, with plausible authors, a journal and a year, and still not exist or not say what the draft claims.</p>
-              </li>
-              <li className="lp-card">
-                <span className="lp-card-mark" aria-hidden />
-                <h3>Reviews that just agree</h3>
-                <p>Ask a model to check an answer, especially its own, and it often confirms what was already said instead of looking for what&apos;s wrong.</p>
-              </li>
-            </ul>
-            <p className="lp-close">You end up as the machine that checks the machines.</p>
-          </div>
-        </section>
-
         {/* ---------- how it works ---------- */}
         <section className="lp-section lp-how" id="how" aria-labelledby="how-title">
           <div className="lp-wrap">
             <div className="lp-intro">
-              <p className="lp-eyebrow">Ariadne&apos;s thread · Draft → Challenge → Judge → Tie Off</p>
+              <p className="lp-eyebrow">How it works</p>
               <h2 id="how-title">
-                Two hands spin. <em>You tie the knot.</em>
+                One model drafts. <em>Another tries to break it.</em>
               </h2>
               <p className="lp-lede">
-                In the myth, Ariadne gave Theseus a thread so he could find his way out of the labyrinth. She
-                didn&apos;t walk it for him. Here, two models from different families do the walking, and you
-                hold the thread.
+                You don&apos;t copy answers between two chat windows. Ariadne handles the handoff. You handle
+                the judgment.
               </p>
             </div>
 
@@ -172,30 +148,34 @@ export default function Landing() {
               </svg>
               <ol className="lp-steps">
                 <li className="lp-step" data-step="draft">
-                  <span className="lp-monogram lp-mono-d" aria-hidden>
-                    D
-                  </span>
-                  <div className="lp-step-body">
-                    <p className="lp-step-n">1 · Draft</p>
-                    <h3>Daedalus drafts</h3>
-                    <p className="lp-step-who">GPT</p>
-                    <p className="lp-step-text">Writes the first answer to your question or brief.</p>
-                    <span className="lp-badge">Works today</span>
-                  </div>
-                </li>
-                <li className="lp-step" data-step="challenge">
                   <span className="lp-monogram lp-mono-o" aria-hidden>
                     O
                   </span>
                   <div className="lp-step-body">
+                    <p className="lp-step-n">1 · Draft</p>
+                    <h3>Odysseus drafts</h3>
+                    <p className="lp-step-who">Claude · the Drafter</p>
+                    <p className="lp-step-text">Writes the first answer to your question, from your brief.</p>
+                    <span className="lp-badge">Works today</span>
+                    <p className="lp-step-later">Coming next: the answer first, with numbered claims and sources underneath.</p>
+                  </div>
+                </li>
+                <li className="lp-step" data-step="challenge">
+                  <span className="lp-monogram lp-mono-d" aria-hidden>
+                    D
+                  </span>
+                  <div className="lp-step-body">
                     <p className="lp-step-n">2 · Challenge</p>
-                    <h3>Odysseus challenges</h3>
-                    <p className="lp-step-who">Claude, a different model family</p>
-                    <p className="lp-step-text">Reads the draft looking for what is wrong, unsupported or missing.</p>
-                    <span className="lp-badge lp-badge-next">Coming next</span>
+                    <h3>Daedalus challenges</h3>
+                    <p className="lp-step-who">GPT · the Challenger</p>
+                    <p className="lp-step-text">
+                      A different model tries to break the draft: what&apos;s wrong, unsupported, outdated,
+                      contradicted or missing.
+                    </p>
+                    <span className="lp-badge">Works today</span>
                     <p className="lp-step-later">
-                      Today Odysseus writes a review and flags problems. Next: one click, web search, and every
-                      objection tied to a claim and a source.
+                      Today it works from what it already knows. Coming next: one click, web search, and every
+                      challenge tied to a claim and a source.
                     </p>
                   </div>
                 </li>
@@ -216,7 +196,8 @@ export default function Landing() {
                         Send it back
                       </button>
                     </div>
-                    <p className="lp-step-later">Next: accept, reject or edit each objection on its own.</p>
+                    <span className="lp-badge">Works today</span>
+                    <p className="lp-step-later">Coming next: accept, reject or edit each challenge, or add your own.</p>
                   </div>
                 </li>
                 <li className="lp-step" data-step="tie">
@@ -225,10 +206,10 @@ export default function Landing() {
                   </span>
                   <div className="lp-step-body">
                     <p className="lp-step-n">4 · Tie Off</p>
-                    <h3>The thread is tied</h3>
+                    <h3>You tie it off</h3>
                     <p className="lp-step-who">Signed off by you</p>
                     <p className="lp-step-text">
-                      The answer you approved is kept with who drafted it, who reviewed it and who tied it off.
+                      The version you approved is kept with who drafted it, who challenged it and who tied it off.
                       Earlier versions stay in the history.
                     </p>
                     <span className="lp-badge">Works today</span>
@@ -246,6 +227,13 @@ export default function Landing() {
               </div>
             </div>
 
+            <blockquote className="lp-quote">
+              <p>
+                Don&apos;t ask another AI if the answer is good. <em>Ask it to try to prove the answer wrong.</em>
+              </p>
+              <footer>That&apos;s why the step is called Challenge, not Review.</footer>
+            </blockquote>
+
             <div className="lp-status">
               <div className="lp-status-col">
                 <h3>
@@ -256,13 +244,13 @@ export default function Landing() {
                     <strong>Projects with a brief</strong> that every step reads first.
                   </li>
                   <li>
-                    <strong>A five-step thread:</strong> Odysseus (Claude) sets out the ground, Daedalus (GPT)
-                    drafts, Odysseus reviews the draft, you decide at the knot, and Daedalus produces the final
-                    version.
+                    <strong>A five-step thread:</strong> Odysseus (Claude) researches and drafts, Daedalus (GPT)
+                    challenges the draft, you judge at the knot, and Odysseus writes up the version you approved.
                   </li>
                   <li>
-                    <strong>Review flags</strong> you can add to your note in one click, and a v1 → v2 comparison
-                    after you ask for changes.
+                    <strong>Challenges you can act on:</strong> add any of them to your note in one click and send
+                    the draft back. Odysseus revises, Daedalus challenges the new version, and a v1 → v2
+                    comparison shows what changed. You press Run for each step.
                   </li>
                   <li>
                     <strong>Nothing is overwritten.</strong> Every run is kept in the history.
@@ -272,7 +260,7 @@ export default function Landing() {
               </div>
               <div className="lp-status-col next">
                 <h3>
-                  <span className="lp-badge lp-badge-next">Next</span> What we&apos;re building
+                  <span className="lp-badge lp-badge-next">Coming next</span> What we&apos;re building
                 </h3>
                 <ul>
                   <li>
@@ -280,16 +268,48 @@ export default function Landing() {
                     seconds and point at exactly what you doubt.
                   </li>
                   <li>
-                    <strong>One-click Challenge:</strong> the challenger searches the web, and every objection
-                    names a claim and carries a source. Objections without one are labelled as opinion.
+                    <strong>One-click Challenge:</strong> the challenger searches the web, and every challenge
+                    names a claim and carries a source. Challenges without one are labelled as opinion.
                   </li>
                   <li>
-                    <strong>Judging point by point:</strong> accept, reject or edit each objection, add your own,
-                    then revise only what you accepted.
+                    <strong>Judging point by point:</strong> accept, reject or edit each challenge, or add your own.
+                  </li>
+                  <li>
+                    <strong>Revise and re-challenge only what changed:</strong> the drafter fixes the claims you
+                    accepted, the challenger checks just those, and you tie off. A round or two, not an endless
+                    debate.
+                  </li>
+                  <li>
+                    <strong>Quick Answer and Deep Work:</strong> a fast answer when that&apos;s all you need, the
+                    full thread when it matters.
                   </li>
                 </ul>
               </div>
             </div>
+          </div>
+        </section>
+
+        {/* ---------- the problem ---------- */}
+        <section className="lp-section" aria-labelledby="problem-title">
+          <div className="lp-wrap">
+            <div className="lp-intro">
+              <p className="lp-eyebrow">The labyrinth</p>
+              <h2 id="problem-title">
+                AI writes research fast. <em>Checking it is still on you.</em>
+              </h2>
+              <p className="lp-lede">When the work matters, the answer arrives and the questions start:</p>
+            </div>
+            <ul className="lp-questions">
+              <li>Is this claim true?</li>
+              <li>Does the source actually support it?</li>
+              <li>Is it out of date?</li>
+              <li>Did the model miss something?</li>
+              <li>Do two sources contradict each other?</li>
+              <li>Did it confidently make something up?</li>
+            </ul>
+            <p className="lp-close">
+              So AI sometimes creates a new job: checking the AI. Ariadne is built to make that job smaller.
+            </p>
           </div>
         </section>
 
@@ -307,14 +327,142 @@ export default function Landing() {
               <li>Your work carries numbers, citations or claims that someone else will check.</li>
               <li>You already paste one model&apos;s answer into another to see if it holds up.</li>
             </ul>
-            <p className="lp-lede">
+            <p className="lp-lede lp-center">
               Analysts, builders and students doing serious work come later — researchers first.
             </p>
-            <p className="lp-isnt">
-              <strong>What Ariadne isn&apos;t:</strong> an autopilot, or a promise of no hallucinations. Models
-              still make mistakes. Ariadne is built to make them easier to find, and the last word is always
-              yours.
+            <p className="lp-close">
+              Most AI tools give you an answer. Ariadne gives you a way to challenge the answer before you trust
+              it.
             </p>
+            <p className="lp-isnt">
+              <strong>What Ariadne isn&apos;t:</strong> ChatGPT with more models, AI agents talking to each other,
+              or a promise of no hallucinations. Models still make mistakes, and the challenger is a second
+              opinion, not an authority. The last word is always yours.
+            </p>
+          </div>
+        </section>
+
+        {/* ---------- an example ---------- */}
+        <section className="lp-section" aria-labelledby="example-title">
+          <div className="lp-wrap">
+            <div className="lp-intro">
+              <p className="lp-eyebrow">An example of how it works</p>
+              <h2 id="example-title">
+                One question, <em>start to finish.</em>
+              </h2>
+              <p className="lp-lede">
+                An illustration of the steps, not real output. Some steps already run today in a simpler form;
+                the labels say which.
+              </p>
+            </div>
+            <div className="lp-example">
+              <p className="lp-ask">
+                <span className="lp-eyebrow">You ask</span>
+                “Map the strongest pre-seed investors in Montreal investing in AI developer tools.”
+              </p>
+              <ol className="lp-pass">
+                <li>
+                  <p className="lp-pass-n">Draft</p>
+                  <p>
+                    Odysseus writes the answer first: a shortlist, with the reasons and sources for each name
+                    underneath, and where it isn&apos;t sure.
+                  </p>
+                  <span className="lp-badge">Today</span>
+                </li>
+                <li>
+                  <p className="lp-pass-n">Challenge</p>
+                  <p>
+                    Daedalus goes looking for what&apos;s wrong: a fund that no longer writes pre-seed cheques, a
+                    partner who has moved on, a source that doesn&apos;t say what the draft claims, an obvious name
+                    that&apos;s missing.
+                  </p>
+                  <span className="lp-badge">Today, without web search</span>
+                </li>
+                <li>
+                  <p className="lp-pass-n">Judge</p>
+                  <p>
+                    You go through the challenges. A real problem? Accept it. Not valid? Reject it. Half right?
+                    Edit it. Something nobody caught? Add your own. AI does not get the final vote.
+                  </p>
+                  <span className="lp-badge lp-badge-next">Point by point: coming next</span>
+                </li>
+                <li>
+                  <p className="lp-pass-n">Revise</p>
+                  <p>Odysseus rewrites the claims you accepted or edited, not the whole answer.</p>
+                  <span className="lp-badge lp-badge-next">Coming next</span>
+                </li>
+                <li>
+                  <p className="lp-pass-n">Re-challenge</p>
+                  <p>Daedalus checks only what changed. A round or two, not an endless debate.</p>
+                  <span className="lp-badge lp-badge-next">Coming next</span>
+                </li>
+                <li>
+                  <p className="lp-pass-n">Tie Off</p>
+                  <p>
+                    “I&apos;m satisfied with this version. This is the final answer.” It&apos;s kept as finished
+                    work, not another chat.
+                  </p>
+                  <span className="lp-badge">Today</span>
+                </li>
+              </ol>
+              <p className="lp-example-note">
+                Today, judging happens in one note: add the challenges you agree with and send the draft back.
+                Odysseus redrafts and Daedalus challenges the new version in full.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* ---------- where the judgment sits ---------- */}
+        <section className="lp-section lp-philo" aria-labelledby="philo-title">
+          <div className="lp-wrap">
+            <p className="lp-eyebrow">Where the judgment sits</p>
+            <h2 id="philo-title">
+              <span className="lp-line">Agents do the work.</span> <span className="lp-line">Agents challenge the work.</span>{" "}
+              <em className="lp-line">Humans judge the work.</em>
+            </h2>
+            <p className="lp-lede">
+              Ariadne doesn&apos;t replace your judgment. It takes on the mechanical work around it:
+            </p>
+            <ul className="lp-chores">
+              <li>copying context between models</li>
+              <li>switching between chat windows</li>
+              <li>asking one model to review another</li>
+              <li>a first pass at checking claims</li>
+              <li>hunting for contradictions</li>
+              <li>reconciling two answers</li>
+              <li>prompting again, and again</li>
+            </ul>
+          </div>
+        </section>
+
+        {/* ---------- two ways in (not built yet) ---------- */}
+        <section className="lp-section" aria-labelledby="ways-title">
+          <div className="lp-wrap">
+            <div className="lp-intro">
+              <p className="lp-eyebrow">Coming next · Two ways in</p>
+              <h2 id="ways-title">
+                A quick answer, <em>or the full thread.</em>
+              </h2>
+              <p className="lp-lede">Today every project runs the full thread. Soon you&apos;ll choose how deep to go.</p>
+            </div>
+            <ul className="lp-ways">
+              <li>
+                <span className="lp-badge lp-badge-next">Coming next</span>
+                <h3>Quick Answer</h3>
+                <p className="lp-ways-lead">Just need the answer? Start here.</p>
+                <p>Get a fast answer, then challenge it if it matters.</p>
+              </li>
+              <li>
+                <span className="lp-badge lp-badge-next">Coming next</span>
+                <h3>Deep Work</h3>
+                <p className="lp-ways-lead">Working on something important?</p>
+                <p>
+                  Let another model try to break the answer before you sign off on it. Draft → Challenge → Judge →
+                  Revise → Tie Off, still answer-first, with the detail underneath.
+                </p>
+              </li>
+            </ul>
           </div>
         </section>
 
@@ -329,10 +477,7 @@ export default function Landing() {
             <h2 id="final-title">
               Pick up the <em>thread.</em>
             </h2>
-            <p className="lp-lede">
-              Ariadne starts with one job: checking AI work before you rely on it. Further out, we want people
-              and AI agents working side by side, with the judgment staying with people.
-            </p>
+            <p className="lp-lede">{ONE_LINER}</p>
             <a className="lp-btn lp-btn-thread" href="/sign-up">
               Tie the Thread
             </a>
@@ -340,6 +485,7 @@ export default function Landing() {
           </div>
         </section>
       </main>
+
 
       <footer className="lp-foot">
         <div className="lp-wrap">
@@ -363,7 +509,7 @@ export default function Landing() {
               </a>
             </nav>
           </div>
-          <p>Ariadne helps researchers verify AI-generated work. The judgment stays yours.</p>
+          <p>Ariadne helps you verify important AI-generated work. You remain the final judge.</p>
           <p>
             <a href="/sign-in">Sign in</a> · © 2026 Ariadne
           </p>
