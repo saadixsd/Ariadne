@@ -5,8 +5,8 @@ talks to a single Worker (`ariadne`) on ariadneagents.si. The Worker serves the 
 page, sign-up and the dashboard, the JSON API, stores everything in one D1 database and
 calls Anthropic and OpenAI with server-side keys.
 
-The product's wedge is **Draft → Challenge → Judge → Tie Off**: Daedalus (GPT) drafts,
-Odysseus (Claude, a different model family) challenges, you judge, and the approved
+The product's wedge is **Draft → Challenge → Judge → Tie Off**: Odysseus (Claude) drafts,
+Daedalus (GPT, a different model family) challenges, you judge, and the approved
 answer is tied off with its history.
 
 ## 1. System
@@ -41,8 +41,8 @@ flowchart TB
     Logs["Workers Logs (observability)"]
   end
 
-  Anthropic["Anthropic API<br/>Odysseus = Claude<br/>(research + review)"]
-  OpenAI["OpenAI API<br/>Daedalus = GPT<br/>(draft + build)"]
+  Anthropic["Anthropic API<br/>Odysseus = Claude<br/>(research + draft + final)"]
+  OpenAI["OpenAI API<br/>Daedalus = GPT<br/>(challenge)"]
   GH["GitHub saadixsd/Ariadne<br/>branch main"]
   Builds["Workers Builds<br/>push to main = production deploy"]
 

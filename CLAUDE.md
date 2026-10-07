@@ -8,9 +8,9 @@ stop and ask — do not "helpfully" build the parked thing anyway.
 
 ## 1. What this project is
 
-**One-liner (Oct 6 2026, use it verbatim):** Ariadne helps researchers verify
-AI-generated work by having one model challenge another, while keeping the final
-judgment with the human.
+**One-liner (Oct 6 2026, use it verbatim):** Ariadne helps you verify important
+AI-generated work by having one AI model challenge another, while you remain the
+final judge. (Source of truth: `lib/one-liner.ts`.)
 
 The wedge is one loop: **Draft → Challenge → Judge → Tie Off.** A drafter model writes,
 a challenger model from a different family looks for what is wrong, unsupported or
@@ -51,8 +51,12 @@ No "Beta" / "beta" wording anywhere a real user can see it. Ever.
   opinionated — no BYOK in V1).
 
 **Agents (current names — use these):**
-- **Odysseus** (Claude) — researcher + reviewer
-- **Daedalus** (GPT) — builder + writer
+- **Odysseus** (Claude) — the Drafter: researches the brief, writes the answer, revises it
+- **Daedalus** (GPT) — the Challenger: tries to prove the draft wrong; never writes an
+  answer of its own
+
+(Swapped Oct 6 2026: before that Daedalus drafted and Odysseus reviewed. Projects created
+before the swap keep their old agent rows and steps; there is no migration.)
 
 Old docs say "Scout" and "Maker" — same agents, renamed Sep 30 2026. If you see
 Scout/Maker in the codebase, that occurrence is stale; update it to
@@ -62,7 +66,9 @@ Odysseus/Daedalus.
 GPT `gpt-6-luna`.
 
 **Default workflow for new projects:** a generic 5-task template in `lib/starter-thread.ts`
-(research → draft → review → human approval → produce). The
+("Research the brief" Odysseus → "Draft the answer" Odysseus → "Challenge the draft"
+Daedalus → "Judge the draft" You → "Write the final version" Odysseus; task keys are
+still research/draft/review/approve/build). The
 "Scout → Maker → Scout review → Human approval → Maker" loop in old notes was the
 Phase B dogfood shape, not the template.
 
@@ -138,7 +144,7 @@ work on them, and do not widen them either.
   are first-class (author = You) and carry into the revision. This is not live barge-in
   into a streaming model.
 - **A different model as the challenger.** The challenger comes from a different model
-  family than the drafter (today: drafter Daedalus = GPT, challenger Odysseus = Claude),
+  family than the drafter (today: drafter Odysseus = Claude, challenger Daedalus = GPT),
   and may be a stronger tier than the drafter. We choose the models per role in config;
   users still don't pick models.
 
@@ -206,6 +212,13 @@ Task detail (historical): `docs/archive/planning/22_CLAUDE_CODE_CLEANUP_BRIEF.md
 - Signup throttling behavior.
 
 ## 10. Recent changes
+
+- **Oct 6 (UX copy pass):** new one-liner and hero ("Important AI work shouldn't depend on
+  one model."), landing reordered (hero → how → problem → who → illustrative example →
+  philosophy) with an honest "Today / Coming next" split; Odysseus = Drafter (Claude),
+  Daedalus = Challenger (GPT) in the starter thread; board shows Draft / Challenge / Judge
+  phase chips, "Draft"/"Challenge" run buttons, "Tie Off" at the knot and a short
+  orientation card; first-run dialog explains the six steps.
 
 - **Oct 6:** Phase 0: public landing at `/` ("Tie the Thread"), board at `/dashboard`,
   Turnstile on sign-up, `INVITE_CODES` switch, first-day trial cap (6 runs), migration

@@ -1,7 +1,7 @@
 # Ariadne
 
-**Ariadne helps researchers verify AI-generated work by having one model challenge
-another, while keeping the final judgment with the human.**
+**Ariadne helps you verify important AI-generated work by having one AI model challenge
+another, while you remain the final judge.**
 
 One model drafts, a model from a different family challenges the draft, and you judge:
 **Draft → Challenge → Judge → Tie Off.** Nothing moves past a *knot* until you decide.
@@ -44,12 +44,14 @@ belongs to one of three *hands*:
 
 | Hand | Model | Job |
 |---|---|---|
-| **Daedalus** | GPT (OpenAI) | Drafts: writes the first answer and the final version |
-| **Odysseus** | Claude (Anthropic), a different model family | Challenges: sets out the ground, then checks the draft for what is wrong, unsupported or missing |
+| **Odysseus** | Claude (Anthropic) | The Drafter: researches the brief, writes the answer and the final version |
+| **Daedalus** | GPT (OpenAI), a different model family | The Challenger: tries to prove the draft wrong (incorrect, unsupported, outdated, contradicted or missing); never writes an answer of its own |
 | **You** | Human | The judge. Nothing passes a knot until you tie it off |
 
 A new project starts with a five-step thread:
-**research (Odysseus) → draft (Daedalus) → review (Odysseus) → knot (You) → produce (Daedalus)**.
+**research (Odysseus) → draft (Odysseus) → challenge (Daedalus) → judge at the knot (You) → final version (Odysseus)**.
+Today each step runs when you press its button, and the challenger works from what the
+model already knows (no web search yet).
 
 - **Handoffs, not chat.** A step's prompt is its role, the brief, the output of each
   step it depends on, and its instructions. Dependencies decide who works next.

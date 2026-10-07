@@ -4,6 +4,21 @@ What was built, by day, summarized from `git log` on `main` (51 commits, Sep 27 
 plus the presentation cleanup of Oct 3).
 Detailed notes and how each change was verified: [docs/PROJECT_LOG.md](docs/PROJECT_LOG.md).
 
+## 2026-10-06: UX copy pass — what Ariadne is, for first-time users
+- New one-liner: "Ariadne helps you verify important AI-generated work by having one AI
+  model challenge another, while you remain the final judge."
+- Landing: hero "Important AI work shouldn't depend on one model.", the five-step flow,
+  how it works with "Works today / Coming next" on each step, the problem, who it's for,
+  an example labelled as an illustration (not real output), the philosophy. Unbuilt
+  features (numbered claims, web search, point-by-point judging, re-challenge, Quick
+  Answer / Deep Work) are listed only under "Coming next".
+- Roles swapped in the starter thread: Odysseus (Claude) drafts, Daedalus (GPT) challenges.
+  Same five steps and the same number of model calls. Existing projects are unchanged.
+- Board: Draft / Challenge / Judge chips, "Draft" and "Challenge" run buttons, "Tie Off" at
+  the knot, "Challenged by" attribution, a short orientation card on an untouched thread.
+- First-run dialog: "How Ariadne works" in six steps, "What are you trying to figure out?",
+  an optional example brief. Sign-up says what happens next.
+
 ## 2026-10-06: Phase 0.2 — researcher wedge on the landing
 - Restores the researcher one-liner: "Ariadne helps researchers verify AI-generated work by
   having one model challenge another, while keeping the final judgment with the human."
