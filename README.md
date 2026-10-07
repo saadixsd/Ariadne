@@ -48,10 +48,11 @@ belongs to one of three *hands*:
 | **Daedalus** | GPT (OpenAI), a different model family | The Challenger: tries to prove the draft wrong (incorrect, unsupported, outdated, contradicted or missing); never writes an answer of its own |
 | **You** | Human | The judge. Nothing passes a knot until you tie it off |
 
-A new project starts with a five-step thread:
-**research (Odysseus) → draft (Odysseus) → challenge (Daedalus) → judge at the knot (You) → final version (Odysseus)**.
-Today each step runs when you press its button, and the challenger works from what the
-model already knows (no web search yet).
+A new project starts with a four-step thread (Draft → Challenge → Judge → Tie Off):
+**draft (Odysseus) → challenge (Daedalus) → judge at the knot (You) → tied-off writeup (Odysseus)**.
+Today each step runs when you press its button. The challenger works from the draft and
+what it already knows; points without a source in the draft are labelled Opinion (no web
+search on the free Cloudflare plan).
 
 - **Handoffs, not chat.** A step's prompt is its role, the brief, the output of each
   step it depends on, and its instructions. Dependencies decide who works next.
@@ -96,7 +97,7 @@ lib/              Server logic and shared helpers
   agents.ts       the run pipeline: runTask, decideTask (approve / ask for changes), rerunTask
   usage.ts        daily run quotas (per account, first-day trial, site-wide)
   signup-guard.ts Turnstile check and the INVITE_CODES switch for sign-up
-  reclaim.ts      stuck-run recovery     starter-thread.ts  the five-step thread a new project starts with
+  reclaim.ts      stuck-run recovery     starter-thread.ts  the four-step thread (Draft → Challenge → Judge → Tie Off) a new project starts with
   auth.ts         sessions and sign-in   rate-limit.ts      per-IP limits on auth
   prisma.ts       per-request Prisma client (D1 on Workers, SQLite locally)
 prisma/           schema.prisma (source of truth) and d1.sql (fresh-database snapshot)

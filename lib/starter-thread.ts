@@ -14,28 +14,19 @@ type TaskSpec = {
 // own: every step works from the brief the user wrote. (The old example projects
 // and "Reset demo" are gone; nothing here seeds fake data.)
 //
-// Roles (fixed by the founder, Oct 6 2026): Odysseus (Claude) is the Drafter: he
-// researches, drafts and writes the final version. Daedalus (GPT) is the Challenger:
-// he attacks the draft he is handed and never writes an answer of his own. You judge.
-// Same five steps and the same number of model calls as before; only who runs each
-// model step changed (it was Daedalus drafting and Odysseus reviewing).
+// Roles (fixed by the founder, Oct 6 2026): Odysseus (Claude) is the Drafter;
+// Daedalus (GPT) is the Challenger; You judge. Marketing sells four stages —
+// Draft → Challenge → Judge → Tie Off — so new projects use four steps (research
+// is folded into Draft; the final writeup is the Tie Off artifact). Existing
+// projects keep whatever steps they already have; this list only seeds new ones.
 const OWN_TASKS: TaskSpec[] = [
-  {
-    key: "research",
-    agent: "Odysseus",
-    title: "Research the brief",
-    instructions:
-      "Read the shared context. List the goals, the constraints, and the questions the answer has to settle. Note what you already know that bears on them, and where you are unsure.",
-    dependsOn: [],
-    requiresApproval: false,
-  },
   {
     key: "draft",
     agent: "Odysseus",
     title: "Draft the answer",
     instructions:
-      "Using the shared context and the research, write what the brief asks for. Lead with the answer. Then give the supporting points, with a source or your reasoning for each, and say plainly where you are unsure.",
-    dependsOn: ["research"],
+      "Read the shared context. Settle what the brief asks for: the goals, the constraints, and the questions the answer has to settle. Note what you already know that bears on them, and where you are unsure.\n\nThen write what the brief asks for. Lead with the answer. Supporting points next, with a source or your reasoning for each, and say plainly where you are unsure. You cannot search the web here — work from the brief and what you already know.",
+    dependsOn: [],
     requiresApproval: false,
   },
   {
@@ -43,7 +34,7 @@ const OWN_TASKS: TaskSpec[] = [
     agent: "Daedalus",
     title: "Challenge the draft",
     instructions:
-      "Try to prove the draft wrong. Do not write your own answer. Start with a one-line Verdict. Then list each problem as a numbered item: the claim, what is wrong with it (incorrect, unsupported, outdated, contradicted, a weak source, missing, or misleading), and a suggested fix. You cannot search the web here, so say when a point rests on your own knowledge rather than on a source in the draft.",
+      "Try to prove the draft wrong. Do not write your own answer.\n\nFor each problem, write a numbered dispute in exactly this shape (one blank line between disputes):\n\n1. Claim: <the specific claim from the draft>\n   Objection: <incorrect, unsupported, outdated, contradicted, a weak source, missing, or misleading — and why>\n   Evidence: <a quote or citation that appears in the draft> OR Opinion: <why you doubt it from your own knowledge — you cannot search the web>\n   Confidence: high | medium | low\n   Fix: <suggested fix>\n\nPrefer fewer precise disputes over a long essay. Do not open with a Verdict. If you find nothing material, say so in one short paragraph and list no disputes.",
     dependsOn: ["draft"],
     requiresApproval: false,
   },
@@ -59,9 +50,9 @@ const OWN_TASKS: TaskSpec[] = [
   {
     key: "build",
     agent: "Odysseus",
-    title: "Write the final version",
+    title: "Write the tied-off answer",
     instructions:
-      "Write the final version of the draft the human approved. Lead with the answer. Keep its claims and conclusions as approved; do not add new claims.",
+      "Write the tied-off answer from the draft the human approved. Keep its claims and conclusions as approved; do not add new claims.\n\nUse these headings, in this order:\n\n## Answer\nLead with the answer.\n\n## Sources\nThe sources or reasoning that support it. Say when something rests on the draft alone.\n\n## Disagreements\nChallenges that stayed open or that the human did not take. Write \"None.\" if there are none.\n\n## Attention required\nWhat the reader should still verify or watch. Write \"None.\" if there is nothing.",
     dependsOn: ["approve"],
     requiresApproval: false,
   },
@@ -80,7 +71,7 @@ export async function createRoster(projectId: string) {
       name: ODYSSEUS,
       provider: "anthropic",
       model: modelFor("anthropic"),
-      role: "The Drafter. Researches the brief, writes the answer and revises it.",
+      role: "The Drafter. Settles the brief, writes the answer and revises it.",
       status: "idle",
     },
   });
@@ -199,4 +190,3 @@ export async function startFirstProject(userId: string, name: string, brief: str
   }
   return projectId;
 }
-

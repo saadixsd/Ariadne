@@ -6,8 +6,9 @@ export const SITE_DAILY_MODEL_RUNS = 200;
 
 // Trial allowance. Sign-up is open to the internet (Turnstile, no email verification on the
 // free plan), so for its first 24 hours an account that signed up WITHOUT an invite code
-// gets a smaller daily cap: enough for one full pass of the five-step thread (4 model runs)
-// plus one round of changes (2 more). After that it gets DAILY_MODEL_RUNS like everyone else.
+// gets a smaller daily cap: enough for one full pass of the four-step thread (3 model runs:
+// Draft, Challenge, Tie Off writeup) plus one round of changes. After that it gets
+// DAILY_MODEL_RUNS like everyone else. Intentional trial — not a regression from 10/day.
 // Accounts that signed up with a valid invite code skip the trial. Derived from
 // User.createdAt and User.inviteCode, so there is no extra state to keep in sync.
 export const TRIAL_DAILY_MODEL_RUNS = 6;
