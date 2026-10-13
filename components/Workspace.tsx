@@ -293,7 +293,7 @@ export function Workspace({ initial }: { initial: WorkspaceData }) {
       <header className="border-b border-line bg-raised">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 lg:px-6">
           <BrandMark />
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 flex-1 basis-[55%] sm:basis-0">
             <h1 className="truncate font-serif text-[22px] leading-tight">{project.name}</h1>
             {goal ? <p className="truncate text-[13px] text-ink-dim" title={goal}>{goal}</p> : null}
           </div>
@@ -319,15 +319,17 @@ export function Workspace({ initial }: { initial: WorkspaceData }) {
             <button type="button" onClick={save} disabled={!doc.text} title="Download the current document as Markdown" className="rounded-lg bg-raised px-3 py-1.5 text-sm ring-1 ring-line hover:ring-thread disabled:opacity-50">
               Save
             </button>
+            {state !== "approved" ? (
             <button
               type="button"
               onClick={() => (approveReady ? approveNow() : setTab("issues"))}
-              disabled={Boolean(busy) || state === "approved" || (!approveReady && !judging)}
+              disabled={Boolean(busy) || (!approveReady && !judging)}
               title={approveReady ? "Your sign-off on the tied-off answer" : judging ? "Judge the issues first" : "Available once the answer is tied off"}
               className="rounded-lg bg-thread px-3 py-1.5 text-sm font-medium text-raised hover:bg-thread-bright disabled:opacity-50"
             >
-              {state === "approved" ? "Approved" : "Review & Approve"}
+              Review & Approve
             </button>
+            ) : null}
             <details className="relative">
               <summary className="cursor-pointer list-none px-1 text-lg text-ink-dim hover:text-ink" aria-label="More">⋯</summary>
               <div className="absolute right-0 z-20 mt-1 w-40 rounded-lg bg-raised p-2 text-sm ring-1 ring-line">
