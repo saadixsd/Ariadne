@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { isResolved, issueTitle, type Issue, type IssueState } from "@/lib/workspace";
+import { isResolved, issueTitle, stripQuotes, type Issue, type IssueState } from "@/lib/workspace";
 
 type Filter = "all" | "high" | "medium" | "resolved";
 
@@ -149,7 +149,7 @@ function IssueCard({
         </div>
         <span className={`shrink-0 text-[11px] ${issue.state === "open" ? "text-ink-faint" : "text-ok"}`}>{STATE_LABEL[issue.state]}</span>
       </div>
-      {flag.claim ? <p className="mt-2 text-sm leading-normal font-medium">“{flag.claim}”</p> : null}
+      {flag.claim ? <p className="mt-2 text-sm leading-normal font-medium">“{stripQuotes(flag.claim)}”</p> : null}
       <p className="mt-1 text-[13px] leading-normal text-ink-dim">{flag.issue}</p>
       {issue.state === "edited" && issue.edit ? <p className="mt-1 text-xs text-ok">Your correction: {issue.edit}</p> : null}
       {issue.state === "rejected" && issue.reason ? <p className="mt-1 text-xs text-ink-dim">Your reason: {issue.reason}</p> : null}

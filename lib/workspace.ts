@@ -162,3 +162,22 @@ export function stepStatus(task: TaskDTO | undefined): StepStatus {
   if (task.status === "done" || task.status === "running" || task.status === "failed") return task.status;
   return "pending";
 }
+
+/** The model often quotes the claim itself; strip its quotes so the UI adds exactly one pair. */
+export function stripQuotes(text: string): string {
+  return text.trim().replace(/^["“”'‘’«»]+|["“”'‘’«»]+$/g, "").trim();
+}
+
+/** The one-line goal under the title: the first brief line that is not just the title again. */
+export function goalLine(brief: string, name: string): string | null {
+  const norm = (s: string) => s.toLowerCase().replace(/^(goal|question|title)\s*:\s*/i, "").replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+  const title = norm(name);
+  for (const raw of brief.split(/\n/)) {
+    const line = raw.replace(/^#+\s*/, "").trim();
+    if (!line || /^deliverable\s*:/i.test(line)) continue;
+    const n = norm(line);
+    if (!n || n === title || title.includes(n) || n.includes(title)) continue;
+    return line;
+  }
+  return null;
+}

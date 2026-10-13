@@ -1,5 +1,6 @@
 "use client";
 
+import { LocalTime } from "@/components/LocalTime";
 import { useState } from "react";
 import MarkdownBody from "@/components/MarkdownBody";
 import type { ProjectDTO, TaskDTO } from "@/lib/types";
@@ -29,9 +30,6 @@ export function StatusIcon({ status }: { status: StepStatus }) {
   );
 }
 
-function clock(iso: string | null | undefined) {
-  return iso ? new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
-}
 
 type Row = { n: number; who: string; step: string; what: string; status: StepStatus; at: string | null };
 
@@ -71,7 +69,7 @@ export function AgentActivityList({ steps, approvedAt }: { steps: ThreadSteps; a
                 <p className="text-[11px] leading-snug text-ink-faint">{r.what}</p>
               </div>
               <span className={`shrink-0 text-[11px] ${r.status === "done" ? "text-ink-dim" : r.status === "waiting" || r.status === "running" ? "text-thread" : "text-ink-faint"}`}>
-                {r.status === "done" ? clock(r.at) : LABEL[r.status]}
+                {r.status === "done" && r.at ? <LocalTime iso={r.at} format="time" /> : r.status === "done" ? "" : LABEL[r.status]}
               </span>
             </li>
           ))}
@@ -101,7 +99,7 @@ export function ActivityTab({ project, steps }: { project: ProjectDTO; steps: Th
             <span className="text-xs text-ink-dim">
               {r.who}
               {r.task?.model && r.task.model !== "human" ? ` · ${r.task.model}` : ""}
-              {r.task?.completedAt ? ` · ${new Date(r.task.completedAt).toLocaleString()}` : ""}
+              {r.task?.completedAt ? <> · <LocalTime iso={r.task.completedAt} /></> : null}
             </span>
           </div>
           {r.task?.output && provider.get(r.task.agentId) !== "human" ? (
@@ -120,7 +118,7 @@ export function ActivityTab({ project, steps }: { project: ProjectDTO; steps: Th
         <ul className="mt-2 space-y-1.5 text-xs text-ink-dim">
           {project.events.slice(0, 30).map((e) => (
             <li key={e.id}>
-              <time className="font-mono text-ink-faint">{new Date(e.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</time> {e.message}
+              <LocalTime className="font-mono text-ink-faint" iso={e.createdAt} format="time" /> {e.message}
             </li>
           ))}
         </ul>

@@ -65,3 +65,18 @@ test("sources: caps, and the shared context labels the text as unchecked", () =>
   assert.equal(briefWithSources("B", []), "B");
   assert.match(briefWithSources("B", [{ name: "n.md", text: "T" }]), /not checked[\s\S]*### Source: n\.md\nT/);
 });
+
+test("stripQuotes removes the model's own quotes once", async () => {
+  const { stripQuotes } = await import("../../lib/workspace");
+  assert.equal(stripQuotes('"The pilot shows 18%."'), "The pilot shows 18%.");
+  assert.equal(stripQuotes("“Any peer reviewer will flag it”"), "Any peer reviewer will flag it");
+  assert.equal(stripQuotes("No quotes here"), "No quotes here");
+});
+
+test("goalLine skips a brief line that repeats the title", async () => {
+  const { goalLine } = await import("../../lib/workspace");
+  const name = "QA: Does the pilot's 18% reading-time effect hold up?";
+  assert.equal(goalLine("Goal: QA: Does the pilot's 18% reading-time effect hold up?\nOne page for my supervisor.\nDeliverable: a page", name), "One page for my supervisor.");
+  assert.equal(goalLine("Deliverable: x", name), null);
+  assert.equal(goalLine("Summarise the pilot for my supervisor.", "Pilot effect"), "Summarise the pilot for my supervisor.");
+});

@@ -1,5 +1,6 @@
 "use client";
 
+import { LocalTime } from "@/components/LocalTime";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityTab, AgentActivityList, StatusIcon } from "@/components/ActivityPanel";
@@ -14,6 +15,7 @@ import {
   docState,
   documentOf,
   draftVersion,
+  goalLine,
   stepStatus,
   hashText,
   isResolved,
@@ -220,7 +222,7 @@ export function Workspace({ initial }: { initial: WorkspaceData }) {
       case "done":
         return (
           <p className="text-sm text-ok">
-            Approved {data.approvedAt ? new Date(data.approvedAt).toLocaleString() : ""}. <Link className="text-thread" href={`/feedback?project=${project.id}`}>Tell us how it went</Link>
+            Approved {data.approvedAt ? <LocalTime iso={data.approvedAt} /> : null}. <Link className="text-thread" href={`/feedback?project=${project.id}`}>Tell us how it went</Link>
           </p>
         );
     }
@@ -244,7 +246,7 @@ export function Workspace({ initial }: { initial: WorkspaceData }) {
     URL.revokeObjectURL(url);
   }
 
-  const goal = (project.brief.split(/\n/).find((l) => l.trim() && !/^deliverable:/i.test(l)) ?? "").trim();
+  const goal = goalLine(project.brief, project.name);
   const stepper: { label: string; task?: typeof steps.draft }[] = [
     { label: "Draft", task: steps.draft },
     { label: "Challenge", task: steps.challenge },
@@ -373,7 +375,7 @@ export function Workspace({ initial }: { initial: WorkspaceData }) {
                   {doc.text ? (
                     <span className="rounded-full bg-tint px-2 py-0.5 ring-1 ring-line">
                       Version {version}
-                      {docTime ? ` · ${new Date(docTime).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}` : ""}
+                      {docTime ? <> · <LocalTime iso={docTime} format="short" /></> : null}
                     </span>
                   ) : null}
                 </div>

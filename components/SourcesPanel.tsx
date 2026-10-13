@@ -1,5 +1,6 @@
 "use client";
 
+import { LocalTime } from "@/components/LocalTime";
 import { useRef, useState } from "react";
 import { ACCEPT, extractText, uploadOriginal, type Extracted } from "@/lib/ingest-client";
 import { MAX_SOURCE_FILES } from "@/lib/sources";
@@ -18,11 +19,6 @@ function size(bytes: number | null) {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
-function time(iso: string) {
-  const d = new Date(iso);
-  const today = new Date().toDateString() === d.toDateString();
-  return `${today ? "Today" : d.toLocaleDateString([], { month: "short", day: "numeric" })}, ${d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
-}
 
 /** The "Deliverable:" line of the brief, when there is one (the /new flow writes it). */
 export function deliverableLine(brief: string): string | null {
@@ -135,7 +131,7 @@ export function SourcesPanel({
                 <p className="text-[11px] text-ink-faint">
                   {s.originalUntil ? (
                     <>
-                      Original kept until {new Date(s.originalUntil).toLocaleDateString()} ·{" "}
+                      Original kept until <LocalTime iso={s.originalUntil} format="date" /> ·{" "}
                       <a className="text-thread" href={`/api/projects/${projectId}/sources/${s.id}/file`}>Download</a>
                     </>
                   ) : (
@@ -203,7 +199,7 @@ export function SourcesPanel({
               <li key={e.id} className="relative">
                 <span className={`absolute top-1 -left-[21px] h-2.5 w-2.5 rounded-full ring-2 ring-raised ${e.type === "approved" ? "bg-ok" : e.type === "error" || e.type === "failed" ? "bg-danger" : "bg-thread"}`} />
                 <p className="line-clamp-2 text-[12px] leading-snug">{e.message}</p>
-                <time className="text-[11px] text-ink-faint" dateTime={e.createdAt}>{time(e.createdAt)}</time>
+                <LocalTime className="block text-[11px] text-ink-faint" iso={e.createdAt} format="relative" />
               </li>
             ))}
           </ol>
