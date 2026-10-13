@@ -137,7 +137,7 @@ export function FeedbackForm({
 
 /**
  * Opt-in, never automatic: after your first approved deliverable a small prompt asks
- * whether you want to share feedback. "Share feedback" opens the form; "No thanks" hides
+ * whether you want to share feedback. "Share feedback" opens the form; "Not now" or × hides
  * the prompt for good. /feedback stays open either way.
  */
 export function FeedbackInvite({ projectId, onClose }: { projectId: string; onClose: () => void }) {
@@ -147,15 +147,33 @@ export function FeedbackInvite({ projectId, onClose }: { projectId: string; onCl
     onClose();
   }
   if (!open) {
+    // A small popup, shown once after the first approved deliverable. One click (×, "Not now"
+    // or Escape) dismisses it for good; nothing opens unless the person chooses to.
     return (
-      <div role="region" aria-label="Feedback invitation" className="mx-4 mt-3 flex flex-wrap items-center gap-3 bg-tint px-3 py-2 text-sm ring-1 ring-line">
-        <span>Want to share feedback? Four short questions, all optional.</span>
-        <button type="button" onClick={() => setOpen(true)} className="bg-thread px-3 py-1 text-sm text-raised hover:bg-thread-bright">
-          Share feedback
-        </button>
-        <button type="button" onClick={() => void dismiss()} className="text-sm text-ink-dim hover:text-ink">
-          No thanks
-        </button>
+      <div
+        role="dialog"
+        aria-modal="false"
+        aria-labelledby="fi-title"
+        onKeyDown={(e) => {
+          if (e.key === "Escape") void dismiss();
+        }}
+        className="fixed right-4 bottom-4 z-40 w-[min(360px,calc(100vw-2rem))] rounded-2xl bg-raised p-4 shadow-[0_8px_30px_rgba(31,26,20,0.18)] ring-1 ring-line"
+      >
+        <div className="flex items-start justify-between gap-3">
+          <h2 id="fi-title" className="font-serif text-[20px] leading-tight">Want to share feedback?</h2>
+          <button type="button" onClick={() => void dismiss()} aria-label="Dismiss" className="-mt-1 px-1 text-lg leading-none text-ink-dim hover:text-ink">
+            ×
+          </button>
+        </div>
+        <p className="mt-1 text-sm text-ink-dim">Four short questions about this deliverable, all optional. We won&apos;t ask again.</p>
+        <div className="mt-3 flex items-center gap-2">
+          <button type="button" autoFocus onClick={() => setOpen(true)} className="rounded-lg bg-thread px-3 py-1.5 text-sm font-medium text-raised hover:bg-thread-bright">
+            Share feedback
+          </button>
+          <button type="button" onClick={() => void dismiss()} className="px-2 py-1.5 text-sm text-ink-dim hover:text-ink">
+            Not now
+          </button>
+        </div>
       </div>
     );
   }

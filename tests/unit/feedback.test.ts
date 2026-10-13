@@ -29,3 +29,14 @@ test("popup shows once, only after an approved deliverable", () => {
   assert.equal(shouldPromptFeedback({ feedbackPromptAt: null }, new Date()), true);
   assert.equal(shouldPromptFeedback({ feedbackPromptAt: new Date() }, new Date()), false);
 });
+
+test("errorType groups run failures by cause", async () => {
+  const { errorType } = await import("../../lib/outcomes");
+  assert.equal(errorType("Request timed out after 60s"), "timeout");
+  assert.equal(errorType("429 Too Many Requests"), "rate_limit");
+  assert.equal(errorType("Anthropic 529 overloaded"), "rate_limit");
+  assert.equal(errorType("OpenAI 502 Bad Gateway"), "provider_5xx");
+  assert.equal(errorType("401 invalid api key"), "auth");
+  assert.equal(errorType("fetch failed"), "network");
+  assert.equal(errorType(null), "other");
+});

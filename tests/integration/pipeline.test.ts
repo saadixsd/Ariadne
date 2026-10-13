@@ -649,6 +649,15 @@ describe("workspace journey (Oct 14): sources → Draft → Challenge → decisi
     await prisma.user.update({ where: { id: user.id }, data: { feedbackPromptAt: new Date() } });
     assert.equal((await ws.loadWorkspace(id, user.id))!.promptFeedback, false);
 
+    // Admin outcomes: this account started, was challenged and approved; nothing abandoned.
+    const outcome = (await (await import("../../lib/outcomes-server")).workflowOutcomes()).find((o) => o.userId === user.id)!;
+    assert.ok(outcome.started >= 1);
+    assert.equal(outcome.challenged, 1);
+    assert.equal(outcome.approved, 1);
+    assert.equal(outcome.abandoned, 0);
+    const later = (await (await import("../../lib/outcomes-server")).workflowOutcomes(Date.now() + 3 * 86400_000)).find((o) => o.userId === user.id)!;
+    assert.equal(later.abandoned, 0, "an approved project is never counted as abandoned");
+
     // Deleting the project removes its originals, sources and decisions.
     await ws.deleteProjectOriginals(id, user.id);
     assert.deepEqual(store.keys(), []);
