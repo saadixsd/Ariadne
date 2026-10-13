@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Script from "next/script";
 import { ONE_LINER } from "@/lib/one-liner";
+import { OG_IMAGE, SITE_NAME, SITE_URL, SOCIAL } from "@/lib/site";
 import "./landing.css";
 
 // The public front door at ariadneagents.si. Fully static: built once at deploy, so a
@@ -13,18 +14,39 @@ import "./landing.css";
 // without JavaScript the page is complete and still. No numbers, quotes or results on this
 // page are invented: the walkthrough is an animation of the steps, not a fake output.
 
+const TITLE = "Ariadne · One model drafts. Another challenges. You judge.";
+const DESCRIPTION =
+  "Ariadne has one AI model draft your work and a second model try to prove it wrong, claim by claim. You judge every issue and approve the result. A second opinion, not a guarantee.";
+
 export const metadata: Metadata = {
-  title: "Ariadne · One AI drafts, another tries to break it, you decide",
-  description: ONE_LINER,
+  title: { absolute: TITLE },
+  description: DESCRIPTION,
   alternates: { canonical: "/" },
-  openGraph: {
-    type: "website",
-    siteName: "Ariadne",
-    url: "/",
-    title: "Ariadne · One AI drafts, another tries to break it, you decide",
-    description: ONE_LINER,
-  },
+  robots: { index: true, follow: true },
+  openGraph: { type: "website", siteName: SITE_NAME, url: "/", title: TITLE, description: DESCRIPTION, images: [OG_IMAGE] },
+  twitter: { card: "summary_large_image", site: "@ariadne_agents", title: TITLE, description: DESCRIPTION, images: [OG_IMAGE.url] },
 };
+
+// Structured data: only facts that are true today. No ratings, prices or user counts.
+const JSON_LD = {
+  "@context": "https://schema.org",
+  "@graph": [
+    { "@type": "Organization", "@id": `${SITE_URL}/#org`, name: SITE_NAME, url: SITE_URL, logo: `${SITE_URL}/icon.png`, sameAs: SOCIAL },
+    {
+      "@type": "WebApplication",
+      name: SITE_NAME,
+      url: SITE_URL,
+      applicationCategory: "ProductivityApplication",
+      operatingSystem: "Web browser",
+      description: ONE_LINER,
+      publisher: { "@id": `${SITE_URL}/#org` },
+    },
+    { "@type": "WebSite", name: SITE_NAME, url: SITE_URL, publisher: { "@id": `${SITE_URL}/#org` } },
+  ],
+};
+
+// Cloudflare Web Analytics: cookie-free, only on this public page, only when a token is set.
+const CF_BEACON = process.env.NEXT_PUBLIC_CF_BEACON_TOKEN;
 
 function ThreadGlyph() {
   return (
@@ -517,6 +539,14 @@ export default function Landing() {
       </footer>
       {/* A plain script from public/: decoration only, no framework code, no Worker CPU. */}
       <Script src="/landing/life.js" strategy="afterInteractive" />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD).replace(/</g, "\\u003c") }} />
+      {CF_BEACON ? (
+        <Script
+          src="https://static.cloudflareinsights.com/beacon.min.js"
+          strategy="lazyOnload"
+          data-cf-beacon={JSON.stringify({ token: CF_BEACON })}
+        />
+      ) : null}
     </div>
   );
 }

@@ -17,7 +17,7 @@ import { redirect } from "next/navigation";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Settings · Ariadne",
+  title: "Settings",
 };
 
 const HAND_COLORS: Record<string, string> = {

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import { ONE_LINER } from "@/lib/one-liner";
+import { OG_IMAGE, SITE_NAME, SITE_URL, TAGLINE } from "@/lib/site";
 
 const instrumentSerif = localFont({
   variable: "--font-instrument-serif",
@@ -31,9 +32,14 @@ const dmMono = localFont({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://ariadneagents.si"),
-  title: "Ariadne",
+  metadataBase: new URL(SITE_URL),
+  title: { default: `${SITE_NAME} · ${TAGLINE}`, template: `%s · ${SITE_NAME}` },
   description: ONE_LINER,
+  applicationName: SITE_NAME,
+  openGraph: { type: "website", siteName: SITE_NAME, locale: "en_US", images: [OG_IMAGE] },
+  twitter: { card: "summary_large_image", site: "@ariadne_agents", images: [OG_IMAGE.url] },
+  // App pages hold people's documents; only the public pages opt back in to indexing.
+  robots: { index: false, follow: false },
 };
 
 // viewport-fit=cover lets the app paint under notches; the edges pad themselves with

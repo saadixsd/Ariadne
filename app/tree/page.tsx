@@ -12,7 +12,7 @@ import { redirect } from "next/navigation";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Coordination tree · Ariadne",
+  title: "Coordination tree",
 };
 
 export default async function TreePage({
