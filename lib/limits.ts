@@ -7,7 +7,7 @@ export const DAILY_MODEL_RUNS = 10;
 // MAX_RUNS_PER_WORKFLOW in total (a full pass is 3 runs + about 10 reruns). That cap is
 // not advertised in the UI; hitting it says to approve the deliverable or start a new project.
 // SITE_DAILY_MODEL_RUNS below still counts every model run across all accounts.
-export const WORKFLOWS_PER_DAY = 6;
+export const WORKFLOWS_PER_DAY = 10;
 export const RUNS_PER_FULL_PASS = 3;
 export const MAX_RERUNS_PER_WORKFLOW = 10;
 export const MAX_RUNS_PER_WORKFLOW = RUNS_PER_FULL_PASS + MAX_RERUNS_PER_WORKFLOW;

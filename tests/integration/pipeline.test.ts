@@ -192,14 +192,14 @@ describe("quota: only successful runs count, increment is atomic", () => {
     assert.equal(await runsToday(user.id), 1, "successful run charged once");
   });
 
-  test("workflow quota: the 7th workflow of the day is refused (429), task untouched, provider not called", async () => {
+  test("workflow quota: the 11th workflow of the day is refused (429), task untouched, provider not called", async () => {
     const user = await newUser("limit@test.dev");
     const p = await newProject(user.id);
     for (let i = 0; i < limits.WORKFLOWS_PER_DAY; i++) {
       await prisma.workflow.create({ data: { userId: user.id, projectId: `other-${i}`, day: usage.utcDay(), runs: 3 } });
     }
     const callsBefore = mock.state.calls;
-    await rejects(agents.runTask(p.draft.id, user.id), 429, /started 6 workflows today/);
+    await rejects(agents.runTask(p.draft.id, user.id), 429, /started 10 workflows today/);
     assert.equal(mock.state.calls, callsBefore);
     assert.equal((await prisma.task.findUniqueOrThrow({ where: { id: p.draft.id } })).status, "pending");
     assert.equal(await runsToday(user.id), 0);

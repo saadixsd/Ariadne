@@ -35,7 +35,7 @@ flowchart LR
 - **Open sign-up, guarded.** Cloudflare Turnstile on sign-up (it fails closed in production
   if the secret is missing), per-IP rate limits, and an invite-code switch: set the
   `INVITE_CODES` secret and sign-up becomes invite-only, delete it and it's open again.
-- **Workflows, not runs.** Each account can start 6 workflows a day. A workflow is one Draft → Challenge → Judge → Tie Off pass on a project. Reruns and Intervene inside a workflow are free up to a hidden cap. The site-wide ceiling of 200 model runs a day still applies. See [`docs/WORKSPACE.md`](docs/WORKSPACE.md). Payments come later.
+- **Workflows, not runs.** Each account can start 10 workflows a day. A workflow is one Draft → Challenge → Judge → Tie Off pass on a project. Reruns and Intervene inside a workflow are free up to a hidden cap. The site-wide ceiling of 200 model runs a day still applies. See [`docs/WORKSPACE.md`](docs/WORKSPACE.md). Payments come later.
 - **Email verification** is built but off: Cloudflare's email sending can't reach arbitrary
   addresses on the Workers Free plan.
 

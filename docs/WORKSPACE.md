@@ -80,8 +80,8 @@ Rules kept: nothing runs without a click, and every button that runs a model say
 
 ## Quota: workflows, not runs (confirmed Oct 13)
 
-- Each account can start **6 workflows per UTC day** (`WORKFLOWS_PER_DAY`). A workflow is one Draft → Challenge → Judge → Tie Off pass on a project. It opens on the first model run of a project and closes when the deliverable is approved. The next model run on that project after approval opens a new workflow.
-- Model runs inside an open workflow (reruns, Intervene, revisions) don't count against the 6. A hidden cap of 13 runs per workflow (3 for a full pass + 10 reruns, `MAX_RUNS_PER_WORKFLOW`) stops runaway loops. The message tells the user to approve or start a new project.
+- Each account can start **10 workflows per UTC day** (`WORKFLOWS_PER_DAY`). A workflow is one Draft → Challenge → Judge → Tie Off pass on a project. It opens on the first model run of a project and closes when the deliverable is approved. The next model run on that project after approval opens a new workflow.
+- Model runs inside an open workflow (reruns, Intervene, revisions) don't count against the 10. A hidden cap of 13 runs per workflow (3 for a full pass + 10 reruns, `MAX_RUNS_PER_WORKFLOW`) stops runaway loops. The message tells the user to approve or start a new project.
 - A workflow whose only runs failed is removed, so a provider error never uses one up.
 - The site-wide ceiling of **200 model runs per UTC day** is unchanged and still counts every run (`UsageDay`).
 - The day-one trial (6 runs) and the 10 runs per day no longer apply to the Workspace/Board/Tree paths. `dailyRunLimit` is kept only for the legacy reservation path the tests still exercise.
