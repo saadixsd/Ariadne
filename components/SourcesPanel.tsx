@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { ACCEPT, extractText } from "@/lib/ingest-client";
+import { ACCEPT, extractText, uploadOriginal, type Extracted } from "@/lib/ingest-client";
 import { MAX_SOURCE_FILES } from "@/lib/sources";
 import type { SourceSummary } from "@/lib/workspace-server";
 
@@ -42,7 +42,7 @@ export function SourcesPanel({
   async function addFiles(files: FileList | null) {
     if (!files?.length) return;
     setError(null);
-    const read = [];
+    const read: Extracted[] = [];
     for (const file of [...files]) {
       setStatus(`Reading ${file.name}…`);
       try {
@@ -60,8 +60,12 @@ export function SourcesPanel({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sources: read.map(({ name, mime, bytes, text }) => ({ name, mime, bytes, text })) }),
       });
-      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      const body = (await res.json().catch(() => ({}))) as { error?: string; sources?: { id: string }[] };
       if (!res.ok) setError(body.error ?? "Could not save the files");
+      else {
+        setStatus("Keeping the originals for 3 days…");
+        await Promise.all((body.sources ?? []).map((s, i) => (read[i] ? uploadOriginal(projectId, s.id, read[i].file) : false)));
+      }
       await onChanged();
     }
     setStatus(null);
@@ -103,6 +107,18 @@ export function SourcesPanel({
                 ) : null}
               </div>
               <p className="text-xs text-ok">Text read · {s.words.toLocaleString("en-US")} words · not checked</p>
+              <p className="text-xs text-ink-faint">
+                {s.originalUntil ? (
+                  <>
+                    Original kept until {new Date(s.originalUntil).toLocaleDateString()} ·{" "}
+                    <a className="text-thread" href={`/api/projects/${projectId}/sources/${s.id}/file`}>
+                      Download
+                    </a>
+                  </>
+                ) : (
+                  "Original not kept (3-day limit passed or storage off)"
+                )}
+              </p>
               <p className="mt-1 line-clamp-3 text-xs leading-normal text-ink-dim">{s.opening}</p>
             </li>
           ))}
@@ -115,7 +131,7 @@ export function SourcesPanel({
         ) : null}
         {status ? <p className="mt-1 text-xs text-ink-dim" role="status">{status}</p> : null}
         <p className="mt-2 text-xs leading-normal text-ink-faint">
-          Files are read in your browser. Only the text is saved, not the file. Reading a file is not checking it.
+          Text is read in your browser. The original file is kept for 3 days, then deleted; the text stays with the project. Reading a file is not checking it.
         </p>
       </section>
 

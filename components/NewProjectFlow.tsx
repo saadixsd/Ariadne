@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { BrandMark } from "@/components/BrandMark";
-import { ACCEPT, extractText, type Extracted } from "@/lib/ingest-client";
+import { ACCEPT, extractText, uploadOriginal, type Extracted } from "@/lib/ingest-client";
 import { MAX_SOURCE_FILES } from "@/lib/sources";
 
 type FileRow = { key: string; name: string; state: "reading" | "read" | "failed"; note?: string; out?: Extracted };
@@ -68,8 +68,10 @@ export function NewProjectFlow({ runsLeft, runsLimit }: { runsLeft: number; runs
           sources: ready.map((f) => ({ name: f.out!.name, mime: f.out!.mime, bytes: f.out!.bytes, text: f.out!.text })),
         }),
       });
-      const body = (await res.json().catch(() => ({}))) as { id?: string; error?: string };
+      const body = (await res.json().catch(() => ({}))) as { id?: string; error?: string; sourceIds?: string[] };
       if (!res.ok || !body.id) throw new Error(body.error ?? "Could not create the project");
+      const projectId = body.id;
+      await Promise.all((body.sourceIds ?? []).map((sid, i) => uploadOriginal(projectId, sid, ready[i].out!.file)));
       window.location.href = `/p/${body.id}`;
     } catch (e) {
       setError((e as Error).message);
@@ -124,7 +126,7 @@ export function NewProjectFlow({ runsLeft, runsLimit }: { runsLeft: number; runs
               ))}
             </ul>
             <p className="mt-2 text-xs leading-normal text-ink-faint">
-              Files are read in your browser. Only the extracted text is saved, never the file itself. Reading a file is not checking it.
+              Text is read in your browser. The original file is kept for 3 days, then deleted; the text stays with the project. Reading a file is not checking it.
             </p>
           </div>
           <div className="flex justify-end">

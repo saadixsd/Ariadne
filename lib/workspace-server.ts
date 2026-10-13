@@ -2,6 +2,7 @@ import "server-only";
 
 import { TaskRunError } from "@/lib/errors";
 import { shouldPromptFeedback } from "@/lib/feedback";
+import { getFileStore, MAX_ORIGINAL_BYTES, originalExpiry, originalKey, userPrefix } from "@/lib/file-store";
 import { prisma } from "@/lib/prisma";
 import { closeWorkflow } from "@/lib/usage";
 import { getProject } from "@/lib/project";
@@ -9,7 +10,7 @@ import { parseSources, sourceDigest, type SourceInput } from "@/lib/sources";
 import type { ProjectDTO } from "@/lib/types";
 import { documentOf, hashText, ISSUE_STATES, threadSteps, type Decision, type IssueState } from "@/lib/workspace";
 
-export type SourceSummary = { id: string; name: string; bytes: number | null; words: number; opening: string; createdAt: string };
+export type SourceSummary = { id: string; name: string; bytes: number | null; words: number; opening: string; createdAt: string; originalUntil: string | null };
 
 export type WorkspaceData = {
   project: ProjectDTO;
@@ -32,7 +33,14 @@ export async function loadWorkspace(projectId: string, userId: string): Promise<
   return {
     project,
     decisions: decisions.map((d) => ({ flagKey: d.flagKey, state: d.state as IssueState, edit: d.edit, reason: d.reason })),
-    sources: sources.map((s) => ({ id: s.id, name: s.name, bytes: s.bytes, createdAt: s.createdAt.toISOString(), ...sourceDigest(s.text) })),
+    sources: sources.map((s) => ({
+      id: s.id,
+      name: s.name,
+      bytes: s.bytes,
+      createdAt: s.createdAt.toISOString(),
+      originalUntil: s.blobKey && s.expiresAt && s.expiresAt.getTime() > Date.now() ? s.expiresAt.toISOString() : null,
+      ...sourceDigest(s.text),
+    })),
     approvedAt: meta?.approvedAt?.toISOString() ?? null,
     approvedHash: meta?.approvedHash ?? null,
     promptFeedback: user ? shouldPromptFeedback(user, meta?.approvedAt ?? null) : false,
@@ -104,11 +112,53 @@ export async function addSources(projectId: string, userId: string, raw: unknown
   } catch (error) {
     throw new TaskRunError((error as Error).message, 400);
   }
-  for (const s of sources) await prisma.sourceFile.create({ data: { projectId, ...s } });
-  return sources.length;
+  const created: { id: string; name: string }[] = [];
+  for (const s of sources) {
+    const row = await prisma.sourceFile.create({ data: { projectId, ...s }, select: { id: true, name: true } });
+    created.push(row);
+  }
+  return created;
+}
+
+/** Keep the original bytes of one source in R2 for 3 days. Returns null when storage is off. */
+export async function storeOriginal(projectId: string, userId: string, sourceId: string, body: ArrayBuffer, contentType: string | null) {
+  await ownedProject(projectId, userId);
+  const source = await prisma.sourceFile.findFirst({ where: { id: sourceId, projectId }, select: { id: true } });
+  if (!source) throw new TaskRunError("File not found", 404);
+  if (body.byteLength === 0) throw new TaskRunError("Empty file", 400);
+  if (body.byteLength > MAX_ORIGINAL_BYTES) throw new TaskRunError("Files up to 15 MB", 413);
+  const store = await getFileStore();
+  if (!store) return null;
+  const key = originalKey(userId, projectId, sourceId);
+  await store.put(key, body, contentType);
+  const expiresAt = originalExpiry();
+  await prisma.sourceFile.update({ where: { id: sourceId }, data: { blobKey: key, expiresAt } });
+  return { expiresAt: expiresAt.toISOString() };
+}
+
+export async function readOriginal(projectId: string, userId: string, sourceId: string) {
+  await ownedProject(projectId, userId);
+  const source = await prisma.sourceFile.findFirst({ where: { id: sourceId, projectId } });
+  if (!source?.blobKey || !source.expiresAt || source.expiresAt.getTime() <= Date.now()) return null;
+  // Defence in depth: the key must sit under this user's prefix.
+  if (!source.blobKey.startsWith(userPrefix(userId))) return null;
+  const store = await getFileStore();
+  const file = store ? await store.get(source.blobKey) : null;
+  return file ? { ...file, name: source.name } : null;
+}
+
+/** Deletes a project's originals (called before the project row goes). */
+export async function deleteProjectOriginals(projectId: string, userId: string) {
+  const store = await getFileStore();
+  if (store) await store.deletePrefix(`${userPrefix(userId)}${projectId}/`);
 }
 
 export async function removeSource(projectId: string, userId: string, sourceId: string) {
   await ownedProject(projectId, userId);
+  const source = await prisma.sourceFile.findFirst({ where: { id: sourceId, projectId }, select: { blobKey: true } });
+  if (source?.blobKey?.startsWith(userPrefix(userId))) {
+    const store = await getFileStore();
+    if (store) await store.deletePrefix(source.blobKey);
+  }
   await prisma.sourceFile.deleteMany({ where: { id: sourceId, projectId } });
 }

@@ -1,3 +1,4 @@
+import { deleteProjectOriginals } from "@/lib/workspace-server";
 import { requireUser } from "@/lib/auth";
 import { errorResponse } from "@/lib/errors";
 import { assertMaxLength } from "@/lib/input-caps";
@@ -86,6 +87,8 @@ export async function DELETE(_request: Request, context: Context) {
     if (spinning) {
       return Response.json({ error: "A step is still running. Wait for it to land, then delete the project." }, { status: 409 });
     }
+    // Originals in R2 go first (the lifecycle rule would remove them within 3 days anyway).
+    await deleteProjectOriginals(id, user.id);
     // userId in the filter again, so ownership is enforced by the delete itself.
     const { count } = await prisma.project.deleteMany({ where: { id, userId: user.id } });
     if (count === 0) return Response.json({ error: "Project not found" }, { status: 404 });

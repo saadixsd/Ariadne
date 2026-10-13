@@ -11,7 +11,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     const { id } = await context.params;
     const body = (await request.json().catch(() => null)) as { sources?: unknown } | null;
     const added = await addSources(id, user.id, body?.sources);
-    return Response.json({ added }, { status: 201 });
+    return Response.json({ added: added.length, sources: added }, { status: 201 });
   } catch (error) {
     return errorResponse(error);
   }

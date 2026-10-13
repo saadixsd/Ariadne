@@ -1,7 +1,8 @@
 "use client";
 /*
-  Reads text out of a file in the browser. Nothing is uploaded: the Worker only ever gets
-  the extracted text (lib/sources.ts caps it). PDF via pdf.js and DOCX via mammoth, both
+  Reads text out of a file in the browser; the Worker never parses files (free-plan CPU).
+  The extracted text goes to D1 (lib/sources.ts caps it); the original bytes are kept in R2
+  for 3 days (uploadOriginal → lib/file-store.ts). PDF via pdf.js and DOCX via mammoth, both
   loaded on demand from /vendor (static assets, never in the Worker bundle).
   Scanned PDFs have no text layer; we say so instead of guessing.
 */
@@ -47,7 +48,21 @@ function loadMammoth(): Promise<Mammoth> {
   return mammoth;
 }
 
-export type Extracted = { name: string; mime: string | null; bytes: number; text: string; truncated: boolean };
+export type Extracted = { name: string; mime: string | null; bytes: number; text: string; truncated: boolean; file: File };
+
+/** Keeps the original in R2 for 3 days (lib/file-store.ts). Best effort: the text is what the steps use. */
+export async function uploadOriginal(projectId: string, sourceId: string, file: File): Promise<boolean> {
+  try {
+    const res = await fetch(`/api/projects/${projectId}/sources/${sourceId}/file`, {
+      method: "PUT",
+      headers: { "Content-Type": file.type || "application/octet-stream" },
+      body: file,
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
 
 function kindOf(file: File): "pdf" | "docx" | "text" | null {
   const name = file.name.toLowerCase();
@@ -82,5 +97,5 @@ export async function extractText(file: File): Promise<Extracted> {
   text = text.replace(/\r\n/g, "\n").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
   if (!text) throw new Error("No text was found in this file");
   const truncated = text.length > MAX_SOURCE_CHARS;
-  return { name: file.name, mime: file.type || null, bytes: file.size, text: truncated ? text.slice(0, MAX_SOURCE_CHARS) : text, truncated };
+  return { name: file.name, mime: file.type || null, bytes: file.size, text: truncated ? text.slice(0, MAX_SOURCE_CHARS) : text, truncated, file };
 }

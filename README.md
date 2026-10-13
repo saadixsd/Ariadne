@@ -15,7 +15,7 @@ its database is kept as the first invite pool.
 
 ## The Workspace (Oct 14 2026)
 
-The default screen is now the **Workspace** (`/p/[id]`). The left panel has the goal, the files you added and the brief. The centre shows the document. The right panel lists Daedalus's challenges as issues, and you Accept, Reject, Edit or mark each one Needs investigation. **Approve deliverable** is a separate, explicit last step. New projects start at `/new`: describe the goal, add PDF, DOCX or Markdown files (read in your browser; only the text is kept), check the brief, confirm. Board and Tree are still there under *Advanced views*. Details, the diagram, privacy rules and production steps are in [`docs/WORKSPACE.md`](docs/WORKSPACE.md).
+The default screen is now the **Workspace** (`/p/[id]`). The left panel has the goal, the files you added and the brief. The centre shows the document. The right panel lists Daedalus's challenges as issues, and you Accept, Reject, Edit or mark each one Needs investigation. **Approve deliverable** is a separate, explicit last step. New projects start at `/new`: describe the goal, add PDF, DOCX or Markdown files (text is read in your browser; the original is kept 3 days in R2, then deleted), check the brief, confirm. Board and Tree are still there under *Advanced views*. Details, the diagram, privacy rules and production steps are in [`docs/WORKSPACE.md`](docs/WORKSPACE.md).
 
 ## How people get in
 
@@ -35,9 +35,7 @@ flowchart LR
 - **Open sign-up, guarded.** Cloudflare Turnstile on sign-up (it fails closed in production
   if the secret is missing), per-IP rate limits, and an invite-code switch: set the
   `INVITE_CODES` secret and sign-up becomes invite-only, delete it and it's open again.
-- **A small trial.** A new account gets 6 model runs in its first 24 hours (one full pass
-  plus one round of changes), then the normal 10 a day. Accounts that signed up with an
-  invite code skip the trial cap. Payments come later.
+- **Workflows, not runs.** Each account can start 6 workflows a day. A workflow is one Draft → Challenge → Judge → Tie Off pass on a project. Reruns and Intervene inside a workflow are free up to a hidden cap. The site-wide ceiling of 200 model runs a day still applies. See [`docs/WORKSPACE.md`](docs/WORKSPACE.md). Payments come later.
 - **Email verification** is built but off: Cloudflare's email sending can't reach arbitrary
   addresses on the Workers Free plan.
 

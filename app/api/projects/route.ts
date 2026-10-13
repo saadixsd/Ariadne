@@ -50,9 +50,13 @@ export async function POST(request: Request) {
     }
     const user = await requireUser();
     const projectId = await createUserProject(user.id, name, brief);
-    for (const source of sources) await prisma.sourceFile.create({ data: { projectId, ...source } });
+    const sourceIds: string[] = [];
+    for (const source of sources) {
+      sourceIds.push((await prisma.sourceFile.create({ data: { projectId, ...source }, select: { id: true } })).id);
+    }
     const created = await getProject(projectId, user.id);
-    return Response.json(created, { status: 201 });
+    // sourceIds follow the order of `sources`, so the browser can attach each original.
+    return Response.json({ ...created, sourceIds }, { status: 201 });
   } catch (error) {
     return errorResponse(error);
   }

@@ -538,7 +538,20 @@ describe("workspace journey (Oct 14): sources → Draft → Challenge → decisi
     const { id, draft, review, gate, build } = await newProject(user.id);
 
     // Sources: browser-extracted text, saved, and fed into every step's shared context.
-    assert.equal(await ws.addSources(id, user.id, [{ name: "paper.md", mime: "text/markdown", bytes: 20, text: "The effect size was 0.4 (n=12)." }]), 1);
+    const store = (await import("../../lib/file-store")).memoryStore();
+    (globalThis as { __ariadneFileStore?: unknown }).__ariadneFileStore = store;
+    const added = await ws.addSources(id, user.id, [{ name: "paper.md", mime: "text/markdown", bytes: 20, text: "The effect size was 0.4 (n=12)." }]);
+    assert.equal(added.length, 1);
+    // Original kept in R2 under the owner's prefix, for 3 days; a stranger cannot store or read it.
+    const kept = await ws.storeOriginal(id, user.id, added[0].id, new TextEncoder().encode("# paper").buffer as ArrayBuffer, "text/markdown");
+    assert.ok(kept && new Date(kept.expiresAt).getTime() - Date.now() > 2.9 * 86400_000);
+    assert.deepEqual(store.keys(), [`u/${user.id}/${id}/${added[0].id}`]);
+    assert.equal((await ws.readOriginal(id, user.id, added[0].id))?.size, 7);
+    const strangerPeek = await newUser("peek@example.com");
+    await rejects(ws.readOriginal(id, strangerPeek.id, added[0].id), 404);
+    await prisma.sourceFile.update({ where: { id: added[0].id }, data: { expiresAt: new Date(Date.now() - 1000) } });
+    assert.equal(await ws.readOriginal(id, user.id, added[0].id), null, "expired originals are not offered");
+    assert.equal((await ws.loadWorkspace(id, user.id))!.sources[0].originalUntil, null);
     await rejects(ws.addSources(id, user.id, [{ name: "big.md", text: "x".repeat(40_001) }]), 400, /too long/);
     const other = await newUser("intruder@example.com");
     await rejects(ws.addSources(id, other.id, [{ name: "a.md", text: "a" }]), 404);
@@ -600,7 +613,10 @@ describe("workspace journey (Oct 14): sources → Draft → Challenge → decisi
     await prisma.user.update({ where: { id: user.id }, data: { feedbackPromptAt: new Date() } });
     assert.equal((await ws.loadWorkspace(id, user.id))!.promptFeedback, false);
 
-    // Deleting the project removes its sources and decisions (cascade).
+    // Deleting the project removes its originals, sources and decisions.
+    await ws.deleteProjectOriginals(id, user.id);
+    assert.deepEqual(store.keys(), []);
+    delete (globalThis as { __ariadneFileStore?: unknown }).__ariadneFileStore;
     await prisma.project.delete({ where: { id } });
     assert.equal(await prisma.sourceFile.count({ where: { projectId: id } }), 0);
     assert.equal(await prisma.issueDecision.count({ where: { projectId: id } }), 0);

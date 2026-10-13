@@ -23,6 +23,12 @@
       "migrations_dir": "migrations"
     }
   ],
+  // Original uploaded files (PDF/DOCX/MD), one prefix per user: u/<userId>/<projectId>/<sourceId>.
+  // A bucket lifecycle rule deletes every object 3 days after upload (docs/WORKSPACE.md has
+  // the setup commands). Create the bucket BEFORE deploying, or the deploy fails.
+  "r2_buckets": [
+    { "binding": "FILES", "bucket_name": "ariadne-uploads" }
+  ],
   "services": [
     {
       "binding": "WORKER_SELF_REFERENCE",
