@@ -6,6 +6,77 @@
 // Run standalone: node tests/integration/mock-llm.mjs [port]
 import { createServer } from "node:http";
 
+// Mock text shaped like real output, so local screenshots are representative. Test data only:
+// it never reaches production (the mock is only used by tests and tools/devserver.sh).
+const MOCK_DRAFT = `## Answer
+
+The pilot's 18% reduction in reading time is a promising signal, but it does not yet show that the intervention works. With 12 participants and no control group, the result could come from practice effects or regression to the mean.
+
+## What the pilot shows
+
+- Reading time fell by 18% on average across the 12 participants.
+- The effect was measured once, right after the intervention.
+- Follow-up is planned for 2027, so there is no evidence yet on whether the effect lasts.
+
+## What it does not show
+
+1. **Causation.** Without a control group, any improvement over time is attributed to the intervention.
+2. **Generalisability.** Twelve self-selected participants do not represent the target population.
+3. **Size of the effect.** The pilot reports no confidence interval or variance.
+
+## Comparison of next-step designs
+
+| Design | Controls for practice effects | Rough sample size | Cost |
+|---|---|---|---|
+| Randomised controlled trial | Yes | 60–80 | High |
+| Crossover with washout | Yes | 24–30 | Medium |
+| Repeat pilot with waitlist control | Partly | 24 | Low |
+
+## Recommendation
+
+Run a waitlist-controlled repeat first: it is cheap, it tests whether the 18% holds against a comparison group, and it informs the sample size for a full trial. The intervention is widely considered best practice in reading research.
+`;
+
+const MOCK_TIED_OFF = `## Answer
+
+The 18% reduction is a promising but preliminary signal. With n=12 and no control group it cannot show that the intervention causes faster reading.
+
+## Sources
+
+- Pilot study notes (pilot.pdf): n=12, 18% reduction, no control group, follow-up planned for 2027.
+- The design comparison rests on the draft's reasoning, not on a cited source.
+
+## Disagreements
+
+None.
+
+## Attention required
+
+- Check the sample-size ranges against a power calculation before planning the trial.
+`;
+
+const MOCK_GPT = `1. Claim: The intervention is widely considered best practice in reading research.
+   Objection: Unsupported — the draft cites no source for this, and the pilot notes say nothing about wider adoption.
+   Opinion: I know of no consensus statement that names this intervention as best practice.
+   Confidence: high
+   Fix: Remove the sentence or cite a review that says so.
+
+2. Claim: Reading time fell by 18% on average across the 12 participants.
+   Objection: Misleading without spread — an average from 12 people can hide one or two large outliers.
+   Evidence: "In our pilot (n=12), the intervention reduced reading time by 18%."
+   Confidence: medium
+   Fix: Report the median and range, or say the spread is unknown.
+
+3. Claim: Crossover with washout needs 24–30 participants.
+   Objection: Unsupported — the sample size depends on the expected effect and variance, which the pilot does not report.
+   Opinion: These ranges look like rules of thumb rather than a power calculation.
+   Confidence: medium
+   Fix: Say the ranges are rough and need a power calculation.`;
+
+function mockClaude(body) {
+  return body.includes("tied-off answer") ? MOCK_TIED_OFF : MOCK_DRAFT;
+}
+
 export function startMockLlm(port = 0) {
   const state = { fail: false, calls: 0, failures: 0, lastBody: {} };
   const server = createServer(async (req, res) => {
@@ -45,7 +116,7 @@ export function startMockLlm(port = 0) {
         role: "assistant",
         model: request.model,
         stop_reason: "end_turn",
-        content: [{ type: "text", text: `Claude mock output #${n}\n- angle one\n- angle two` }],
+        content: [{ type: "text", text: `${mockClaude(JSON.stringify(request))}\n<!-- mock #${n} -->` }],
         usage: { input_tokens: 10, output_tokens: 10 },
       });
     }
@@ -55,7 +126,7 @@ export function startMockLlm(port = 0) {
         object: "chat.completion",
         created: Math.floor(Date.now() / 1000),
         model: request.model,
-        choices: [{ index: 0, finish_reason: "stop", message: { role: "assistant", content: `GPT mock output #${n}\nVerdict: mock verdict.\n1. Mock claim one is unsupported. Fix: mock fix one.\n2. Mock claim two is outdated. Fix: mock fix two.` } }],
+        choices: [{ index: 0, finish_reason: "stop", message: { role: "assistant", content: `${MOCK_GPT}\n<!-- mock #${n} -->` } }],
         usage: { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20 },
       });
     }
