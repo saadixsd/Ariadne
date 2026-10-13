@@ -1,7 +1,7 @@
 import "server-only";
 
 import { TaskRunError } from "@/lib/errors";
-import { DAILY_MODEL_RUNS, SITE_DAILY_MODEL_RUNS, dailyRunLimit } from "@/lib/limits";
+import { DAILY_MODEL_RUNS, MAX_RUNS_PER_WORKFLOW, SITE_DAILY_MODEL_RUNS, WORKFLOWS_PER_DAY, dailyRunLimit } from "@/lib/limits";
 import { getPrisma } from "@/lib/prisma";
 
 export { DAILY_MODEL_RUNS, SITE_DAILY_MODEL_RUNS, dailyRunLimit };
@@ -69,12 +69,24 @@ async function reserveUserRun(userId: string, day: string, limit: number) {
  * each other (each sees the other's reservation), never push the total past the ceiling.
  * Like the per-account quota, a failed, discarded or reclaimed run releases its unit.
  */
-export async function reserveModelRun(userId: string, day = utcDay(), limit = DAILY_MODEL_RUNS) {
-  await reserveUserRun(userId, day, Math.min(limit, DAILY_MODEL_RUNS));
+export async function reserveModelRun(userId: string, day = utcDay(), limit = DAILY_MODEL_RUNS, projectId?: string) {
+  if (projectId) {
+    // Workflow quota: the account limit is workflows per day, not runs. UsageDay still
+    // counts every run (no per-account cap on it here) for the site ceiling and metrics.
+    await reserveWorkflowRun(userId, projectId, day);
+    try {
+      await reserveUserRun(userId, day, Number.MAX_SAFE_INTEGER);
+    } catch (error) {
+      await releaseWorkflowRun(projectId);
+      throw error;
+    }
+  } else {
+    await reserveUserRun(userId, day, Math.min(limit, DAILY_MODEL_RUNS));
+  }
   const prisma = await getPrisma();
   const total = await prisma.usageDay.aggregate({ where: { day }, _sum: { runs: true } });
   if ((total._sum.runs ?? 0) > SITE_DAILY_MODEL_RUNS) {
-    await releaseModelRun(userId, day);
+    await releaseModelRun(userId, day, projectId);
     throw new TaskRunError(
       `Ariadne has spun all ${SITE_DAILY_MODEL_RUNS} runs it makes in a day across every account, so nothing was sent to Claude or GPT.`,
       503,
@@ -90,10 +102,72 @@ function secondsUntilNextUtcDay(now = Date.now()) {
 }
 
 /** Gives back a reservation made by `reserveModelRun` on the same UTC day. Never goes below 0. */
-export async function releaseModelRun(userId: string, day: string) {
+export async function releaseModelRun(userId: string, day: string, projectId?: string) {
   const prisma = await getPrisma();
+  if (projectId) await releaseWorkflowRun(projectId);
   await prisma.usageDay.updateMany({
     where: { userId, day, runs: { gt: 0 } },
     data: { runs: { decrement: 1 } },
   });
+}
+
+/** Workflows this account started on `day` (UTC). */
+export async function workflowsStarted(userId: string, day = utcDay()) {
+  const prisma = await getPrisma();
+  return prisma.workflow.count({ where: { userId, day } });
+}
+
+export async function workflowsLeft(userId: string, day = utcDay()) {
+  return Math.max(0, WORKFLOWS_PER_DAY - (await workflowsStarted(userId, day)));
+}
+
+/**
+ * One model run inside the project's open workflow. With no open workflow, a new one is
+ * started, which counts against WORKFLOWS_PER_DAY. Runs inside a workflow are free up to
+ * MAX_RUNS_PER_WORKFLOW. Check-and-increment is one conditional UPDATE, as for UsageDay.
+ * Two first runs racing on one project could each open a workflow; the second sees the
+ * first on its next run (findFirst picks the oldest open one), so at worst one extra counts.
+ */
+async function reserveWorkflowRun(userId: string, projectId: string, day: string) {
+  const prisma = await getPrisma();
+  let open = await prisma.workflow.findFirst({ where: { projectId, status: "open" }, orderBy: { createdAt: "asc" } });
+  if (!open) {
+    if ((await workflowsStarted(userId, day)) >= WORKFLOWS_PER_DAY) {
+      throw new TaskRunError(
+        `You have started ${WORKFLOWS_PER_DAY} workflows today, the daily limit. Steps inside a workflow you already started still run. Nothing was sent to Claude or GPT.`,
+        429,
+        { limit: WORKFLOWS_PER_DAY, scope: "workflows" },
+      );
+    }
+    open = await prisma.workflow.create({ data: { userId, projectId, day, runs: 0 } });
+  }
+  const bumped = await prisma.workflow.updateMany({
+    where: { id: open.id, status: "open", runs: { lt: MAX_RUNS_PER_WORKFLOW } },
+    data: { runs: { increment: 1 } },
+  });
+  if (bumped.count !== 1) {
+    throw new TaskRunError(
+      "This workflow has been re-run many times. Approve the deliverable, or start a new project, to continue. Nothing was sent to Claude or GPT.",
+      429,
+      { scope: "workflow_runs" },
+    );
+  }
+}
+
+/**
+ * Gives back one run of the project's open workflow. A workflow whose only runs all
+ * failed is removed, so a failed first run does not use up one of the day's workflows.
+ */
+async function releaseWorkflowRun(projectId: string) {
+  const prisma = await getPrisma();
+  const open = await prisma.workflow.findFirst({ where: { projectId, status: "open" }, orderBy: { createdAt: "asc" } });
+  if (!open) return;
+  await prisma.workflow.updateMany({ where: { id: open.id, runs: { gt: 0 } }, data: { runs: { decrement: 1 } } });
+  await prisma.workflow.deleteMany({ where: { id: open.id, runs: 0 } });
+}
+
+/** Approving the deliverable finishes the workflow; the next model run on it starts a new one. */
+export async function closeWorkflow(projectId: string) {
+  const prisma = await getPrisma();
+  await prisma.workflow.updateMany({ where: { projectId, status: "open" }, data: { status: "closed", closedAt: new Date() } });
 }

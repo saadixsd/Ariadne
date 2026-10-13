@@ -212,7 +212,29 @@ model SourceFile {
   mime      String?
   bytes     Int?
   text      String
+  /// R2 object key of the original file (u/<userId>/<projectId>/<id>); null when not kept.
+  blobKey   String?
+  /// When the original is deleted (R2 lifecycle: 3 days). The extracted text stays.
+  expiresAt DateTime?
   createdAt DateTime @default(now())
 
   @@index([projectId])
+}
+
+/// One Draft → Challenge → Judge → Tie Off pass on a project: the unit the quota counts.
+/// Opens on the first model run of a project (or after its deliverable was approved) and
+/// closes when the deliverable is approved. Model runs inside it (reruns, Intervene,
+/// revisions) are not counted against the daily workflows, up to a hidden cap.
+model Workflow {
+  id        String   @id @default(cuid())
+  userId    String
+  projectId String
+  day       String
+  runs      Int      @default(0)
+  status    String   @default("open")
+  createdAt DateTime @default(now())
+  closedAt  DateTime?
+
+  @@index([userId, day])
+  @@index([projectId, status])
 }

@@ -1,4 +1,16 @@
 export const DAILY_MODEL_RUNS = 10;
+
+// Workflow quota (Oct 14 2026, confirmed by Saad): the per-account limit counts WORKFLOWS,
+// not model runs. A workflow is one Draft → Challenge → Judge → Tie Off pass on a project
+// (lib/usage.ts reserveModelRun). Each account may start WORKFLOWS_PER_DAY per UTC day.
+// Model runs inside an open workflow (reruns, Intervene, revisions) do not count, up to
+// MAX_RUNS_PER_WORKFLOW in total (a full pass is 3 runs + about 10 reruns). That cap is
+// not advertised in the UI; hitting it says to approve the deliverable or start a new project.
+// SITE_DAILY_MODEL_RUNS below still counts every model run across all accounts.
+export const WORKFLOWS_PER_DAY = 6;
+export const RUNS_PER_FULL_PASS = 3;
+export const MAX_RERUNS_PER_WORKFLOW = 10;
+export const MAX_RUNS_PER_WORKFLOW = RUNS_PER_FULL_PASS + MAX_RERUNS_PER_WORKFLOW;
 // Site-wide ceiling on successful model runs per UTC day, across every account. A cost
 // backstop while sign-up is open (email verification off); the per-account cap above is
 // unchanged and is checked first.

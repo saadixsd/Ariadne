@@ -9,8 +9,8 @@ import { HANDS } from "@/lib/hands";
 import { MAX_PROJECT_NAME_CHARS } from "@/lib/limits";
 import { newProjectHref } from "@/lib/new-project";
 import { getPrisma } from "@/lib/prisma";
-import { DAILY_MODEL_RUNS, dailyRunLimit, modelRunsToday } from "@/lib/usage";
-import { TRIAL_PERIOD_MS, inTrial } from "@/lib/limits";
+import { DAILY_MODEL_RUNS, workflowsStarted } from "@/lib/usage";
+import { WORKFLOWS_PER_DAY } from "@/lib/limits";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -31,9 +31,9 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   if (!user) redirect("/sign-in");
   if (!user.emailVerified) redirect("/verify");
   const account = accountDisplay(user);
-  const limit = dailyRunLimit(user);
-  const trialEnds = inTrial(user) ? new Date(user.createdAt.getTime() + TRIAL_PERIOD_MS) : null;
-  const used = Math.min(limit, await modelRunsToday(user.id));
+  const limit = WORKFLOWS_PER_DAY;
+  const trialEnds = null as Date | null;
+  const used = Math.min(limit, await workflowsStarted(user.id));
   const left = Math.max(0, limit - used);
   const prisma = await getPrisma();
   const owned = await prisma.project.findMany({
@@ -93,7 +93,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         <section aria-labelledby="budget-title" className="rt-card px-5 py-4">
           <div className="flex items-baseline justify-between gap-3">
             <h2 id="budget-title" className="font-serif text-[24px] leading-tight">
-              Today&apos;s runs
+              Today&apos;s workflows
             </h2>
             <p className="font-serif text-[30px] leading-none tnum">
               {left}
@@ -101,13 +101,13 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
               <span className="ml-1.5 font-sans text-[13px] text-ink-dim">left</span>
             </p>
           </div>
-          <div className="mt-3 flex h-2 gap-0.5" role="img" aria-label={`${used} of ${limit} runs used today`}>
+          <div className="mt-3 flex h-2 gap-0.5" role="img" aria-label={`${used} of ${limit} workflows started today`}>
             {Array.from({ length: limit }, (_, index) => (
               <i key={index} className={`block h-full flex-1 rounded-sm ${index < used ? "bg-thread" : "bg-line"}`} />
             ))}
           </div>
           <p className="mt-2.5 text-[13px] leading-normal text-ink-dim">
-            {used} used today. Only a hand&apos;s successful run counts; failed runs and your own decisions at a knot never do. The count starts again at midnight UTC.
+            {used} started today. A workflow is one Draft → Challenge → Judge → Tie Off pass on a project; reruns and Intervene inside it do not count again, and approving the deliverable finishes it. A failed first run does not count. The count starts again at midnight UTC.
           </p>
           {trialEnds ? (
             <p className="mt-1.5 text-[13px] leading-normal text-ink-dim" data-trial>

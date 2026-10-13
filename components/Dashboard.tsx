@@ -262,7 +262,7 @@ export function Dashboard({
           text: `${hideModelIds(failure ?? "Run failed")} ${runFailureNext(response.status)}`,
         });
       } else if (data.agents.find((agent) => agent.id === task?.agentId)?.provider !== "human") {
-        setRemaining((count) => Math.max(0, count - 1));
+        /* workflow quota: the count changes per workflow, not per run; it refreshes on reload */
       }
       const next = await refresh();
       // A failed refresh must not hide why the run failed.
@@ -375,7 +375,7 @@ export function Dashboard({
       if (data.agents.find((agent) => agent.id === data.tasks.find((task) => task.id === taskId)?.agentId)?.provider !== "human") {
         // A successful re-run spent a model call; pending-only does not.
         if (body.task?.status && body.task.status !== "pending") {
-          setRemaining((count) => Math.max(0, count - 1));
+          /* workflow quota: the count changes per workflow, not per run; it refreshes on reload */
         }
       }
       const next = await refresh();
@@ -462,7 +462,7 @@ export function Dashboard({
       }
       const rerunTask = data.tasks.find((item) => item.id === rerunId);
       if (data.agents.find((agent) => agent.id === rerunTask?.agentId)?.provider !== "human") {
-        setRemaining((count) => Math.max(0, count - 1));
+        /* workflow quota: the count changes per workflow, not per run; it refreshes on reload */
       }
       setRerunId(null);
       const next = await refresh();

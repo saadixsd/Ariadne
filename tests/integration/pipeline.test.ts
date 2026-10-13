@@ -44,7 +44,7 @@ async function applyMigrations() {
   }>;
   const { DatabaseSync } = await loadSqlite();
   const db = new DatabaseSync(dbFile);
-  for (const file of ["0001_baseline.sql", "0002_ship_blockers.sql", "0003_phase2.sql", "0004_invite_code.sql", "0005_attribution_feedback.sql", "0006_workspace.sql"]) {
+  for (const file of ["0001_baseline.sql", "0002_ship_blockers.sql", "0003_phase2.sql", "0004_invite_code.sql", "0005_attribution_feedback.sql", "0006_workspace.sql", "0007_r2_workflow_quota.sql"]) {
     db.exec(readFileSync(path.join(root, "migrations", file), "utf8"));
   }
   db.close();
@@ -192,16 +192,17 @@ describe("quota: only successful runs count, increment is atomic", () => {
     assert.equal(await runsToday(user.id), 1, "successful run charged once");
   });
 
-  test("used-up quota: 429, task untouched, provider not called", async () => {
+  test("workflow quota: the 7th workflow of the day is refused (429), task untouched, provider not called", async () => {
     const user = await newUser("limit@test.dev");
     const p = await newProject(user.id);
-    await prisma.usageDay.create({ data: { userId: user.id, day: usage.utcDay(), runs: limits.DAILY_MODEL_RUNS } });
+    for (let i = 0; i < limits.WORKFLOWS_PER_DAY; i++) {
+      await prisma.workflow.create({ data: { userId: user.id, projectId: `other-${i}`, day: usage.utcDay(), runs: 3 } });
+    }
     const callsBefore = mock.state.calls;
-    await rejects(agents.runTask(p.draft.id, user.id), 429, /Daily limit/);
+    await rejects(agents.runTask(p.draft.id, user.id), 429, /started 6 workflows today/);
     assert.equal(mock.state.calls, callsBefore);
-    const task = await prisma.task.findUniqueOrThrow({ where: { id: p.draft.id } });
-    assert.equal(task.status, "pending");
-    assert.equal(await runsToday(user.id), limits.DAILY_MODEL_RUNS);
+    assert.equal((await prisma.task.findUniqueOrThrow({ where: { id: p.draft.id } })).status, "pending");
+    assert.equal(await runsToday(user.id), 0);
   });
 
   test("concurrent reservations never exceed the limit", async () => {
@@ -217,20 +218,28 @@ describe("quota: only successful runs count, increment is atomic", () => {
     assert.equal(await runsToday(user.id), limits.DAILY_MODEL_RUNS);
   });
 
-  test("trial: a new account without an invite stops at the first-day cap (429, nothing sent)", async () => {
-    const user = await newUser("trial@test.dev");
-    const limit = limits.dailyRunLimit(user);
-    assert.equal(limit, limits.TRIAL_DAILY_MODEL_RUNS);
-    assert.ok(limits.TRIAL_DAILY_MODEL_RUNS < limits.DAILY_MODEL_RUNS);
+  test("workflow quota: runs inside one workflow count once; hidden rerun cap; approval closes it; failed first run is free", async () => {
+    const user = await newUser("workflow@test.dev");
     const p = await newProject(user.id);
-    await prisma.usageDay.create({ data: { userId: user.id, day: usage.utcDay(), runs: limit } });
+    mock.state.fail = true;
+    await rejects(agents.runTask(p.draft.id, user.id), 502);
+    mock.state.fail = false;
+    assert.equal(await usage.workflowsStarted(user.id), 0, "a failed first run does not use a workflow");
+    await agents.runTask(p.draft.id, user.id);
+    await agents.runTask(p.review.id, user.id);
+    await agents.rerunTask(p.review.id, user.id);
+    await agents.steerTask(p.draft.id, "shorter", user.id);
+    assert.equal(await usage.workflowsStarted(user.id), 1, "reruns and Intervene stay inside the workflow");
+    assert.equal(await usage.workflowsLeft(user.id), limits.WORKFLOWS_PER_DAY - 1);
+    const wf = await prisma.workflow.findFirstOrThrow({ where: { projectId: p.id } });
+    assert.equal(wf.runs, 4);
+    await prisma.workflow.update({ where: { id: wf.id }, data: { runs: limits.MAX_RUNS_PER_WORKFLOW } });
     const callsBefore = mock.state.calls;
-    await rejects(agents.runTask(p.draft.id, user.id, limit), 429, /first day includes 6 model runs/);
-    assert.equal(mock.state.calls, callsBefore, "nothing reached a provider");
-    assert.equal((await prisma.task.findUniqueOrThrow({ where: { id: p.draft.id } })).status, "pending");
-    // The same account once the trial is over gets the normal cap, so the run goes through.
-    await agents.runTask(p.draft.id, user.id, limits.DAILY_MODEL_RUNS);
-    assert.equal(await runsToday(user.id), limit + 1);
+    await rejects(agents.runTask(p.review.id, user.id), 429, /re-run many times/);
+    assert.equal(mock.state.calls, callsBefore);
+    await usage.closeWorkflow(p.id);
+    await agents.runTask(p.review.id, user.id);
+    assert.equal(await usage.workflowsStarted(user.id), 2, "after approval the next run starts a new workflow");
   });
 
   test("trial: concurrent reservations never exceed the first-day cap", async () => {
@@ -303,8 +312,10 @@ describe("site-wide daily ceiling and output caps", () => {
     try {
       const user = await newUser("both-caps@test.dev");
       const p = await newProject(user.id);
-      await prisma.usageDay.create({ data: { userId: user.id, day: usage.utcDay(), runs: limits.DAILY_MODEL_RUNS } });
-      await rejects(agents.runTask(p.draft.id, user.id), 429, /Daily limit/);
+      for (let i = 0; i < limits.WORKFLOWS_PER_DAY; i++) {
+        await prisma.workflow.create({ data: { userId: user.id, projectId: `both-${i}`, day: usage.utcDay(), runs: 3 } });
+      }
+      await rejects(agents.runTask(p.draft.id, user.id), 429, /workflows today/);
     } finally {
       await cleanup();
       await prisma.usageDay.deleteMany({ where: { user: { email: "both-caps@test.dev" } } });

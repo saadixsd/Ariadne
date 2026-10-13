@@ -177,8 +177,22 @@ CREATE TABLE "SourceFile" (
     "mime" TEXT,
     "bytes" INTEGER,
     "text" TEXT NOT NULL,
+    "blobKey" TEXT,
+    "expiresAt" DATETIME,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "SourceFile_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+-- CreateTable
+CREATE TABLE "Workflow" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "userId" TEXT NOT NULL,
+    "projectId" TEXT NOT NULL,
+    "day" TEXT NOT NULL,
+    "runs" INTEGER NOT NULL DEFAULT 0,
+    "status" TEXT NOT NULL DEFAULT 'open',
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "closedAt" DATETIME
 );
 
 -- CreateIndex
@@ -210,4 +224,10 @@ CREATE UNIQUE INDEX "IssueDecision_projectId_flagKey_key" ON "IssueDecision"("pr
 
 -- CreateIndex
 CREATE INDEX "SourceFile_projectId_idx" ON "SourceFile"("projectId");
+
+-- CreateIndex
+CREATE INDEX "Workflow_userId_day_idx" ON "Workflow"("userId", "day");
+
+-- CreateIndex
+CREATE INDEX "Workflow_projectId_status_idx" ON "Workflow"("projectId", "status");
 

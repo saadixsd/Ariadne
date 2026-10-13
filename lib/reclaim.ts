@@ -65,7 +65,7 @@ export async function reclaimStuckTasks(projectId: string, now = Date.now()) {
     // Model runs reserve one quota unit (on the UTC day of startedAt) before they
     // claim the task, so a task stuck in `running` always holds a reservation.
     if (isModel && task.project.userId && task.startedAt) {
-      await releaseModelRun(task.project.userId, utcDay(task.startedAt));
+      await releaseModelRun(task.project.userId, utcDay(task.startedAt), task.projectId);
     }
 
     // Reuse the dead attempt's run id (carried on its "started" event) so the

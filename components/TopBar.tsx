@@ -12,12 +12,12 @@ const NEW = "__new_project__";
 export function RunsMeter({ remaining, limit = DAILY_MODEL_RUNS }: { remaining: number; limit?: number }) {
   const ratio = Math.max(0, Math.min(1, remaining / limit));
   return (
-    <p className="hidden shrink-0 items-center gap-2 font-mono text-xs whitespace-nowrap text-ink-dim lg:flex" title="Free agent runs left today">
+    <p className="hidden shrink-0 items-center gap-2 font-mono text-xs whitespace-nowrap text-ink-dim lg:flex" title="Workflows you can still start today">
       <span className="block h-1 w-16 overflow-hidden rounded bg-line" aria-hidden>
         <span className="block h-full bg-ink-dim" style={{ width: `${ratio * 100}%` }} />
       </span>
       <span className="tnum">
-        {remaining}/{limit} runs left<span className="max-xl:hidden"> today</span>
+        {remaining}/{limit} workflows left<span className="max-xl:hidden"> today</span>
       </span>
     </p>
   );

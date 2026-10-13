@@ -207,7 +207,7 @@ export async function runTask(taskId: string, userId: string, dailyLimit?: numbe
   // discarded, or is reclaimed as stuck, the reservation is released, so only
   // successful runs count. Invariant: a model task in `running` holds exactly one
   // reservation on utcDay(startedAt) (lib/reclaim.ts relies on this).
-  if (isModel) await reserveModelRun(userId, usageDay, dailyLimit);
+  if (isModel) await reserveModelRun(userId, usageDay, dailyLimit, task.projectId);
 
   const claimed = await prisma.task.updateMany({
     where: { id: task.id, status: { notIn: ["running", "awaiting_approval"] } },
@@ -220,7 +220,7 @@ export async function runTask(taskId: string, userId: string, dailyLimit?: numbe
     },
   });
   if (claimed.count !== 1) {
-    if (isModel) await releaseModelRun(userId, usageDay);
+    if (isModel) await releaseModelRun(userId, usageDay, task.projectId);
     throw new TaskRunError("Task is already running", 409);
   }
 
@@ -330,7 +330,7 @@ export async function runTask(taskId: string, userId: string, dailyLimit?: numbe
     const error = thrown instanceof ProviderError ? thrown.original : thrown;
     const message = safeErrorMessage(error);
     // Failed runs never count against the daily quota.
-    await releaseModelRun(userId, usageDay);
+    await releaseModelRun(userId, usageDay, task.projectId);
     await recordRun({
       ...runBase,
       outcome: "failed",

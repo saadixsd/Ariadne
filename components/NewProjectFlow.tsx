@@ -146,7 +146,7 @@ export function NewProjectFlow({ runsLeft, runsLimit }: { runsLeft: number; runs
             </button>
             <div className="flex items-center gap-3">
               <span className="text-xs text-ink-dim">
-                {runsLeft} of {runsLimit} runs left today. Creating the project runs nothing.
+                {runsLeft} of {runsLimit} workflows left today. Creating the project runs nothing.
               </span>
               <button type="button" disabled={saving || !brief.trim()} onClick={() => void create()} className="bg-thread px-4 py-2 text-sm font-medium text-raised hover:bg-thread-bright disabled:opacity-50">
                 {saving ? "Creating…" : "Confirm brief"}

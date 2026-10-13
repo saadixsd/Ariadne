@@ -3,7 +3,8 @@ import { accountDisplay } from "@/lib/account";
 import { currentUser } from "@/lib/auth";
 import { pickBoardProject } from "@/lib/board-project";
 import { needsProjectIntroFor } from "@/lib/starter-thread";
-import { dailyRunLimit, modelRunsToday } from "@/lib/usage";
+import { workflowsLeft } from "@/lib/usage";
+import { WORKFLOWS_PER_DAY } from "@/lib/limits";
 import { getPrisma } from "@/lib/prisma";
 import { getProject } from "@/lib/project";
 import { redirect } from "next/navigation";
@@ -34,8 +35,8 @@ export default async function TreePage({
   if (!existing) redirect("/dashboard");
   const project = await getProject(existing.id, user.id);
   if (!project) redirect("/dashboard");
-  const runsLimit = dailyRunLimit(user);
-  const runsLeft = Math.max(0, runsLimit - (await modelRunsToday(user.id)));
+  const runsLimit = WORKFLOWS_PER_DAY;
+  const runsLeft = await workflowsLeft(user.id);
 
   return (
     <LiveTree

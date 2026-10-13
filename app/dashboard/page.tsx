@@ -5,7 +5,8 @@ import { currentUser } from "@/lib/auth";
 import { pickBoardProject } from "@/lib/board-project";
 import { needsProjectIntroFor } from "@/lib/starter-thread";
 import { missingSetup } from "@/lib/setup";
-import { dailyRunLimit, modelRunsToday } from "@/lib/usage";
+import { workflowsLeft } from "@/lib/usage";
+import { WORKFLOWS_PER_DAY } from "@/lib/limits";
 import { getPrisma } from "@/lib/prisma";
 import { getProject } from "@/lib/project";
 import Link from "next/link";
@@ -42,8 +43,8 @@ export default async function DashboardPage({
 
   const project = await getProject(existing.id, user.id);
   const account = accountDisplay(user);
-  const runsLimit = dailyRunLimit(user);
-  const runsLeft = Math.max(0, runsLimit - (await modelRunsToday(user.id)));
+  const runsLimit = WORKFLOWS_PER_DAY;
+  const runsLeft = await workflowsLeft(user.id);
   if (!project) {
     return (
       <main className="mx-auto flex min-h-full max-w-lg flex-col justify-center px-6">

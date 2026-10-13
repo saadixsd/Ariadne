@@ -3,6 +3,7 @@ import "server-only";
 import { TaskRunError } from "@/lib/errors";
 import { shouldPromptFeedback } from "@/lib/feedback";
 import { prisma } from "@/lib/prisma";
+import { closeWorkflow } from "@/lib/usage";
 import { getProject } from "@/lib/project";
 import { parseSources, sourceDigest, type SourceInput } from "@/lib/sources";
 import type { ProjectDTO } from "@/lib/types";
@@ -86,6 +87,7 @@ export async function approveDeliverable(projectId: string, userId: string, hash
   if (hash !== current) throw new TaskRunError("The deliverable changed since you opened it. Reload and approve again.", 409);
   const approvedAt = new Date();
   await prisma.project.update({ where: { id: projectId }, data: { approvedAt, approvedHash: current } });
+  await closeWorkflow(projectId);
   await prisma.activityEvent.create({
     data: { projectId, type: "approved", message: "You approved the deliverable", taskId: steps.tieOff?.id ?? null, payload: JSON.stringify({ kind: "deliverable_approved", hash: current }) },
   });

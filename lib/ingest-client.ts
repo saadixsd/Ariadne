@@ -24,7 +24,10 @@ let pdfjs: Promise<PdfJs> | null = null;
 let mammoth: Promise<Mammoth> | null = null;
 
 function loadPdfJs(): Promise<PdfJs> {
-  pdfjs ??= (import(/* webpackIgnore: true */ /* turbopackIgnore: true */ PDFJS) as Promise<PdfJs>).then((lib) => {
+  // A runtime import the bundlers cannot see, so pdf.js never lands in the Worker bundle
+  // (a literal import("/vendor/…") breaks the OpenNext server build).
+  const importUrl = new Function("u", "return import(u)") as (u: string) => Promise<PdfJs>;
+  pdfjs ??= importUrl(PDFJS).then((lib) => {
     lib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER;
     return lib;
   });
