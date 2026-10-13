@@ -864,3 +864,22 @@ a[href] {
 .rt-btn-danger-solid:disabled {
   opacity: 0.45;
 }
+
+/* The deliverable on its paper card: a slightly larger reading size and a large serif title. */
+.markdown.paper {
+  max-width: 70ch;
+  margin: 0 auto;
+  font-size: 15.5px;
+  line-height: 1.7;
+}
+
+.markdown.paper h1 {
+  font-size: 2.3rem;
+  line-height: 1.1;
+  margin-bottom: 0.6em;
+}
+
+.markdown.paper h2 {
+  font-size: 1.5rem;
+  margin-top: 1.5em;
+}

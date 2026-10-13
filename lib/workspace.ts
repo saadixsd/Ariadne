@@ -140,3 +140,25 @@ export function nextAction(steps: ThreadSteps, approved: boolean): NextAction {
   if (tieOff.status === "pending") return { kind: "run", task: tieOff, label: "Write the tied-off answer", runs: 1 };
   return approved ? { kind: "done" } : { kind: "approve" };
 }
+
+/** A short title for an issue card, taken from the objection's first clause (no new words). */
+export function issueTitle(flag: Pick<CritiqueFlag, "issue">): string {
+  const first = flag.issue.split(/\s[—–-]\s|:\s|\.\s/)[0].trim();
+  if (first.length <= 48) return first.replace(/\.$/, "");
+  return `${first.split(/\s+/).slice(0, 7).join(" ")}…`;
+}
+
+/** Draft version shown on the document: 1 + each revision you asked for. */
+export function draftVersion(draft: TaskDTO | undefined): number {
+  if (!draft) return 1;
+  return draft.instructions.split(CHANGE_MARKER).length;
+}
+
+export type StepStatus = "pending" | "running" | "done" | "failed" | "waiting";
+
+export function stepStatus(task: TaskDTO | undefined): StepStatus {
+  if (!task) return "pending";
+  if (task.status === "awaiting_approval") return "waiting";
+  if (task.status === "done" || task.status === "running" || task.status === "failed") return task.status;
+  return "pending";
+}

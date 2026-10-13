@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityPanel } from "@/components/ActivityPanel";
+import { ActivityTab, AgentActivityList, StatusIcon } from "@/components/ActivityPanel";
 import { BrandMark } from "@/components/BrandMark";
 import { FeedbackInvite } from "@/components/FeedbackForm";
 import { IssuesPanel } from "@/components/IssuesPanel";
@@ -13,6 +13,8 @@ import {
   DOC_STATE_LABEL,
   docState,
   documentOf,
+  draftVersion,
+  stepStatus,
   hashText,
   isResolved,
   issuesFrom,
@@ -23,7 +25,7 @@ import {
   type IssueState,
 } from "@/lib/workspace";
 
-type Tab = "document" | "issues" | "sources";
+type Tab = "document" | "issues" | "activity" | "context";
 
 /** Wraps the first occurrence of each issue's quote in the rendered document with a <mark>. */
 function anchorIssues(root: HTMLElement, issues: Issue[]): Set<string> {
@@ -161,8 +163,8 @@ export function Workspace({ initial }: { initial: WorkspaceData }) {
     return () => root.removeEventListener("click", onClick);
   }, []);
 
-  const primary = "bg-thread px-3 py-2 text-sm font-medium text-raised hover:bg-thread-bright disabled:opacity-50";
-  const secondary = "bg-raised px-3 py-2 text-sm ring-1 ring-line hover:ring-thread disabled:opacity-50";
+  const primary = "rounded-lg bg-thread px-3 py-2 text-sm font-medium text-raised hover:bg-thread-bright disabled:opacity-50";
+  const secondary = "rounded-lg bg-raised px-3 py-2 text-sm ring-1 ring-line hover:ring-thread disabled:opacity-50";
 
   const actionBar = (() => {
     if (busy) return <p className="text-sm text-ink-dim" role="status">{busy} This can take a minute.</p>;
@@ -200,18 +202,7 @@ export function Workspace({ initial }: { initial: WorkspaceData }) {
       case "approve":
         return (
           <div className="flex flex-wrap items-center gap-2">
-            <button
-              className={primary}
-              onClick={() => {
-                if (openCount > 0 && !window.confirm(`${openCount} issue${openCount === 1 ? " is" : "s are"} still open or under investigation. Approve the deliverable anyway?`)) return;
-                void act("Approving…", async () => {
-                  const res = (await post(`/api/projects/${project.id}/approve`, { hash: hashText(doc.text ?? "") })) as { promptFeedback?: boolean };
-                  if (res.promptFeedback) setShowFeedback(true);
-                });
-              }}
-            >
-              Approve deliverable
-            </button>
+            <button className={primary} onClick={approveNow}>Approve deliverable</button>
             <span className="text-xs text-ink-dim">Your sign-off. Ariadne does not guarantee it is correct.</span>
           </div>
         );
@@ -235,17 +226,50 @@ export function Workspace({ initial }: { initial: WorkspaceData }) {
     }
   })();
 
+  function approveNow() {
+    if (openCount > 0 && !window.confirm(`${openCount} issue${openCount === 1 ? " is" : "s are"} still open or under investigation. Approve the deliverable anyway?`)) return;
+    void act("Approving…", async () => {
+      const res = (await post(`/api/projects/${project.id}/approve`, { hash: hashText(doc.text ?? "") })) as { promptFeedback?: boolean };
+      if (res.promptFeedback) setShowFeedback(true);
+    });
+  }
+
+  function save() {
+    if (!doc.text) return;
+    const url = URL.createObjectURL(new Blob([doc.text], { type: "text/markdown" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${project.name.replace(/[^\w\- ]+/g, "").trim().replace(/\s+/g, "-").slice(0, 60) || "deliverable"}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  const goal = (project.brief.split(/\n/).find((l) => l.trim() && !/^deliverable:/i.test(l)) ?? "").trim();
+  const stepper: { label: string; task?: typeof steps.draft }[] = [
+    { label: "Draft", task: steps.draft },
+    { label: "Challenge", task: steps.challenge },
+    { label: "Judge", task: steps.judge },
+    { label: "Tie Off", task: steps.tieOff },
+  ];
+  const STEP_TEXT = { pending: "Not started", running: "In progress", done: "Completed", failed: "Failed", waiting: "Waiting on you" } as const;
+  const version = draftVersion(steps.draft);
+  const docTime = (doc.from === "tieOff" ? steps.tieOff : steps.draft)?.completedAt;
+  const docLabel =
+    doc.from === "tieOff" ? "Tied-off answer · Odysseus (Claude)" : doc.from === "draft" ? `${version > 1 ? "Revised draft" : "Draft"} · Odysseus (Claude)` : "Deliverable";
+  const approveReady = action.kind === "approve";
+
   const sources = (
     <SourcesPanel
       projectId={project.id}
       name={project.name}
       brief={project.brief}
       sources={data.sources}
+      events={project.events}
       locked={Boolean(busy)}
       onChanged={refresh}
     />
   );
-  const issuesPanel = (
+  const issuesPanel = (compact: boolean) => (
     <IssuesPanel
       issues={issues}
       challengeDone={steps.challenge?.status === "done"}
@@ -253,77 +277,136 @@ export function Workspace({ initial }: { initial: WorkspaceData }) {
       onDecide={decide}
       onShowInDocument={showInDocument}
       anchored={anchored}
+      compact={compact}
     />
   );
+  const centreTabs: { id: Tab; label: string }[] = [
+    { id: "document", label: "Deliverable" },
+    { id: "issues", label: `Review Issues${issues.length ? ` (${openCount})` : ""}` },
+    { id: "activity", label: "Activity" },
+  ];
+  const mobileTabs: { id: Tab; label: string }[] = [{ id: "context", label: "Context" }, ...centreTabs];
+  const centreTab = tab === "context" ? "document" : tab;
 
   return (
-    <div className="flex h-dvh flex-col bg-canvas text-ink">
-      <header className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-line bg-panel px-4 py-2">
-        <BrandMark />
-        <h1 className="min-w-0 flex-1 truncate font-serif text-[22px] leading-tight">{project.name}</h1>
-        <span data-testid="doc-state" className={state === "approved" ? "bg-ok px-2 py-0.5 text-xs text-raised" : "bg-tint px-2 py-0.5 text-xs ring-1 ring-line"}>
-          {DOC_STATE_LABEL[state]}
-        </span>
-        <nav className="flex items-center gap-3 text-sm">
-          <Link className="text-ink-dim hover:text-ink" href="/new">New</Link>
-          <details className="relative">
-            <summary className="cursor-pointer text-ink-dim hover:text-ink">Advanced views</summary>
-            <div className="absolute right-0 z-20 mt-1 w-40 bg-raised p-2 text-sm ring-1 ring-line">
-              <Link className="block py-1 hover:text-thread" href={`/dashboard?project=${project.id}`}>Board</Link>
-              <Link className="block py-1 hover:text-thread" href={`/tree?project=${project.id}`}>Tree</Link>
-            </div>
-          </details>
-          <Link className="text-ink-dim hover:text-ink" href={`/feedback?project=${project.id}`}>Feedback</Link>
-        </nav>
+    <div className="flex min-h-dvh flex-col bg-canvas text-ink lg:h-dvh">
+      <header className="border-b border-line bg-raised">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 lg:px-6">
+          <BrandMark />
+          <div className="min-w-0 flex-1">
+            <h1 className="truncate font-serif text-[22px] leading-tight">{project.name}</h1>
+            {goal ? <p className="truncate text-[13px] text-ink-dim" title={goal}>{goal}</p> : null}
+          </div>
+          <ol className="order-last flex w-full items-start gap-1 overflow-x-auto xl:order-none xl:w-auto" aria-label="Steps">
+            {stepper.map((s, n) => {
+              const st = stepStatus(s.task);
+              return (
+                <li key={s.label} className="flex min-w-[92px] flex-1 items-start gap-2">
+                  <StatusIcon status={st} />
+                  <div className="leading-tight">
+                    <p className={`text-[13px] ${st === "pending" ? "text-ink-dim" : "font-medium"}`}>{s.label}</p>
+                    <p className={`text-[11px] ${st === "waiting" || st === "running" ? "text-thread" : st === "failed" ? "text-danger" : "text-ink-faint"}`}>{STEP_TEXT[st]}</p>
+                  </div>
+                  {n < stepper.length - 1 ? <span className="mt-2.5 hidden h-px w-6 bg-line-strong sm:block" /> : null}
+                </li>
+              );
+            })}
+          </ol>
+          <div className="flex items-center gap-2">
+            <span data-testid="doc-state" className={`rounded-full px-2 py-0.5 text-xs ${state === "approved" ? "bg-ok text-raised" : "bg-tint ring-1 ring-line"}`}>
+              {DOC_STATE_LABEL[state]}
+            </span>
+            <button type="button" onClick={save} disabled={!doc.text} title="Download the current document as Markdown" className="rounded-lg bg-raised px-3 py-1.5 text-sm ring-1 ring-line hover:ring-thread disabled:opacity-50">
+              Save
+            </button>
+            <button
+              type="button"
+              onClick={() => (approveReady ? approveNow() : setTab("issues"))}
+              disabled={Boolean(busy) || state === "approved" || (!approveReady && !judging)}
+              title={approveReady ? "Your sign-off on the tied-off answer" : judging ? "Judge the issues first" : "Available once the answer is tied off"}
+              className="rounded-lg bg-thread px-3 py-1.5 text-sm font-medium text-raised hover:bg-thread-bright disabled:opacity-50"
+            >
+              {state === "approved" ? "Approved" : "Review & Approve"}
+            </button>
+            <details className="relative">
+              <summary className="cursor-pointer list-none px-1 text-lg text-ink-dim hover:text-ink" aria-label="More">⋯</summary>
+              <div className="absolute right-0 z-20 mt-1 w-40 rounded-lg bg-raised p-2 text-sm ring-1 ring-line">
+                <Link className="block py-1 hover:text-thread" href="/new">New project</Link>
+                <Link className="block py-1 hover:text-thread" href={`/dashboard?project=${project.id}`}>Board</Link>
+                <Link className="block py-1 hover:text-thread" href={`/tree?project=${project.id}`}>Tree</Link>
+                <Link className="block py-1 hover:text-thread" href={`/feedback?project=${project.id}`}>Feedback</Link>
+              </div>
+            </details>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 border-t border-line bg-panel px-4 py-2 lg:px-6">{actionBar}</div>
       </header>
 
-      <div className="flex border-b border-line bg-panel lg:hidden" role="tablist">
-        {(["document", "issues", "sources"] as const).map((t) => (
-          <button key={t} role="tab" aria-selected={tab === t} onClick={() => setTab(t)} className={`flex-1 py-2 text-sm ${tab === t ? "border-b-2 border-thread font-medium" : "text-ink-dim"}`}>
-            {t === "document" ? "Document" : t === "issues" ? `Issues${issues.length ? ` (${openCount})` : ""}` : `Sources${data.sources.length ? ` (${data.sources.length})` : ""}`}
+      <div className="sticky top-0 z-10 flex border-b border-line bg-panel lg:hidden" role="tablist">
+        {mobileTabs.map((t) => (
+          <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)} className={`flex-1 py-2 text-[13px] ${tab === t.id ? "border-b-2 border-thread font-medium" : "text-ink-dim"}`}>
+            {t.id === "issues" ? `Issues${issues.length ? ` (${openCount})` : ""}` : t.label}
           </button>
         ))}
       </div>
 
-      <div className="grid min-h-0 flex-1 lg:grid-cols-[minmax(240px,22%)_1fr_minmax(300px,28%)]">
-        <aside className={`${tab === "sources" ? "block" : "hidden"} min-h-0 overflow-y-auto border-line p-4 lg:block lg:border-r`}>{sources}</aside>
+      <div className="grid min-h-0 flex-1 gap-4 p-3 lg:grid-cols-[minmax(250px,21%)_1fr_minmax(320px,27%)] lg:p-4">
+        <aside className={`${tab === "context" ? "block" : "hidden"} min-h-0 overflow-y-auto lg:block`}>{sources}</aside>
 
-        <main className={`${tab === "document" ? "flex" : "hidden"} min-h-0 flex-col lg:flex`}>
-          <div className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-3">{actionBar}</div>
-          {showFeedback && state === "approved" ? <FeedbackInvite projectId={project.id} onClose={() => setShowFeedback(false)} /> : null}
-          {error ? <p role="alert" className="mx-4 mt-3 bg-thread-soft px-3 py-2 text-sm text-danger">{error}</p> : null}
-          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-6 md:px-10">
-            <div className="mx-auto max-w-[72ch]">
-              <p className="mb-3 text-xs tracking-[0.14em] text-ink-dim uppercase">
-                {doc.from === "tieOff" ? "Tied-off answer · Odysseus" : doc.from === "draft" ? `${state === "revised" || steps.draft?.instructions.includes("Human requested changes:") ? "Revised draft" : "Draft"} · Odysseus (Claude)` : "Deliverable"}
-              </p>
-              {doc.text ? (
-                <div ref={docRef} data-testid="document" className="text-[15px] leading-relaxed">
-                  <MarkdownBody text={doc.text} />
+        <main className={`${tab === "context" ? "hidden" : "flex"} min-h-0 flex-col lg:flex`}>
+          <div className="hidden gap-5 border-b border-line px-1 lg:flex" role="tablist">
+            {centreTabs.map((t) => (
+              <button key={t.id} role="tab" aria-selected={centreTab === t.id} onClick={() => setTab(t.id)} className={`-mb-px py-2 text-sm ${centreTab === t.id ? "border-b-2 border-thread font-medium text-ink" : "text-ink-dim hover:text-ink"}`}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+          {showFeedback && state === "approved" ? <div className="mt-3"><FeedbackInvite projectId={project.id} onClose={() => setShowFeedback(false)} /></div> : null}
+          {error ? <p role="alert" className="mt-3 rounded-lg bg-thread-soft px-3 py-2 text-sm text-danger">{error}</p> : null}
+          <div className="min-h-0 flex-1 overflow-y-auto py-3">
+            <div className={centreTab === "document" ? "" : "hidden"}>
+              <article className="mx-auto max-w-[820px] rounded-2xl bg-white px-5 py-6 shadow-[0_1px_3px_rgba(31,26,20,0.08)] ring-1 ring-line md:px-12 md:py-10">
+                <div className="mb-5 flex flex-wrap items-center justify-between gap-2 text-xs text-ink-dim">
+                  <span className="tracking-[0.12em] uppercase">{docLabel}</span>
+                  {doc.text ? (
+                    <span className="rounded-full bg-tint px-2 py-0.5 ring-1 ring-line">
+                      Version {version}
+                      {docTime ? ` · ${new Date(docTime).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}` : ""}
+                    </span>
+                  ) : null}
                 </div>
-              ) : (
-                <div ref={docRef} className="bg-panel p-6 text-sm leading-normal text-ink-dim ring-1 ring-line">
-                  <p>Nothing drafted yet.</p>
-                  <p className="mt-2">
-                    When you click <b>Draft and Challenge</b>, Odysseus (Claude) drafts from your brief and sources, then Daedalus (GPT) tries to prove the draft wrong. You judge each issue, revise if you want, tie off, and approve. Nothing runs until you click.
-                  </p>
-                </div>
-              )}
+                {doc.text ? (
+                  <div ref={docRef} data-testid="document" className="markdown paper">
+                    <MarkdownBody text={doc.text} />
+                  </div>
+                ) : (
+                  <div ref={docRef} className="text-sm leading-normal text-ink-dim">
+                    <h2 className="font-serif text-3xl text-ink">{project.name}</h2>
+                    <p className="mt-4">Nothing drafted yet.</p>
+                    <p className="mt-2">
+                      When you click <b>Draft and Challenge</b>, Odysseus (Claude) drafts from your brief and sources, then Daedalus (GPT) tries to prove the draft wrong. You judge each issue, revise if you want, tie off, and approve. Nothing runs until you click.
+                    </p>
+                  </div>
+                )}
+              </article>
             </div>
+            {centreTab === "issues" ? <div className="mx-auto max-w-[820px]">{issuesPanel(false)}</div> : null}
+            {centreTab === "activity" ? <div className="mx-auto max-w-[820px]"><ActivityTab project={project} steps={steps} /></div> : null}
           </div>
         </main>
 
-        <aside className={`${tab === "issues" ? "flex" : "hidden"} min-h-0 flex-col overflow-y-auto border-line p-4 lg:flex lg:border-l`}>
-          {issuesPanel}
-          {issues.length > 0 ? (
-            <p className="mt-auto pt-3 text-xs text-ink-faint">
-              {decided} decided · {openCount} open. {judging ? "" : "Decisions can be made at Judge."}
-            </p>
-          ) : null}
+        <aside className="hidden min-h-0 flex-col gap-3 overflow-y-auto lg:flex">
+          <div className="rounded-2xl bg-raised p-4 ring-1 ring-line">
+            {issuesPanel(true)}
+            {issues.length > 0 ? (
+              <p className="pt-3 text-xs text-ink-faint">
+                {decided} decided · {openCount} open. {judging ? "" : "Decisions can be made at Judge."}
+              </p>
+            ) : null}
+          </div>
+          <AgentActivityList steps={steps} approvedAt={data.approvedAt} />
         </aside>
       </div>
-
-      <ActivityPanel project={project} steps={steps} />
     </div>
   );
 }
