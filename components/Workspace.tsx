@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityPanel } from "@/components/ActivityPanel";
 import { BrandMark } from "@/components/BrandMark";
-import { FirstRunFeedback } from "@/components/FeedbackForm";
+import { FeedbackInvite } from "@/components/FeedbackForm";
 import { IssuesPanel } from "@/components/IssuesPanel";
 import MarkdownBody from "@/components/MarkdownBody";
 import { SourcesPanel } from "@/components/SourcesPanel";
@@ -290,6 +290,7 @@ export function Workspace({ initial }: { initial: WorkspaceData }) {
 
         <main className={`${tab === "document" ? "flex" : "hidden"} min-h-0 flex-col lg:flex`}>
           <div className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-3">{actionBar}</div>
+          {showFeedback && state === "approved" ? <FeedbackInvite projectId={project.id} onClose={() => setShowFeedback(false)} /> : null}
           {error ? <p role="alert" className="mx-4 mt-3 bg-thread-soft px-3 py-2 text-sm text-danger">{error}</p> : null}
           <div className="min-h-0 flex-1 overflow-y-auto px-4 py-6 md:px-10">
             <div className="mx-auto max-w-[72ch]">
@@ -323,7 +324,6 @@ export function Workspace({ initial }: { initial: WorkspaceData }) {
       </div>
 
       <ActivityPanel project={project} steps={steps} />
-      {showFeedback ? <FirstRunFeedback projectId={project.id} onClose={() => setShowFeedback(false)} /> : null}
     </div>
   );
 }

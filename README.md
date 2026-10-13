@@ -13,6 +13,10 @@ its database is kept as the first invite pool.
 
 ![How a run moves through Ariadne](docs/diagrams/02-run-pipeline-sequence.png)
 
+## The Workspace (Oct 14 2026)
+
+The default screen is now the **Workspace** (`/p/[id]`). The left panel has the goal, the files you added and the brief. The centre shows the document. The right panel lists Daedalus's challenges as issues, and you Accept, Reject, Edit or mark each one Needs investigation. **Approve deliverable** is a separate, explicit last step. New projects start at `/new`: describe the goal, add PDF, DOCX or Markdown files (read in your browser; only the text is kept), check the brief, confirm. Board and Tree are still there under *Advanced views*. Details, the diagram, privacy rules and production steps are in [`docs/WORKSPACE.md`](docs/WORKSPACE.md).
+
 ## How people get in
 
 ```mermaid

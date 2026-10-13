@@ -71,7 +71,7 @@ export function parseFeedback(body: Record<string, unknown> | null): FeedbackInp
   };
 }
 
-/** Should the first-completion popup show? Once per account, after an approved deliverable. */
+/** Should the opt-in "Want to share feedback?" prompt show? Once per account, after an approved deliverable. It never opens the form by itself. */
 export function shouldPromptFeedback(user: { feedbackPromptAt: Date | string | null }, approvedAt: Date | string | null) {
   return Boolean(approvedAt) && !user.feedbackPromptAt;
 }

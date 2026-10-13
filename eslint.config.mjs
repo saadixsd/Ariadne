@@ -17,6 +17,8 @@ const eslintConfig = defineConfig([
     ".wrangler/**",
     // The early-access page is its own Worker with its own tooling (landing/README.md).
     "landing/**",
+    // Vendored browser builds (pdf.js, mammoth), loaded on demand by lib/ingest-client.ts.
+    "public/vendor/**",
   ]),
 ]);
 

@@ -4,7 +4,7 @@ import { useState } from "react";
 
 /**
  * Structured feedback: usefulness 1–5 and three short answers, all optional except
- * "something". Used by the first-completion popup and the /feedback page.
+ * "something". Used by the opt-in invite after the first approved deliverable and the /feedback page.
  * Sending it never starts a run.
  */
 export function FeedbackForm({
@@ -135,20 +135,38 @@ export function FeedbackForm({
   );
 }
 
-/** Shown once, after your first approved deliverable. Dismissible; never blocks. */
-export function FirstRunFeedback({ projectId, onClose }: { projectId: string; onClose: () => void }) {
+/**
+ * Opt-in, never automatic: after your first approved deliverable a small prompt asks
+ * whether you want to share feedback. "Share feedback" opens the form; "No thanks" hides
+ * the prompt for good. /feedback stays open either way.
+ */
+export function FeedbackInvite({ projectId, onClose }: { projectId: string; onClose: () => void }) {
+  const [open, setOpen] = useState(false);
   async function dismiss() {
     await fetch("/api/feedback/prompt", { method: "POST" }).catch(() => undefined);
     onClose();
+  }
+  if (!open) {
+    return (
+      <div role="region" aria-label="Feedback invitation" className="mx-4 mt-3 flex flex-wrap items-center gap-3 bg-tint px-3 py-2 text-sm ring-1 ring-line">
+        <span>Want to share feedback? Four short questions, all optional.</span>
+        <button type="button" onClick={() => setOpen(true)} className="bg-thread px-3 py-1 text-sm text-raised hover:bg-thread-bright">
+          Share feedback
+        </button>
+        <button type="button" onClick={() => void dismiss()} className="text-sm text-ink-dim hover:text-ink">
+          No thanks
+        </button>
+      </div>
+    );
   }
   return (
     <div className="modal-safe modal-flush fixed inset-0 z-40 flex items-end justify-center bg-ink/30 sm:items-center" role="presentation">
       <div role="dialog" aria-modal="true" aria-labelledby="frf-title" className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-raised p-5 ring-1 ring-line">
         <h2 id="frf-title" className="font-serif text-[26px] font-normal leading-tight">
-          You approved your first deliverable
+          How did this go?
         </h2>
-        <p className="mt-1 mb-4 text-sm text-ink-dim">Two minutes, four questions, all optional. It shapes what we fix next.</p>
-        <FeedbackForm projectId={projectId} source="popup" onCancel={() => void dismiss()} onDone={() => setTimeout(onClose, 1800)} />
+        <p className="mt-1 mb-4 text-sm text-ink-dim">All optional. It shapes what we fix next.</p>
+        <FeedbackForm projectId={projectId} source="popup" onCancel={() => setOpen(false)} cancelLabel="Cancel" onDone={() => setTimeout(onClose, 1800)} />
       </div>
     </div>
   );
