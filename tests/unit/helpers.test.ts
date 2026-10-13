@@ -187,9 +187,6 @@ test("account: names are trimmed, collapsed, capped at 60, and empty clears", as
   assert.equal(readPersonName("a\u0000b"), undefined);
 });
 
-test("new project: links open the board's dialog, keeping the project you came from", () => {
-  assert.equal(newProjectHref("abc"), "/dashboard?project=abc&new=1");
-  assert.equal(newProjectHref("a b&c"), "/dashboard?project=a%20b%26c&new=1");
-  assert.equal(newProjectHref(null), "/dashboard?new=1");
-  assert.equal(newProjectHref(), "/dashboard?new=1");
+test("new project: every link goes to the new-project flow", () => {
+  assert.equal(newProjectHref(), "/new");
 });

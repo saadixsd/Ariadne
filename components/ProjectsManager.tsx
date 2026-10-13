@@ -52,7 +52,7 @@ export function ProjectsManager({ projects, maxName = MAX_NAME }: { projects: Ma
   if (projects.length === 0) {
     return (
       <p className="mt-3 text-[13px] text-ink-dim">
-        No projects. <Link href="/dashboard" className="font-[560] text-thread underline underline-offset-4">Start one on the board</Link>.
+        No projects. <Link href="/new" className="font-[560] text-thread underline underline-offset-4">Start one</Link>.
       </p>
     );
   }
@@ -95,7 +95,7 @@ export function ProjectsManager({ projects, maxName = MAX_NAME }: { projects: Ma
             ) : (
               <>
                 <div className="min-w-0 flex-[1_1_15rem]">
-                  <a href={`/dashboard?project=${encodeURIComponent(project.id)}`} className="touch-min block truncate font-serif text-[20px] leading-tight hover:text-thread" title={project.name}>
+                  <a href={`/p/${encodeURIComponent(project.id)}`} className="touch-min block truncate font-serif text-[20px] leading-tight hover:text-thread" title={project.name}>
                     {project.name}
                   </a>
                   <p className="mt-0.5 font-mono text-[11.5px] text-ink-faint tnum">

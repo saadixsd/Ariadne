@@ -12,7 +12,7 @@ export const runtime = "nodejs";
 
 type Context = { params: Promise<{ id: string }> };
 
-// Polled by the Board and Tree. The client echoes the ETag back as If-None-Match;
+// Project read. The client echoes the ETag back as If-None-Match;
 // while nothing changed the answer is a body-less 304 after two small reads.
 export async function GET(request: Request, context: Context) {
   try {

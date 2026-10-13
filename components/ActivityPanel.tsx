@@ -122,10 +122,6 @@ export function ActivityTab({ project, steps }: { project: ProjectDTO; steps: Th
             </li>
           ))}
         </ul>
-        <p className="mt-3 text-xs text-ink-faint">
-          To steer one step with a note and re-run it, use Intervene in the{" "}
-          <a className="text-thread" href={`/dashboard?project=${project.id}`}>Board</a>.
-        </p>
       </div>
     </div>
   );

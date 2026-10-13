@@ -172,7 +172,7 @@ export function Workspace({ initial }: { initial: WorkspaceData }) {
     if (busy) return <p className="text-sm text-ink-dim" role="status">{busy} This can take a minute.</p>;
     switch (action.kind) {
       case "custom":
-        return <p className="text-sm text-ink-dim">This project has a custom thread. Use the <Link className="text-thread" href={`/dashboard?project=${project.id}`}>Board</Link> to run it.</p>;
+        return <p className="text-sm text-ink-dim">This project was made with an older custom thread that the Workspace cannot run. Its outputs are under Activity. <Link className="text-thread" href="/new">Start a new project</Link>.</p>;
       case "run": {
         const revising = action.task.id === steps.draft?.id && action.task.instructions.includes("Human requested changes:");
         const label = revising ? "Revise draft, then Challenge again" : action.label;
@@ -336,8 +336,7 @@ export function Workspace({ initial }: { initial: WorkspaceData }) {
               <summary className="cursor-pointer list-none px-1 text-lg text-ink-dim hover:text-ink" aria-label="More">⋯</summary>
               <div className="absolute right-0 z-20 mt-1 w-40 rounded-lg bg-raised p-2 text-sm ring-1 ring-line">
                 <Link className="block py-1 hover:text-thread" href="/new">New project</Link>
-                <Link className="block py-1 hover:text-thread" href={`/dashboard?project=${project.id}`}>Board</Link>
-                <Link className="block py-1 hover:text-thread" href={`/tree?project=${project.id}`}>Tree</Link>
+                <Link className="block py-1 hover:text-thread" href={`/settings?project=${project.id}`}>Settings</Link>
                 <Link className="block py-1 hover:text-thread" href={`/feedback?project=${project.id}`}>Feedback</Link>
               </div>
             </details>

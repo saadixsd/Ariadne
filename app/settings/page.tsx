@@ -51,17 +51,17 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   // Back to the project the user came from, while it still exists; otherwise the board
   // opens their next project (or the new-project intro when none are left).
   const { project: from } = await searchParams;
-  const back = from && projects.some((project) => project.id === from) ? `/dashboard?project=${encodeURIComponent(from)}` : "/dashboard";
+  const back = from && projects.some((project) => project.id === from) ? `/p/${encodeURIComponent(from)}` : "/dashboard";
 
   return (
     <div className="min-h-full text-ink">
       <header className="bar-safe flex min-h-14 items-center gap-4 border-b border-line bg-raised/60 pb-2 backdrop-blur-md">
-        <Link href={back} aria-label="Back to the board" className="touch-min">
+        <Link href={back} aria-label="Back to your project" className="touch-min">
           <BrandMark className="max-sm:text-[0px]" />
         </Link>
         <div className="flex-1" />
         <Link href={back} className="rt-btn rt-btn-ghost">
-          ← Back to the thread
+          ← Back to the project
         </Link>
       </header>
       <main className="gutter-safe mx-auto grid max-w-2xl gap-6 pt-8 pb-[calc(5rem+env(safe-area-inset-bottom))] sm:pt-10 lg:max-w-3xl">
@@ -83,7 +83,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
               Projects
             </h2>
             <p className="ml-auto font-mono text-[11.5px] text-ink-faint tnum">{projects.length} {projects.length === 1 ? "project" : "projects"}</p>
-            <a href={newProjectHref(back === "/dashboard" ? null : from)} className="rt-btn rt-btn-thread shrink-0 self-center">
+            <a href={newProjectHref()} className="rt-btn rt-btn-thread shrink-0 self-center">
               ＋ New project
             </a>
           </div>
@@ -107,7 +107,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
             ))}
           </div>
           <p className="mt-2.5 text-[13px] leading-normal text-ink-dim">
-            {used} started today. A workflow is one Draft → Challenge → Judge → Tie Off pass on a project; reruns and Intervene inside it do not count again, and approving the deliverable finishes it. A failed first run does not count. The count starts again at midnight UTC.
+            {used} started today. A workflow is one Draft → Challenge → Judge → Tie Off pass on a project; reruns and revisions inside it do not count again, and approving the deliverable finishes it. A failed first run does not count. The count starts again at midnight UTC.
           </p>
           {trialEnds ? (
             <p className="mt-1.5 text-[13px] leading-normal text-ink-dim" data-trial>
