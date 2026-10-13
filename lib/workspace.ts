@@ -174,7 +174,7 @@ export function goalLine(brief: string, name: string): string | null {
   const title = norm(name);
   for (const raw of brief.split(/\n/)) {
     const line = raw.replace(/^#+\s*/, "").trim();
-    if (!line || /^deliverable\s*:/i.test(line)) continue;
+    if (!line || /^deliverable\s*:/i.test(line) || /:\s*$/.test(line)) continue; // labels like "What I need:"
     const n = norm(line);
     if (!n || n === title || title.includes(n) || n.includes(title)) continue;
     return line;

@@ -78,5 +78,6 @@ test("goalLine skips a brief line that repeats the title", async () => {
   const name = "QA: Does the pilot's 18% reading-time effect hold up?";
   assert.equal(goalLine("Goal: QA: Does the pilot's 18% reading-time effect hold up?\nOne page for my supervisor.\nDeliverable: a page", name), "One page for my supervisor.");
   assert.equal(goalLine("Deliverable: x", name), null);
+  assert.equal(goalLine("What I need:\nOne page for my supervisor.", name), "One page for my supervisor.");
   assert.equal(goalLine("Summarise the pilot for my supervisor.", "Pilot effect"), "Summarise the pilot for my supervisor.");
 });
