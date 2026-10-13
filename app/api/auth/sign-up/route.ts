@@ -1,3 +1,5 @@
+import { cookies } from "next/headers";
+import { CAMPAIGN_COOKIE, decodeCampaign, isSignedRef } from "@/lib/campaign";
 import { checkSignUpInput, signUp } from "@/lib/auth";
 import { errorResponse } from "@/lib/errors";
 import { clientIp, enforceRateLimit } from "@/lib/rate-limit";
@@ -22,7 +24,16 @@ export async function POST(request: Request) {
     checkSignUpInput(email, password);
     await requireHuman(typeof body?.turnstileToken === "string" ? body.turnstileToken : "", clientIp(request));
     const inviteCode = checkInvite(typeof body?.inviteCode === "string" ? body.inviteCode : "");
-    const result = await signUp(email, password, { inviteCode });
+    const campaign = decodeCampaign((await cookies()).get(CAMPAIGN_COOKIE)?.value);
+    // Only a signed outreach code is kept as refCode (it lifts the trial cap); an unsigned
+    // one is still attributed through utm_* but is not trusted for anything.
+    const signed = await isSignedRef(campaign?.ref, process.env.REF_SECRET);
+    const result = await signUp(email, password, {
+      inviteCode,
+      refCode: signed ? campaign?.ref : null,
+      utmSource: campaign?.source ?? null,
+      utmCampaign: campaign?.campaign ?? (campaign?.ref && !signed ? `unsigned:${campaign.ref}`.slice(0, 64) : null),
+    });
     return Response.json(result, { status: 201 });
   } catch (error) {
     return errorResponse(error);

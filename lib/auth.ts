@@ -20,7 +20,19 @@ export type SessionUser = {
   /** With inviteCode, decides the account's daily run cap (lib/limits.ts dailyRunLimit). */
   createdAt: Date;
   inviteCode: string | null;
+  /** Outreach ref code (lib/campaign.ts); a signed one counts like an invite for run limits. */
+  refCode: string | null;
+  isAdmin: boolean;
 };
+
+/** Saad-only pages: ADMIN_EMAILS is a comma-separated Worker var. Empty means nobody. */
+export function isAdminEmail(email: string): boolean {
+  const list = (process.env.ADMIN_EMAILS ?? "")
+    .split(",")
+    .map((item) => item.trim().toLowerCase())
+    .filter(Boolean);
+  return list.includes(email.trim().toLowerCase());
+}
 
 function normalizeEmail(value: string) {
   return value.trim().toLowerCase();
@@ -48,6 +60,8 @@ export async function currentUser(): Promise<SessionUser | null> {
     lastName: session.user.lastName,
     createdAt: session.user.createdAt,
     inviteCode: session.user.inviteCode,
+    refCode: session.user.refCode,
+    isAdmin: isAdminEmail(session.user.email),
   };
 }
 
@@ -127,7 +141,7 @@ export function checkSignUpInput(emailInput: string, password: string) {
   return email;
 }
 
-export async function signUp(emailInput: string, password: string, options: { inviteCode?: string | null } = {}) {
+export async function signUp(emailInput: string, password: string, options: { inviteCode?: string | null; refCode?: string | null; utmSource?: string | null; utmCampaign?: string | null } = {}) {
   const email = checkSignUpInput(emailInput, password);
 
   const prisma = await getPrisma();
@@ -143,6 +157,9 @@ export async function signUp(emailInput: string, password: string, options: { in
       passwordHash: hash,
       emailVerified: !mailReady,
       inviteCode: options.inviteCode ?? null,
+      refCode: options.refCode ?? null,
+      utmSource: options.utmSource ?? null,
+      utmCampaign: options.utmCampaign ?? null,
     },
   });
 

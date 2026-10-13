@@ -18,6 +18,12 @@ model User {
   lastName      String?
   /// The invite code used at sign-up (INVITE_CODES), or null for an open sign-up.
   inviteCode    String?
+  /// Campaign attribution, first touch (outreach link ?ref=…&utm_…). No PII in these.
+  refCode          String?
+  utmSource        String?
+  utmCampaign      String?
+  /// When the first-completion feedback prompt was shown (answered or dismissed).
+  feedbackPromptAt DateTime?
   createdAt     DateTime           @default(now())
   sessions      Session[]
   codes         VerificationCode[]
@@ -61,8 +67,13 @@ model Project {
   name      String
   brief     String
   template  String          @default("landing")
+  /// Explicit final approval of the deliverable; approvedHash is the output it approved.
+  approvedAt   DateTime?
+  approvedHash String?
   createdAt DateTime        @default(now())
   agents    Agent[]
+  issueDecisions IssueDecision[]
+  sources        SourceFile[]
   tasks     Task[]
   events    ActivityEvent[]
 }
@@ -163,5 +174,45 @@ model Feedback {
   user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   kind      String
   message   String
+  rating           Int?
+  worked           String?
+  wrong            String?
+  changeFirst      String?
+  projectId        String?
+  allowProjectView Boolean  @default(false)
+  appVersion       String?
+  source           String?
+  triage           String?
+  triageNote       String?
   createdAt DateTime @default(now())
+}
+
+/// Your decision on one Challenge dispute. flagKey is stable for the same dispute text.
+model IssueDecision {
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  taskId    String
+  flagKey   String
+  state     String
+  edit      String?
+  reason    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@unique([projectId, flagKey])
+}
+
+/// Text extracted in the browser from a file the user added. The file itself is not kept.
+model SourceFile {
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name      String
+  mime      String?
+  bytes     Int?
+  text      String
+  createdAt DateTime @default(now())
+
+  @@index([projectId])
 }

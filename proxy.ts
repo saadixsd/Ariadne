@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { CAMPAIGN_COOKIE, CAMPAIGN_COOKIE_MAX_AGE, campaignFromParams, encodeCampaign } from "@/lib/campaign";
 
 // "/" is the public landing page (static). Everything else that is not a door page or the
 // API needs a session; signed-out visitors are sent to /sign-in.
@@ -28,7 +29,25 @@ function isCrossSiteWrite(request: NextRequest): boolean {
   return request.headers.get("sec-fetch-site") === "cross-site";
 }
 
+// First touch wins: an outreach link (?ref=…&utm_…) is kept for sign-up unless one is already kept.
 export function proxy(request: NextRequest) {
+  const response = route(request);
+  if (request.method === "GET" && !request.cookies.get(CAMPAIGN_COOKIE)) {
+    const campaign = campaignFromParams(request.nextUrl.searchParams);
+    if (campaign) {
+      response.cookies.set(CAMPAIGN_COOKIE, encodeURIComponent(encodeCampaign(campaign)), {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+        maxAge: CAMPAIGN_COOKIE_MAX_AGE,
+        path: "/",
+      });
+    }
+  }
+  return response;
+}
+
+function route(request: NextRequest) {
   const { pathname } = request.nextUrl;
   if (pathname.startsWith("/api/") && isCrossSiteWrite(request)) {
     return NextResponse.json({ error: "This request came from another site, so Ariadne refused it." }, { status: 403 });

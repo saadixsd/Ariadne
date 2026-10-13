@@ -14,11 +14,12 @@ export const SITE_DAILY_MODEL_RUNS = 200;
 export const TRIAL_DAILY_MODEL_RUNS = 6;
 export const TRIAL_PERIOD_MS = 24 * 60 * 60 * 1000;
 
-export type RunAllowanceAccount = { createdAt: Date | string; inviteCode?: string | null };
+export type RunAllowanceAccount = { createdAt: Date | string; inviteCode?: string | null; refCode?: string | null };
 
 /** True while a non-invited account is inside its first TRIAL_PERIOD_MS. */
 export function inTrial(account: RunAllowanceAccount, now = Date.now()): boolean {
-  if (account.inviteCode) return false;
+  // Outreach accounts (signed ref code, lib/campaign.ts) get the invite-level allowance.
+  if (account.inviteCode || account.refCode) return false;
   const created = new Date(account.createdAt).getTime();
   if (!Number.isFinite(created)) return false;
   return now - created < TRIAL_PERIOD_MS;
