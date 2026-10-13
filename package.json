@@ -11,7 +11,7 @@
     "lint": "eslint",
     "db:push": "prisma db push",
     "db:setup": "prisma db push",
-    "test": "tsx --conditions=react-server --test tests/integration/pipeline.test.ts tests/unit/signup-guard.test.ts && tsx --test tests/unit/helpers.test.ts tests/unit/review-features.test.ts tests/unit/intervene.test.ts tests/unit/campaign.test.ts && node --test tests/integration/migrations.test.mjs",
+    "test": "tsx --conditions=react-server --test tests/integration/pipeline.test.ts tests/unit/signup-guard.test.ts && tsx --test tests/unit/helpers.test.ts tests/unit/review-features.test.ts tests/unit/intervene.test.ts tests/unit/campaign.test.ts tests/unit/feedback.test.ts && node --test tests/integration/migrations.test.mjs",
     "test:all": "bash tests/integration/run-all.sh",
     "postinstall": "node scripts/workers-ci-build.mjs"
   },
