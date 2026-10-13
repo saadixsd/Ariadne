@@ -5,6 +5,7 @@ import { assertMaxLength } from "@/lib/input-caps";
 import { MAX_BRIEF_CHARS, MAX_PROJECT_NAME_CHARS } from "@/lib/limits";
 import { prisma } from "@/lib/prisma";
 import { getProject } from "@/lib/project";
+import { parseSources } from "@/lib/sources";
 
 export const runtime = "nodejs";
 
@@ -32,6 +33,7 @@ export async function POST(request: Request) {
     const body = (await request.json().catch(() => null)) as {
       name?: unknown;
       brief?: unknown;
+      sources?: unknown;
     } | null;
     const name = typeof body?.name === "string" ? body.name.trim() : "";
     const brief = typeof body?.brief === "string" ? body.brief.trim() : "";
@@ -40,8 +42,15 @@ export async function POST(request: Request) {
     }
     assertMaxLength("Name", name, MAX_PROJECT_NAME_CHARS);
     assertMaxLength("Brief", brief, MAX_BRIEF_CHARS);
+    let sources;
+    try {
+      sources = parseSources(body?.sources);
+    } catch (error) {
+      return Response.json({ error: (error as Error).message }, { status: 400 });
+    }
     const user = await requireUser();
     const projectId = await createUserProject(user.id, name, brief);
+    for (const source of sources) await prisma.sourceFile.create({ data: { projectId, ...source } });
     const created = await getProject(projectId, user.id);
     return Response.json(created, { status: 201 });
   } catch (error) {

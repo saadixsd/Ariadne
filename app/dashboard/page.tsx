@@ -30,6 +30,12 @@ export default async function DashboardPage({
     orderBy: { createdAt: "asc" },
     select: { id: true, name: true, brief: true, template: true },
   });
+  // Default door is the Workspace (/p/[id]) or the new-project flow (/new). The Board is
+  // the advanced view: it opens when a project is named (?project=) or with ?new=1.
+  if (!requested && startNew !== "1") {
+    if (await needsProjectIntroFor(user.id, projects)) redirect("/new");
+    redirect(`/p/${projects[projects.length - 1].id}`);
+  }
   if (await needsProjectIntroFor(user.id, projects)) return <ProjectIntro />;
   // needsProjectIntroFor() is true for a user with no projects, so a project always exists here.
   const existing = pickBoardProject(projects, requested)!;

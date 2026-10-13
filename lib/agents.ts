@@ -9,6 +9,7 @@ import { dependentTasks, directDependencies, transitiveDependencies, unmetDepend
 import { safeErrorMessage, TaskRunError } from "@/lib/errors";
 import { handName } from "@/lib/hands";
 import { assertMaxLength } from "@/lib/input-caps";
+import { briefWithSources } from "@/lib/sources";
 import { MAX_NOTE_CHARS, MAX_OUTPUT_TOKENS_ANTHROPIC, MAX_OUTPUT_TOKENS_OPENAI } from "@/lib/limits";
 import { prisma } from "@/lib/prisma";
 import { isStuck, reclaimStuckTasks } from "@/lib/reclaim";
@@ -295,8 +296,14 @@ export async function runTask(taskId: string, userId: string, dailyLimit?: numbe
 
   const model = modelForProvider(task.agent.provider);
   const system = composeSystemPrompt({ name: handName(task.agent.name), role: task.agent.role });
+  // Text the user added from their files (lib/sources.ts) rides along with the brief.
+  const sources = await prisma.sourceFile.findMany({
+    where: { projectId: task.projectId },
+    orderBy: { createdAt: "asc" },
+    select: { name: true, text: true },
+  });
   const user = composeUserPrompt({
-    brief: task.project.brief,
+    brief: briefWithSources(task.project.brief, sources),
     instructions: task.instructions,
     handoffs,
   });

@@ -518,3 +518,80 @@ describe("existing board + tree flow", () => {
     await rejects(agents.runTask(p.draft.id, stranger.id), 404);
   });
 });
+
+describe("workspace journey (Oct 14): sources → Draft → Challenge → decisions → Revise → Tie Off → Approve → feedback", () => {
+  test("whole journey through lib functions, with the agent path unchanged", async () => {
+    const ws = await import("../../lib/workspace-server");
+    const pure = await import("../../lib/workspace");
+    const user = await newUser("journey@example.com");
+    const { id, draft, review, gate, build } = await newProject(user.id);
+
+    // Sources: browser-extracted text, saved, and fed into every step's shared context.
+    assert.equal(await ws.addSources(id, user.id, [{ name: "paper.md", mime: "text/markdown", bytes: 20, text: "The effect size was 0.4 (n=12)." }]), 1);
+    await rejects(ws.addSources(id, user.id, [{ name: "big.md", text: "x".repeat(40_001) }]), 400, /too long/);
+    const other = await newUser("intruder@example.com");
+    await rejects(ws.addSources(id, other.id, [{ name: "a.md", text: "a" }]), 404);
+
+    await agents.runTask(draft.id, user.id);
+    const sentToClaude = JSON.stringify(mock.state.lastBody.anthropic);
+    assert.match(sentToClaude, /Source: paper\.md/);
+    assert.match(sentToClaude, /effect size was 0\.4/);
+    await agents.runTask(review.id, user.id); // the Judge gate opens by itself after Challenge
+
+    let data = (await ws.loadWorkspace(id, user.id))!;
+    let steps = pure.threadSteps(data.project);
+    assert.equal(steps.judge?.status, "awaiting_approval");
+    assert.equal(pure.docState(steps, null), "challenged");
+    let issues = pure.issuesFrom(steps.challenge!.output, data.decisions);
+    assert.ok(issues.length >= 2, "mock challenge parses into issues");
+
+    // Decisions persist; Undo deletes; a stranger cannot decide.
+    await ws.decideIssue(id, user.id, { flagKey: issues[0].key, taskId: review.id, state: "accepted" });
+    await ws.decideIssue(id, user.id, { flagKey: issues[1].key, taskId: review.id, state: "edited", edit: "Say n=12 is small." });
+    await rejects(ws.decideIssue(id, user.id, { flagKey: issues[1].key, taskId: review.id, state: "edited" }), 400);
+    await rejects(ws.decideIssue(id, other.id, { flagKey: issues[0].key, taskId: review.id, state: "accepted" }), 404);
+    data = (await ws.loadWorkspace(id, user.id))!;
+    issues = pure.issuesFrom(pure.threadSteps(data.project).challenge!.output, data.decisions);
+    assert.deepEqual(issues.slice(0, 2).map((i) => i.state).sort(), ["accepted", "edited"]);
+
+    // Approving before Tie Off is refused.
+    await rejects(ws.approveDeliverable(id, user.id, "x"), 409, /Tie off first/);
+
+    // Revise with accepted issues = the existing Ask-for-changes path (no model call here).
+    const callsBefore = mock.state.calls;
+    const note = pure.reviseNote(issues);
+    assert.match(note, /use my correction: Say n=12 is small/);
+    await agents.decideTask(gate.id, false, note, user.id);
+    assert.equal(mock.state.calls, callsBefore, "Revise itself runs nothing");
+    const cleared = await prisma.task.findUniqueOrThrow({ where: { id: draft.id } });
+    assert.equal(cleared.status, "pending");
+    assert.match(cleared.instructions, /use my correction/);
+
+    await agents.runTask(draft.id, user.id);
+    await agents.runTask(review.id, user.id); // the Judge gate opens by itself after Challenge
+    data = (await ws.loadWorkspace(id, user.id))!;
+    assert.equal(pure.docState(pure.threadSteps(data.project), null), "challenged");
+    await agents.decideTask(gate.id, true, undefined, user.id);
+    await agents.runTask(build.id, user.id);
+
+    data = (await ws.loadWorkspace(id, user.id))!;
+    steps = pure.threadSteps(data.project);
+    assert.equal(pure.docState(steps, null), "tied_off");
+    assert.equal(data.promptFeedback, false);
+    const doc = pure.documentOf(steps);
+    await rejects(ws.approveDeliverable(id, user.id, "stale"), 409, /changed/);
+    const approved = await ws.approveDeliverable(id, user.id, pure.hashText(doc.text!));
+    assert.equal(approved.promptFeedback, true, "first approved deliverable prompts feedback once");
+    data = (await ws.loadWorkspace(id, user.id))!;
+    assert.equal(pure.docState(pure.threadSteps(data.project), data.approvedHash), "approved");
+    assert.deepEqual(pure.nextAction(pure.threadSteps(data.project), true), { kind: "done" });
+
+    await prisma.user.update({ where: { id: user.id }, data: { feedbackPromptAt: new Date() } });
+    assert.equal((await ws.loadWorkspace(id, user.id))!.promptFeedback, false);
+
+    // Deleting the project removes its sources and decisions (cascade).
+    await prisma.project.delete({ where: { id } });
+    assert.equal(await prisma.sourceFile.count({ where: { projectId: id } }), 0);
+    assert.equal(await prisma.issueDecision.count({ where: { projectId: id } }), 0);
+  });
+});
