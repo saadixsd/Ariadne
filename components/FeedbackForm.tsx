@@ -148,12 +148,7 @@ export function FirstRunFeedback({ projectId, onClose }: { projectId: string; on
           You approved your first deliverable
         </h2>
         <p className="mt-1 mb-4 text-sm text-ink-dim">Two minutes, four questions, all optional. It shapes what we fix next.</p>
-        <FeedbackForm projectId={projectId} source="popup" onCancel={() => void dismiss()} />
-        <div className="mt-2 flex justify-end">
-          <button type="button" onClick={onClose} className="sr-only">
-            Close
-          </button>
-        </div>
+        <FeedbackForm projectId={projectId} source="popup" onCancel={() => void dismiss()} onDone={() => setTimeout(onClose, 1800)} />
       </div>
     </div>
   );

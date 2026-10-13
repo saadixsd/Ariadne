@@ -35,7 +35,7 @@ export function proxy(request: NextRequest) {
   if (request.method === "GET" && !request.cookies.get(CAMPAIGN_COOKIE)) {
     const campaign = campaignFromParams(request.nextUrl.searchParams);
     if (campaign) {
-      response.cookies.set(CAMPAIGN_COOKIE, encodeURIComponent(encodeCampaign(campaign)), {
+      response.cookies.set(CAMPAIGN_COOKIE, encodeCampaign(campaign), {
         httpOnly: true,
         sameSite: "lax",
         secure: process.env.NODE_ENV === "production",

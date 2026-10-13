@@ -25,3 +25,11 @@ test("outreach accounts skip the day-one trial cap", () => {
   assert.equal(dailyRunLimit({ createdAt: new Date(now) }, now), TRIAL_DAILY_MODEL_RUNS);
   assert.equal(dailyRunLimit({ createdAt: new Date(now), refCode: "r-abc-12345678" }, now), DAILY_MODEL_RUNS);
 });
+
+test("cookie value decodes whether encoded once, twice, or not at all", () => {
+  const plain = "r-abc123-deadbeef|email|researchers-w1";
+  const want = { ref: "r-abc123-deadbeef", source: "email", campaign: "researchers-w1" };
+  assert.deepEqual(decodeCampaign(plain), want);
+  assert.deepEqual(decodeCampaign(encodeURIComponent(plain)), want);
+  assert.deepEqual(decodeCampaign(encodeURIComponent(encodeURIComponent(plain))), want);
+});

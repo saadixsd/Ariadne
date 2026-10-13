@@ -37,7 +37,16 @@ export function encodeCampaign(c: Campaign): string {
 
 export function decodeCampaign(value: string | null | undefined): Campaign | null {
   if (!value) return null;
-  const [ref, source, campaign] = decodeURIComponent(value).split("|");
+  let raw = value;
+  // Cookie values may arrive percent-encoded once or twice depending on the writer.
+  for (let i = 0; i < 2 && /%[0-9a-f]{2}/i.test(raw); i++) {
+    try {
+      raw = decodeURIComponent(raw);
+    } catch {
+      return null;
+    }
+  }
+  const [ref, source, campaign] = raw.split("|");
   const out = { ref: clean(ref), source: clean(source), campaign: clean(campaign) };
   return out.ref || out.source || out.campaign ? out : null;
 }
