@@ -158,7 +158,7 @@ export function SourcesPanel({
           </label>
         ) : null}
         {status ? <p className="mt-1 text-xs text-ink-dim" role="status">{status}</p> : null}
-        <p className="mt-2 text-[11px] leading-normal text-ink-faint">Text is read in your browser. Originals are kept 3 days. Reading a file is not checking it.</p>
+        <p className="mt-2 text-[11px] leading-normal text-ink-faint">Text is read in your browser. Originals up to 10 MB are kept 3 days when space allows. Reading a file is not checking it.</p>
       </section>
 
       <section className={card} aria-labelledby="goal-h">

@@ -44,7 +44,7 @@ async function applyMigrations() {
   }>;
   const { DatabaseSync } = await loadSqlite();
   const db = new DatabaseSync(dbFile);
-  for (const file of ["0001_baseline.sql", "0002_ship_blockers.sql", "0003_phase2.sql", "0004_invite_code.sql", "0005_attribution_feedback.sql", "0006_workspace.sql", "0007_r2_workflow_quota.sql"]) {
+  for (const file of ["0001_baseline.sql", "0002_ship_blockers.sql", "0003_phase2.sql", "0004_invite_code.sql", "0005_attribution_feedback.sql", "0006_workspace.sql", "0007_r2_workflow_quota.sql", "0008_r2_budget.sql"]) {
     db.exec(readFileSync(path.join(root, "migrations", file), "utf8"));
   }
   db.close();
@@ -544,7 +544,7 @@ describe("workspace journey (Oct 14): sources → Draft → Challenge → decisi
     assert.equal(added.length, 1);
     // Original kept in R2 under the owner's prefix, for 3 days; a stranger cannot store or read it.
     const kept = await ws.storeOriginal(id, user.id, added[0].id, new TextEncoder().encode("# paper").buffer as ArrayBuffer, "text/markdown");
-    assert.ok(kept && new Date(kept.expiresAt).getTime() - Date.now() > 2.9 * 86400_000);
+    assert.ok(kept.kept && new Date(kept.expiresAt).getTime() - Date.now() > 2.9 * 86400_000);
     assert.deepEqual(store.keys(), [`u/${user.id}/${id}/${added[0].id}`]);
     assert.equal((await ws.readOriginal(id, user.id, added[0].id))?.size, 7);
     const strangerPeek = await newUser("peek@example.com");
@@ -553,6 +553,42 @@ describe("workspace journey (Oct 14): sources → Draft → Challenge → decisi
     assert.equal(await ws.readOriginal(id, user.id, added[0].id), null, "expired originals are not offered");
     assert.equal((await ws.loadWorkspace(id, user.id))!.sources[0].originalUntil, null);
     await rejects(ws.addSources(id, user.id, [{ name: "big.md", text: "x".repeat(40_001) }]), 400, /too long/);
+
+    // Free-tier guards: each cap behaves like no bucket (text kept, original not), never throws.
+    const budget = await import("../../lib/r2-budget");
+    const more = await ws.addSources(id, user.id, [
+      { name: "huge.pdf", text: "huge" },
+      { name: "b.md", text: "b" },
+      { name: "c.md", text: "c" },
+    ]);
+    const tooBig = new ArrayBuffer(budget.MAX_ORIGINAL_BYTES + 1);
+    assert.deepEqual(await ws.storeOriginal(id, user.id, more[0].id, tooBig, "application/pdf"), { kept: false, reason: "too_large" });
+    await prisma.sourceFile.update({ where: { id: added[0].id }, data: { expiresAt: new Date(Date.now() + 86400_000), blobBytes: budget.USER_ORIGINAL_BYTES - 5 } });
+    assert.deepEqual(await ws.storeOriginal(id, user.id, more[1].id, new ArrayBuffer(10), "text/markdown"), { kept: false, reason: "user_full" });
+    await prisma.sourceFile.update({ where: { id: added[0].id }, data: { blobBytes: 7 } });
+    const bigUser = await newUser("bulk@example.com");
+    const bulk = await prisma.project.create({ data: { userId: bigUser.id, name: "bulk", brief: "b" } });
+    await prisma.sourceFile.create({ data: { projectId: bulk.id, name: "x", text: "x", blobKey: `u/${bigUser.id}/${bulk.id}/x`, expiresAt: new Date(Date.now() + 86400_000), blobBytes: budget.SITE_ORIGINAL_BYTES } });
+    assert.deepEqual(await ws.storeOriginal(id, user.id, more[1].id, new ArrayBuffer(10), "text/markdown"), { kept: false, reason: "site_full" });
+    await prisma.project.delete({ where: { id: bulk.id } });
+    const day = new Date().toISOString().slice(0, 10);
+    await prisma.r2Day.upsert({ where: { day }, create: { day, writes: budget.SITE_DAILY_R2_WRITES }, update: { writes: budget.SITE_DAILY_R2_WRITES } });
+    assert.deepEqual(await ws.storeOriginal(id, user.id, more[1].id, new ArrayBuffer(10), "text/markdown"), { kept: false, reason: "daily_writes" });
+    assert.equal((await prisma.r2Day.findUniqueOrThrow({ where: { day } })).writes, budget.SITE_DAILY_R2_WRITES, "a refused write is given back");
+    await prisma.r2Day.update({ where: { day }, data: { writes: 0 } });
+    const ok = await ws.storeOriginal(id, user.id, more[1].id, new ArrayBuffer(10), "text/markdown");
+    assert.equal(ok.kept, true);
+    assert.equal((await prisma.r2Day.findUniqueOrThrow({ where: { day } })).writes, 1);
+    assert.deepEqual(await ws.storeOriginal(id, user.id, more[1].id, new ArrayBuffer(10), "text/markdown"), { kept: false, reason: "failed" }, "never rewritten");
+    const failing = { ...store, put: async () => { throw new Error("R2 down"); } };
+    (globalThis as { __ariadneFileStore?: unknown }).__ariadneFileStore = failing;
+    assert.deepEqual(await ws.storeOriginal(id, user.id, more[2].id, new ArrayBuffer(10), "text/markdown"), { kept: false, reason: "failed" });
+    assert.equal((await prisma.r2Day.findUniqueOrThrow({ where: { day } })).writes, 1, "a failed put gives its write back");
+    (globalThis as { __ariadneFileStore?: unknown }).__ariadneFileStore = store;
+    await ws.removeSource(id, user.id, more[1].id);
+    await ws.removeSource(id, user.id, more[0].id);
+    await ws.removeSource(id, user.id, more[2].id);
+    assert.deepEqual(store.keys(), [`u/${user.id}/${id}/${added[0].id}`]);
     const other = await newUser("intruder@example.com");
     await rejects(ws.addSources(id, other.id, [{ name: "a.md", text: "a" }]), 404);
 

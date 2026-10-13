@@ -7,17 +7,17 @@ export const runtime = "nodejs";
 
 type Context = { params: Promise<{ id: string; sourceId: string }> };
 
-/** Body: the raw file bytes. Kept 3 days in R2 under the user's prefix; never parsed here. */
+/** Body: the raw file bytes. Kept 3 days when the free-tier budget allows (lib/r2-budget.ts) in R2 under the user's prefix; never parsed here. */
 export async function PUT(request: Request, context: Context) {
   try {
     const user = await requireUser();
     const { id, sourceId } = await context.params;
     const declared = Number(request.headers.get("content-length") ?? "0");
-    if (declared > MAX_ORIGINAL_BYTES) return Response.json({ error: "Files up to 15 MB" }, { status: 413 });
+    // Over 10 MB: the text is already saved; the original is simply not kept.
+    if (declared > MAX_ORIGINAL_BYTES) return Response.json({ kept: false, reason: "too_large" });
     const body = await request.arrayBuffer();
-    const stored = await storeOriginal(id, user.id, sourceId, body, request.headers.get("content-type"));
-    if (!stored) return Response.json({ kept: false, error: "Original files are not kept on this server" }, { status: 503 });
-    return Response.json({ kept: true, expiresAt: stored.expiresAt });
+    if (body.byteLength > MAX_ORIGINAL_BYTES) return Response.json({ kept: false, reason: "too_large" });
+    return Response.json(await storeOriginal(id, user.id, sourceId, body, request.headers.get("content-type")));
   } catch (error) {
     return errorResponse(error);
   }

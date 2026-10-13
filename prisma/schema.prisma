@@ -216,6 +216,8 @@ model SourceFile {
   blobKey   String?
   /// When the original is deleted (R2 lifecycle: 3 days). The extracted text stays.
   expiresAt DateTime?
+  /// Bytes of the original stored in R2 (counts against the free-tier budget).
+  blobBytes Int?
   createdAt DateTime @default(now())
 
   @@index([projectId])
@@ -237,4 +239,10 @@ model Workflow {
 
   @@index([userId, day])
   @@index([projectId, status])
+}
+
+/// Site-wide R2 writes per UTC day (free-tier guard, lib/r2-budget.ts).
+model R2Day {
+  day    String @id
+  writes Int    @default(0)
 }

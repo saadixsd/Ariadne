@@ -101,3 +101,12 @@ npx wrangler r2 bucket lifecycle add ariadne-uploads delete-originals-after-3-da
 npx wrangler r2 bucket lifecycle list ariadne-uploads     # check the rule
 ```
 Without the bucket the deploy fails, because wrangler checks bindings. The bucket stays private: there is no public access and no r2.dev URL, and downloads go through the owner-checked route. R2 deletes objects after the lifecycle age asynchronously, usually within a day, and the app stops offering the file at 3 days regardless.
+
+## R2 free-tier guards (migration 0008)
+
+`lib/r2-budget.ts` keeps R2 far inside the free tier (10 GB, 1M Class A, 10M Class B a month):
+originals over 10 MB are not kept; at most 50 MB of originals per user and 5 GB site-wide
+(summed from `SourceFile.blobBytes` in D1, counted until a day after expiry); at most 2,000
+R2 writes per UTC day site-wide (`R2Day`). Deletes use exact keys from D1; the bucket is never
+listed. Any cap, a missing bucket or a failed put all mean the same thing: the extracted text
+is kept, the original is not, and the UI says "Original not kept". Runs never fail on it.

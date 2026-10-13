@@ -51,14 +51,19 @@ function loadMammoth(): Promise<Mammoth> {
 export type Extracted = { name: string; mime: string | null; bytes: number; text: string; truncated: boolean; file: File };
 
 /** Keeps the original in R2 for 3 days (lib/file-store.ts). Best effort: the text is what the steps use. */
+/** Originals over 10 MB are never sent (same cap as lib/r2-budget.ts); the text is kept. */
+export const MAX_ORIGINAL_UPLOAD_BYTES = 10 * 1024 * 1024;
+
 export async function uploadOriginal(projectId: string, sourceId: string, file: File): Promise<boolean> {
+  if (file.size > MAX_ORIGINAL_UPLOAD_BYTES) return false;
   try {
     const res = await fetch(`/api/projects/${projectId}/sources/${sourceId}/file`, {
       method: "PUT",
       headers: { "Content-Type": file.type || "application/octet-stream" },
       body: file,
     });
-    return res.ok;
+    const body = (await res.json().catch(() => ({}))) as { kept?: boolean };
+    return res.ok && body.kept === true;
   } catch {
     return false;
   }

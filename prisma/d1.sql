@@ -179,6 +179,7 @@ CREATE TABLE "SourceFile" (
     "text" TEXT NOT NULL,
     "blobKey" TEXT,
     "expiresAt" DATETIME,
+    "blobBytes" INTEGER,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "SourceFile_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
@@ -193,6 +194,12 @@ CREATE TABLE "Workflow" (
     "status" TEXT NOT NULL DEFAULT 'open',
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "closedAt" DATETIME
+);
+
+-- CreateTable
+CREATE TABLE "R2Day" (
+    "day" TEXT NOT NULL PRIMARY KEY,
+    "writes" INTEGER NOT NULL DEFAULT 0
 );
 
 -- CreateIndex

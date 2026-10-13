@@ -10,14 +10,15 @@ import "server-only";
 */
 
 export const ORIGINAL_RETENTION_DAYS = 3;
-export const MAX_ORIGINAL_BYTES = 15 * 1024 * 1024;
+export { MAX_ORIGINAL_BYTES } from "@/lib/r2-budget";
 
 export type StoredFile = { body: ReadableStream | ArrayBuffer; contentType: string | null; size: number };
 
 export interface FileStore {
   put(key: string, body: ArrayBuffer, contentType: string | null): Promise<void>;
   get(key: string): Promise<StoredFile | null>;
-  deletePrefix(prefix: string): Promise<void>;
+  /** Deletes exact keys (keys come from D1; never lists the bucket). */
+  deleteKeys(keys: string[]): Promise<void>;
 }
 
 export function userPrefix(userId: string) {
@@ -42,13 +43,8 @@ function r2Store(bucket: R2Bucket): FileStore {
       if (!object) return null;
       return { body: object.body as unknown as ReadableStream, contentType: object.httpMetadata?.contentType ?? null, size: object.size };
     },
-    async deletePrefix(prefix) {
-      let cursor: string | undefined;
-      do {
-        const page = await bucket.list({ prefix, cursor, limit: 1000 });
-        if (page.objects.length) await bucket.delete(page.objects.map((o) => o.key));
-        cursor = page.truncated ? page.cursor : undefined;
-      } while (cursor);
+    async deleteKeys(keys) {
+      if (keys.length) await bucket.delete(keys.slice(0, 1000));
     },
   };
 }
@@ -64,8 +60,8 @@ export function memoryStore(): FileStore & { keys(): string[] } {
       const v = map.get(key);
       return v ? { body: v.body, contentType: v.contentType, size: v.body.byteLength } : null;
     },
-    async deletePrefix(prefix) {
-      for (const k of [...map.keys()]) if (k.startsWith(prefix)) map.delete(k);
+    async deleteKeys(keys) {
+      for (const k of keys) map.delete(k);
     },
     keys: () => [...map.keys()],
   };

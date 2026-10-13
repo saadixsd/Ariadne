@@ -2,7 +2,8 @@ import "server-only";
 
 import { TaskRunError } from "@/lib/errors";
 import { shouldPromptFeedback } from "@/lib/feedback";
-import { getFileStore, MAX_ORIGINAL_BYTES, originalExpiry, originalKey, userPrefix } from "@/lib/file-store";
+import { getFileStore, originalExpiry, originalKey, userPrefix } from "@/lib/file-store";
+import { releaseOriginal, reserveOriginal, type BudgetRefusal } from "@/lib/r2-budget";
 import { prisma } from "@/lib/prisma";
 import { closeWorkflow } from "@/lib/usage";
 import { getProject } from "@/lib/project";
@@ -121,19 +122,36 @@ export async function addSources(projectId: string, userId: string, raw: unknown
 }
 
 /** Keep the original bytes of one source in R2 for 3 days. Returns null when storage is off. */
-export async function storeOriginal(projectId: string, userId: string, sourceId: string, body: ArrayBuffer, contentType: string | null) {
+/**
+ * Keeps the original for 3 days when the free-tier budget allows (lib/r2-budget.ts).
+ * Returns { kept: false } instead of failing: the extracted text is already saved.
+ */
+export async function storeOriginal(
+  projectId: string,
+  userId: string,
+  sourceId: string,
+  body: ArrayBuffer,
+  contentType: string | null,
+): Promise<{ kept: true; expiresAt: string } | { kept: false; reason: BudgetRefusal | "no_bucket" | "failed" }> {
   await ownedProject(projectId, userId);
-  const source = await prisma.sourceFile.findFirst({ where: { id: sourceId, projectId }, select: { id: true } });
+  const source = await prisma.sourceFile.findFirst({ where: { id: sourceId, projectId }, select: { id: true, blobKey: true } });
   if (!source) throw new TaskRunError("File not found", 404);
   if (body.byteLength === 0) throw new TaskRunError("Empty file", 400);
-  if (body.byteLength > MAX_ORIGINAL_BYTES) throw new TaskRunError("Files up to 15 MB", 413);
   const store = await getFileStore();
-  if (!store) return null;
+  if (!store) return { kept: false, reason: "no_bucket" };
+  if (source.blobKey) return { kept: false, reason: "failed" }; // one original per source, never rewritten
+  const refusal = await reserveOriginal(userId, body.byteLength);
+  if (refusal) return { kept: false, reason: refusal };
   const key = originalKey(userId, projectId, sourceId);
-  await store.put(key, body, contentType);
+  try {
+    await store.put(key, body, contentType);
+  } catch {
+    await releaseOriginal();
+    return { kept: false, reason: "failed" };
+  }
   const expiresAt = originalExpiry();
-  await prisma.sourceFile.update({ where: { id: sourceId }, data: { blobKey: key, expiresAt } });
-  return { expiresAt: expiresAt.toISOString() };
+  await prisma.sourceFile.update({ where: { id: sourceId }, data: { blobKey: key, expiresAt, blobBytes: body.byteLength } });
+  return { kept: true, expiresAt: expiresAt.toISOString() };
 }
 
 export async function readOriginal(projectId: string, userId: string, sourceId: string) {
@@ -150,7 +168,14 @@ export async function readOriginal(projectId: string, userId: string, sourceId: 
 /** Deletes a project's originals (called before the project row goes). */
 export async function deleteProjectOriginals(projectId: string, userId: string) {
   const store = await getFileStore();
-  if (store) await store.deletePrefix(`${userPrefix(userId)}${projectId}/`);
+  if (!store) return;
+  const rows = await prisma.sourceFile.findMany({ where: { projectId, project: { userId }, blobKey: { not: null } }, select: { blobKey: true } });
+  const keys = rows.map((r) => r.blobKey!).filter((k) => k.startsWith(userPrefix(userId)));
+  try {
+    await store.deleteKeys(keys);
+  } catch {
+    // The lifecycle rule removes them within 3 days anyway.
+  }
 }
 
 export async function removeSource(projectId: string, userId: string, sourceId: string) {
@@ -158,7 +183,7 @@ export async function removeSource(projectId: string, userId: string, sourceId: 
   const source = await prisma.sourceFile.findFirst({ where: { id: sourceId, projectId }, select: { blobKey: true } });
   if (source?.blobKey?.startsWith(userPrefix(userId))) {
     const store = await getFileStore();
-    if (store) await store.deletePrefix(source.blobKey);
+    if (store) await store.deleteKeys([source.blobKey]).catch(() => undefined);
   }
   await prisma.sourceFile.deleteMany({ where: { id: sourceId, projectId } });
 }
