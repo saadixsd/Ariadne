@@ -16,7 +16,7 @@ import { createNodeSqliteAdapter } from "../../lib/node-sqlite";
 
 type Mock = {
   url: string;
-  state: { fail: boolean; calls: number; failures: number; lastBody: Record<string, Record<string, unknown>> };
+  state: { anthropicShape?: string; fail: boolean; calls: number; failures: number; lastBody: Record<string, Record<string, unknown>> };
   close: () => Promise<void>;
 };
 
@@ -44,7 +44,7 @@ async function applyMigrations() {
   }>;
   const { DatabaseSync } = await loadSqlite();
   const db = new DatabaseSync(dbFile);
-  for (const file of ["0001_baseline.sql", "0002_ship_blockers.sql", "0003_phase2.sql", "0004_invite_code.sql", "0005_attribution_feedback.sql", "0006_workspace.sql", "0007_r2_workflow_quota.sql", "0008_r2_budget.sql", "0009_password_reset.sql"]) {
+  for (const file of ["0001_baseline.sql", "0002_ship_blockers.sql", "0003_phase2.sql", "0004_invite_code.sql", "0005_attribution_feedback.sql", "0006_workspace.sql", "0007_r2_workflow_quota.sql", "0008_r2_budget.sql", "0009_password_reset.sql", "0010_run_usage.sql"]) {
     db.exec(readFileSync(path.join(root, "migrations", file), "utf8"));
   }
   db.close();
@@ -333,7 +333,7 @@ describe("site-wide daily ceiling and output caps", () => {
     }
   });
 
-  test("provider calls carry output caps (Claude 8,192; GPT 16,384 including reasoning)", async () => {
+  test("provider calls carry output caps (Claude 16,384 including thinking; GPT 16,384 including reasoning)", async () => {
     const user = await newUser("token-caps@test.dev");
     const p = await newProject(user.id);
     await agents.runTask(p.draft.id, user.id); // Odysseus (the Drafter) -> Anthropic
@@ -341,8 +341,32 @@ describe("site-wide daily ceiling and output caps", () => {
     assert.equal(mock.state.lastBody.anthropic.max_tokens, limits.MAX_OUTPUT_TOKENS_ANTHROPIC);
     assert.equal(mock.state.lastBody.openai.max_output_tokens ?? mock.state.lastBody.openai.max_completion_tokens, limits.MAX_OUTPUT_TOKENS_OPENAI);
     assert.deepEqual(mock.state.lastBody.openai.tools, [{ type: "web_search" }], "Daedalus fact-checks with web search");
-    assert.equal(limits.MAX_OUTPUT_TOKENS_ANTHROPIC, 8192);
+    assert.equal(limits.MAX_OUTPUT_TOKENS_ANTHROPIC, 16384);
     assert.equal(limits.MAX_OUTPUT_TOKENS_OPENAI, 16384);
+  });
+});
+
+describe("writer response shapes from production (paused turn, tool-only turn, citations)", () => {
+  test("continues until there is an answer, keeps only the answer, links citations, records usage", async () => {
+    const user = await newUser("shapes@test.dev");
+    const p = await newProject(user.id);
+    const before = mock.state.calls;
+    mock.state.anthropicShape = "paused";
+    try {
+      const task = await agents.runTask(p.draft.id, user.id);
+      assert.equal(mock.state.calls - before, 3, "first call paused, second ended on tool results, third wrote the answer");
+      const out = task.output ?? "";
+      assert.match(out, /^Assumption: /, "narration before the answer is dropped");
+      assert.match(out, /17 widgets as of today\. \[example\.org\]\(https:\/\/example\.org\/registry\)|17 widgets as of today \[example\.org\]\(https:\/\/example\.org\/registry\)\./);
+      assert.doesNotMatch(out, /utm_source|I'll search|Let me/);
+      const run = await (await import("../../lib/prisma")).getPrisma().then((db) => db.taskRun.findFirst({ where: { taskId: p.draft.id }, orderBy: { attempt: "desc" } }));
+      assert.equal(run?.inputTokens, 3000);
+      assert.equal(run?.outputTokens, 600);
+      assert.equal(run?.toolCalls, 3, "2 searches + 1 fetch");
+      assert.equal(run?.costUsd, null, "no price for the mock model");
+    } finally {
+      mock.state.anthropicShape = undefined;
+    }
   });
 });
 

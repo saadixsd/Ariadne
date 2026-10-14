@@ -138,6 +138,34 @@ export function startMockLlm(port = 0) {
     const request = JSON.parse(body || "{}");
     state.lastBody[req.url?.endsWith("/messages") ? "anthropic" : "openai"] = request;
     const n = state.calls;
+    // Replays the response shapes a current writer model sent in production (Oct 14 logs):
+    // adaptive thinking, a paused turn mid-search, a turn that ends on tool results with no
+    // text, then narration + answer text whose sources arrive as structured citations.
+    if (req.url?.endsWith("/messages") && state.anthropicShape === "paused" ) {
+      const msgs = request.messages ?? [];
+      const base = { id: `msg_${n}`, type: "message", role: "assistant", model: request.model };
+      const usage = { input_tokens: 1000, output_tokens: 200, cache_read_input_tokens: 0, server_tool_use: { web_search_requests: 1, web_fetch_requests: msgs.length === 1 ? 0 : 1 } };
+      const tool = (id, name, input) => [
+        { type: "server_tool_use", id, name, input },
+        { type: name === "web_search" ? "web_search_tool_result" : "web_fetch_tool_result", tool_use_id: id, content: [] },
+      ];
+      if (request.tools && msgs.length === 1) {
+        return send(200, { ...base, stop_reason: "pause_turn", usage, content: [{ type: "thinking", thinking: "plan", signature: "s" }, { type: "text", text: "I'll search for the official data." }, ...tool("srv_1", "web_search", { query: "official data" })] });
+      }
+      if (request.tools && msgs.length === 2) {
+        return send(200, { ...base, stop_reason: "end_turn", usage, content: [{ type: "text", text: "Let me open the page." }, ...tool("srv_2", "web_fetch", { url: "https://example.org/data.js" })] });
+      }
+      return send(200, {
+        ...base,
+        stop_reason: "end_turn",
+        usage: { ...usage, server_tool_use: null },
+        content: [
+          { type: "thinking", thinking: "write", signature: "s" },
+          { type: "text", text: "Now I have enough information. Let me write the answer.\n\nAssumption: the brief means the official registry.\n\nThe registry lists 17 widgets" },
+          { type: "text", text: " as of today.", citations: [{ type: "web_search_result_location", url: "https://example.org/registry?utm_source=x", title: "Registry", cited_text: "17 widgets", encrypted_index: "e" }] },
+        ],
+      });
+    }
     if (req.url?.endsWith("/messages")) {
       return send(200, {
         id: `msg_${n}`,

@@ -134,6 +134,13 @@ model TaskRun {
   latencyMs    Int?
   /// Provider-level tries inside this run (withOneRetry), not separate rows.
   tries        Int       @default(1)
+  inputTokens     Int?
+  outputTokens    Int?
+  cacheReadTokens Int?
+  /// Provider-side web searches and page fetches.
+  toolCalls       Int?
+  /// Estimate from list prices (lib/cost.ts).
+  costUsd         Float?
   startedAt    DateTime?
   completedAt  DateTime?
   createdAt    DateTime  @default(now())

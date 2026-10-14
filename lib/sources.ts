@@ -39,7 +39,14 @@ export function briefWithSources(brief: string, sources: { name: string; text: s
 
 /** No-model summary for the left panel: words and the opening lines. */
 export function sourceDigest(text: string): { words: number; opening: string } {
-  const words = text.split(/\s+/).filter(Boolean).length;
-  const opening = text.replace(/\s+/g, " ").trim().slice(0, 240);
+  // A char loop, not split(): no big array per request (Worker CPU on large files).
+  let words = 0;
+  let inWord = false;
+  for (let i = 0; i < text.length; i++) {
+    const space = text.charCodeAt(i) <= 32;
+    if (!space && !inWord) words++;
+    inWord = !space;
+  }
+  const opening = text.slice(0, 2000).replace(/\s+/g, " ").trim().slice(0, 240);
   return { words, opening };
 }

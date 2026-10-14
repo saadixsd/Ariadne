@@ -89,6 +89,11 @@ export type NewTaskRun = {
   error?: string | null;
   latencyMs?: number | null;
   tries?: number;
+  inputTokens?: number | null;
+  outputTokens?: number | null;
+  cacheReadTokens?: number | null;
+  toolCalls?: number | null;
+  costUsd?: number | null;
   startedAt?: Date | null;
   completedAt?: Date | null;
 };
@@ -123,6 +128,11 @@ export async function recordRun(run: NewTaskRun) {
           error: run.error ?? null,
           latencyMs: run.latencyMs ?? null,
           tries: run.tries ?? 1,
+          inputTokens: run.inputTokens ?? null,
+          outputTokens: run.outputTokens ?? null,
+          cacheReadTokens: run.cacheReadTokens ?? null,
+          toolCalls: run.toolCalls ?? null,
+          costUsd: run.costUsd ?? null,
           startedAt: run.startedAt ?? null,
           completedAt: run.completedAt ?? null,
         },

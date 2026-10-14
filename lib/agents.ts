@@ -1,5 +1,7 @@
 import "server-only";
 import { cleanCitations, stripTracking } from "@/lib/critique";
+import { CHECKER_PLAYBOOK, WRITER_PLAYBOOK } from "@/lib/playbooks.generated";
+import { estimateCostUsd } from "@/lib/cost";
 
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
@@ -88,12 +90,15 @@ const WRITER_RULES = (tools: "fetch" | "search" | "none") =>
       : tools === "search"
         ? "Web search is available: use it to look up current facts before you answer."
         : "Web search is not available for this run; answer from the brief, the sources and what you know."
-  } Answer the question directly. Cite your sources inline, next to each claim, as Markdown links to the page you used. Say clearly when you are uncertain about a fact, and why. Never refuse or stop because you lack access to something: give your best sourced answer and mark what is uncertain. Do not mention which AI model or company is behind you.)`;
+  } Use the whole brief (title, goal, need, deliverable and files) together; if anything is ambiguous, take the most reasonable reading in that context, state it in one line starting "Assumption:" at the top, then answer fully. Never ask clarifying questions instead of answering. Answer the question directly. Cite your sources inline, next to each claim, as Markdown links to the page you used. Say clearly when you are uncertain about a fact, and why. Never refuse or stop because you lack access to something: give your best sourced answer and mark what is uncertain. Do not mention which AI model or company is behind you.)`;
 
-const ANTHROPIC_SEARCH = { type: "web_search_20250305", name: "web_search", max_uses: 5 } as const;
+const ANTHROPIC_SEARCH = { type: "web_search_20250305", name: "web_search", max_uses: 4 } as const;
 // Provider-side fetch: the page is read on the provider's servers. The cap keeps the
 // response the Worker has to parse bounded (CPU), while fitting a mid-size data file.
-const ANTHROPIC_FETCH = { type: "web_fetch_20250910", name: "web_fetch", max_uses: 4, max_content_tokens: 80_000 } as const;
+const ANTHROPIC_FETCH = { type: "web_fetch_20250910", name: "web_fetch", max_uses: 3, max_content_tokens: 40_000 } as const;
+
+/** Opening lines where the writer narrates its own process ("Now I have enough. Let me draft…"). */
+const NARRATION = /^(?:now |ok(?:ay)?[,.]? |great[,.]? |perfect[,.]? )?(?:let me|i'll|i will|i have|i've|i now have|i'm going to|i need to|based on (?:my|the) (?:research|search(?:es)?))\b[^\n]{0,200}$/i;
 
 function textOf(content: Anthropic.ContentBlock[]) {
   // With tools the model narrates between calls ("I'll search for…"). Keep only the
@@ -102,12 +107,29 @@ function textOf(content: Anthropic.ContentBlock[]) {
   content.forEach((block, i) => {
     if (block.type !== "text") last = i;
   });
-  return content
+  // Search results come back as structured citations on text blocks; show them inline as
+  // Markdown links (once per URL in a row) so the reader and the checker can open them.
+  let previous = "";
+  const text = content
     .slice(last + 1)
     .filter((block): block is Anthropic.TextBlock => block.type === "text")
-    .map((block) => block.text)
+    .map((block) => {
+      const urls = Array.from(new Set((block.citations ?? []).map((c) => ("url" in c ? String(c.url ?? "") : "")).filter(Boolean)));
+      const links = urls.filter((u) => u !== previous).map((u) => {
+        const host = u.replace(/^https?:\/\/(www\.)?/, "").split("/")[0];
+        return ` [${host}](${u})`;
+      });
+      if (urls.length) previous = urls[urls.length - 1];
+      if (!links.length || /\]\(https?:\/\//.test(block.text)) return block.text;
+      // Keep the sentence's trailing punctuation/newlines after the links.
+      const m = block.text.match(/^([\s\S]*?)([.,;:]?\s*)$/);
+      return `${m?.[1] ?? block.text}${links.join("")}${m?.[2] ?? ""}`;
+    })
     .join("")
     .trim();
+  const lines = text.split("\n");
+  while (lines.length && (NARRATION.test(lines[0].trim()) || /^-{3,}$/.test(lines[0].trim()) || !lines[0].trim())) lines.shift();
+  return lines.join("\n").trim() || text;
 }
 
 /** Which provider-side tools ran (names and URLs only), for the Worker log. */
@@ -120,17 +142,57 @@ function toolTrace(content: Anthropic.ContentBlock[]) {
     });
 }
 
-async function anthropicWithTools(client: Anthropic, model: string, system: string, user: string, tools: Anthropic.ToolUnion[], mode: "fetch" | "search") {
+/** Token usage of one model call (all continuations summed), stored on the run for cost tracking. */
+export type CallUsage = { inputTokens: number; outputTokens: number; cacheReadTokens: number; searches: number; fetches: number };
+const emptyUsage = (): CallUsage => ({ inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, searches: 0, fetches: 0 });
+type CallResult = { text: string; usage: CallUsage };
+
+function addAnthropicUsage(total: CallUsage, u: Anthropic.Usage | undefined) {
+  if (!u) return;
+  total.inputTokens += (u.input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0);
+  total.cacheReadTokens += u.cache_read_input_tokens ?? 0;
+  total.outputTokens += u.output_tokens ?? 0;
+  const st = u.server_tool_use as { web_search_requests?: number; web_fetch_requests?: number } | null | undefined;
+  total.searches += st?.web_search_requests ?? 0;
+  total.fetches += st?.web_fetch_requests ?? 0;
+}
+
+/** Wall-clock budget for one writer or checker call, all retries included (the request must finish well inside platform limits). */
+const CALL_BUDGET_MS = 170_000;
+const MAX_CONTINUATIONS = 5;
+const left = (deadline: number) => deadline - Date.now();
+
+function anthropicEffort(): Anthropic.OutputConfig | undefined {
+  const e = process.env.ANTHROPIC_EFFORT ?? "medium";
+  return e === "off" ? undefined : { effort: e as NonNullable<Anthropic.OutputConfig["effort"]> };
+}
+
+async function anthropicWithTools(client: Anthropic, model: string, system: string, user: string, tools: Anthropic.ToolUnion[], mode: "fetch" | "search", deadline: number, usage: CallUsage): Promise<string> {
   const messages: Anthropic.MessageParam[] = [{ role: "user", content: user + WRITER_RULES(mode) }];
-  let response = await client.messages.create({ model, max_tokens: MAX_OUTPUT_TOKENS_ANTHROPIC, system, messages, tools });
+  const output_config = anthropicEffort();
+  const create = (withTools: boolean) =>
+    client.messages.create(
+      { model, max_tokens: MAX_OUTPUT_TOKENS_ANTHROPIC, system, messages, ...(withTools ? { tools } : {}), ...(output_config ? { output_config } : {}) },
+      { timeout: Math.max(5_000, left(deadline)) },
+    );
+  let response = await create(true);
+  addAnthropicUsage(usage, response.usage);
   const trace = toolTrace(response.content);
-  // Long tool use can pause the turn; let it continue once.
-  if (response.stop_reason === "pause_turn") {
+  // Long tool use pauses the turn, and a turn can end on tool results with no answer yet.
+  // Continue (bounded) until there is answer text after the last tool block.
+  for (let i = 0; i < MAX_CONTINUATIONS && left(deadline) > 25_000; i++) {
+    const text = textOf(response.content);
+    const paused = response.stop_reason === "pause_turn";
+    if (!paused && text) break;
     messages.push({ role: "assistant", content: response.content });
-    response = await client.messages.create({ model, max_tokens: MAX_OUTPUT_TOKENS_ANTHROPIC, system, messages, tools });
+    if (!paused) messages.push({ role: "user", content: "Write the full answer now from what you found, with inline citations." });
+    // Last continuation, or little time left: no tools, so it must write.
+    const finalTurn = i === MAX_CONTINUATIONS - 1 || left(deadline) < 60_000 || !paused;
+    response = await create(!finalTurn);
+    addAnthropicUsage(usage, response.usage);
     trace.push(...toolTrace(response.content));
   }
-  console.log("[ariadne] writer tools", JSON.stringify({ mode, trace }));
+  console.log("[ariadne] writer tools", JSON.stringify({ mode, trace, usage, stop: response.stop_reason }));
   const text = stripTracking(textOf(response.content));
   if (!text) throw new Error("empty response with tools");
   return text;
@@ -143,41 +205,45 @@ function isOutage(error: unknown) {
 
 /**
  * Odysseus writes with Anthropic's server-side web search and page fetch. Both run on
- * Anthropic's side, so the Worker waits on one fetch (wall time, not CPU). If fetch is
- * refused (4xx), it retries with search only; then plain. ANTHROPIC_WEB_SEARCH=off skips
- * both; ANTHROPIC_WEB_FETCH=off skips fetch. An outage fails as before.
+ * Anthropic's side, so the Worker waits (wall time, not CPU). One budget covers every
+ * attempt: if fetch is refused (4xx) it retries with search only, then plain, but only
+ * while time is left. ANTHROPIC_WEB_SEARCH=off skips both; ANTHROPIC_WEB_FETCH=off skips fetch.
  */
-async function callAnthropic(model: string, system: string, user: string) {
-  const client = new Anthropic({
-    apiKey: process.env.ANTHROPIC_API_KEY,
-    maxRetries: 0,
-    timeout: 180_000,
-  });
+async function callAnthropic(model: string, system: string, user: string): Promise<CallResult> {
+  const deadline = Date.now() + CALL_BUDGET_MS;
+  const usage = emptyUsage();
+  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, maxRetries: 0, timeout: CALL_BUDGET_MS });
   if (process.env.ANTHROPIC_WEB_SEARCH !== "off") {
     if (process.env.ANTHROPIC_WEB_FETCH !== "off") {
       try {
-        return await anthropicWithTools(client, model, system, user, [ANTHROPIC_SEARCH, ANTHROPIC_FETCH], "fetch");
+        return { text: await anthropicWithTools(client, model, system, user, [ANTHROPIC_SEARCH, ANTHROPIC_FETCH], "fetch", deadline, usage), usage };
       } catch (error) {
-        if (isOutage(error)) throw error;
+        if (isOutage(error) || left(deadline) < 60_000) throw error;
         console.warn("writer page fetch unavailable, trying search only:", error instanceof Error ? error.message.slice(0, 200) : "unknown");
       }
     }
     try {
-      return await anthropicWithTools(client, model, system, user, [ANTHROPIC_SEARCH], "search");
+      return { text: await anthropicWithTools(client, model, system, user, [ANTHROPIC_SEARCH], "search", deadline, usage), usage };
     } catch (error) {
-      if (isOutage(error)) throw error;
+      if (isOutage(error) || left(deadline) < 45_000) throw error;
       console.warn("writer web search unavailable, using plain call:", error instanceof Error ? error.message.slice(0, 200) : "unknown");
     }
   }
-  const response = await client.messages.create({
-    model,
-    max_tokens: MAX_OUTPUT_TOKENS_ANTHROPIC,
-    system,
-    messages: [{ role: "user", content: user + WRITER_RULES("none") }],
-  });
+  const output_config = anthropicEffort();
+  const response = await client.messages.create(
+    {
+      model,
+      max_tokens: MAX_OUTPUT_TOKENS_ANTHROPIC,
+      system,
+      messages: [{ role: "user", content: user + WRITER_RULES("none") }],
+      ...(output_config ? { output_config } : {}),
+    },
+    { timeout: Math.max(5_000, left(deadline)) },
+  );
+  addAnthropicUsage(usage, response.usage);
   const text = stripTracking(textOf(response.content));
   if (!text) throw new Error("The writer returned an empty response");
-  return text;
+  return { text, usage };
 }
 
 /** Added to every fact-check call (old projects included). */
@@ -199,7 +265,27 @@ Do not mention which AI model or company is behind you.)`;
  * one fetch (wall time, not CPU). Any failure falls back to the plain call below,
  * which says it cannot search. OPENAI_WEB_SEARCH=off turns it off.
  */
-async function callOpenAIWithSearch(client: OpenAI, model: string, system: string, user: string) {
+function addOpenAIUsage(total: CallUsage, u: { input_tokens?: number; output_tokens?: number; prompt_tokens?: number; completion_tokens?: number; input_tokens_details?: { cached_tokens?: number } | null; prompt_tokens_details?: { cached_tokens?: number } | null } | null | undefined) {
+  if (!u) return;
+  const cached = u.input_tokens_details?.cached_tokens ?? u.prompt_tokens_details?.cached_tokens ?? 0;
+  total.inputTokens += (u.input_tokens ?? u.prompt_tokens ?? 0) - cached;
+  total.cacheReadTokens += cached;
+  total.outputTokens += u.output_tokens ?? u.completion_tokens ?? 0;
+}
+
+/** Reasoning effort for the checker; low keeps a searched check inside the time budget. */
+function openaiEffort() {
+  const e = process.env.OPENAI_EFFORT ?? "low";
+  return e === "off" ? undefined : (e as "low" | "medium" | "high" | "minimal" | "none");
+}
+
+/**
+ * Daedalus fact-checks with OpenAI's hosted web search (Responses API). The search and
+ * page reads run on OpenAI's side, so the Worker only waits. The searched check gets most
+ * of the budget; the plain fallback only runs if enough time is left.
+ */
+async function callOpenAIWithSearch(client: OpenAI, model: string, system: string, user: string, deadline: number, usage: CallUsage) {
+  const effort = openaiEffort();
   const response = await client.responses.create(
     {
       model,
@@ -207,50 +293,59 @@ async function callOpenAIWithSearch(client: OpenAI, model: string, system: strin
       input: user + CHECKER_RULES(true),
       tools: [{ type: "web_search" }],
       max_output_tokens: MAX_OUTPUT_TOKENS_OPENAI,
+      ...(effort ? { reasoning: { effort } } : {}),
     },
-    { timeout: 150_000 },
+    { timeout: Math.max(5_000, left(deadline) - 40_000) },
   );
+  addOpenAIUsage(usage, response.usage);
   const actions = (response.output ?? [])
     .filter((item) => item.type === "web_search_call")
     .map((item) => {
       const action = (item as { action?: { type?: string; url?: string; query?: string } }).action;
       return `${action?.type ?? "?"}:${String(action?.url ?? action?.query ?? "").slice(0, 120)}`;
     });
-  console.log("[ariadne] checker tools", JSON.stringify({ actions }));
+  usage.searches += actions.length;
+  console.log("[ariadne] checker tools", JSON.stringify({ actions, usage, status: response.status }));
   const text = cleanCitations(response.output_text?.trim() ?? "");
   if (!text) throw new Error("The fact-checker returned an empty response");
   return text;
 }
 
-async function callOpenAI(model: string, system: string, user: string) {
-  const client = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-    maxRetries: 0,
-    timeout: 60_000,
-  });
+async function callOpenAI(model: string, system: string, user: string): Promise<CallResult> {
+  const deadline = Date.now() + CALL_BUDGET_MS;
+  const usage = emptyUsage();
+  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, maxRetries: 0, timeout: CALL_BUDGET_MS });
   if (process.env.OPENAI_WEB_SEARCH !== "off") {
     try {
-      return await callOpenAIWithSearch(client, model, system, user);
+      return { text: await callOpenAIWithSearch(client, model, system, user, deadline, usage), usage };
     } catch (error) {
+      if (left(deadline) < 30_000) throw error;
       console.warn("web search check unavailable, using plain check:", error instanceof Error ? error.message.slice(0, 200) : "unknown");
     }
   }
-  const response = await client.chat.completions.create({
-    model,
-    max_completion_tokens: MAX_OUTPUT_TOKENS_OPENAI,
-    messages: [
-      { role: "system", content: system },
-      { role: "user", content: user + CHECKER_RULES(false) },
-    ],
-  });
+  const effort = openaiEffort();
+  const response = await client.chat.completions.create(
+    {
+      model,
+      max_completion_tokens: MAX_OUTPUT_TOKENS_OPENAI,
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: user + CHECKER_RULES(false) },
+      ],
+      ...(effort ? { reasoning_effort: effort } : {}),
+    },
+    { timeout: Math.max(5_000, left(deadline)) },
+  );
+  addOpenAIUsage(usage, response.usage);
   const text = cleanCitations(response.choices[0]?.message?.content?.trim() ?? "");
   if (!text) throw new Error("The fact-checker returned an empty response");
-  return text;
+  return { text, usage };
 }
 
+/** The playbooks (agents/playbooks/*.md, compiled at build time) lead each agent's system prompt. */
 async function callProvider(provider: string, model: string, system: string, user: string) {
-  if (provider === "anthropic") return callAnthropic(model, system, user);
-  if (provider === "openai") return callOpenAI(model, system, user);
+  if (provider === "anthropic") return callAnthropic(model, `${WRITER_PLAYBOOK}\n\n${system}`, user);
+  if (provider === "openai") return callOpenAI(model, `${CHECKER_PLAYBOOK}\n\n${system}`, user);
   throw new Error(`Unknown provider "${provider}"`);
 }
 
@@ -263,12 +358,15 @@ class ProviderError extends Error {
   }
 }
 
-async function withOneRetry(fn: () => Promise<string>): Promise<{ text: string; tries: number }> {
+/** Retries once, but only after a quick failure: a slow one already used the time budget. */
+async function withOneRetry(fn: () => Promise<CallResult>): Promise<CallResult & { tries: number }> {
+  const t0 = Date.now();
   try {
-    return { text: await fn(), tries: 1 };
-  } catch {
+    return { ...(await fn()), tries: 1 };
+  } catch (first) {
+    if (Date.now() - t0 > 30_000) throw new ProviderError(first, 1);
     try {
-      return { text: await fn(), tries: 2 };
+      return { ...(await fn()), tries: 2 };
     } catch (error) {
       throw new ProviderError(error, 2);
     }
@@ -457,11 +555,13 @@ export async function runTask(taskId: string, userId: string, dailyLimit?: numbe
 
   let output: string;
   let tries = 1;
+  let usage: CallUsage | null = null;
   try {
     assertConfigured(task.agent.provider, model);
     const result = await withOneRetry(() => callProvider(task.agent.provider, model, system, user));
     output = result.text;
     tries = result.tries;
+    usage = result.usage;
   } catch (thrown) {
     const error = thrown instanceof ProviderError ? thrown.original : thrown;
     const message = safeErrorMessage(error);
@@ -487,6 +587,15 @@ export async function runTask(taskId: string, userId: string, dailyLimit?: numbe
   }
 
   const latencyMs = Date.now() - startedAt.getTime();
+  const usageFields = usage
+    ? {
+        inputTokens: usage.inputTokens,
+        outputTokens: usage.outputTokens,
+        cacheReadTokens: usage.cacheReadTokens,
+        toolCalls: usage.searches + usage.fetches,
+        costUsd: estimateCostUsd(model, usage),
+      }
+    : {};
   const status = task.requiresApproval ? "awaiting_approval" : "done";
   const completedAt = status === "done" ? new Date() : null;
   const committed = await commitIfOwned(claim, {
@@ -504,6 +613,7 @@ export async function runTask(taskId: string, userId: string, dailyLimit?: numbe
       outcome: "discarded",
       output,
       tries,
+      ...usageFields,
       latencyMs,
       error: "Finished after the task was recovered as stuck; output kept in history but not applied",
       completedAt: new Date(),
@@ -513,7 +623,7 @@ export async function runTask(taskId: string, userId: string, dailyLimit?: numbe
       409,
     );
   }
-  await recordRun({ ...runBase, outcome: "succeeded", output, tries, latencyMs, completedAt: new Date() });
+  await recordRun({ ...runBase, outcome: "succeeded", output, tries, ...usageFields, latencyMs, completedAt: new Date() });
   // The agent's model and its status in one write (was: update model, emit, then sync status).
   await syncAgentStatus(task.agentId, task.agent.provider, { model });
   await emit(
