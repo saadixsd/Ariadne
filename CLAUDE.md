@@ -63,7 +63,7 @@ Scout/Maker in the codebase, that occurrence is stale; update it to
 Odysseus/Daedalus.
 
 **Models (Worker vars):** Claude Sonnet `claude-sonnet-5-5`,
-GPT `gpt-6.1-sol`.
+GPT `gpt-6-luna` (gpt-6.1-sol with web search did not finish inside the time budget, Oct 14).
 
 **Default workflow for new projects:** a generic 5-task template in `lib/starter-thread.ts`
 ("Research the brief" Odysseus → "Draft the answer" Odysseus → "Challenge the draft"
