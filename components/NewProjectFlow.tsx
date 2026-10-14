@@ -23,7 +23,7 @@ export function draftBrief(goal: string, details: string, files: { name: string;
 
 // A real, checkable question with a public authoritative source (root-servers.org).
 // The app never states the answer itself; the models find it and Daedalus checks it.
-const SAMPLE_GOAL = "How many DNS root server instances are in Canada?";
+const SAMPLE_GOAL = "What do recent systematic reviews say about exercise therapy for chronic low back pain?";
 const SAMPLE_DETAILS =
   "Give the current count of root server instances located in Canada, which root servers (letters) they belong to, and the cities. Use root-servers.org as the authoritative source and give the date of the data.";
 
@@ -104,7 +104,7 @@ export function NewProjectFlow({ runsLeft, runsLimit }: { runsLeft: number; runs
       {step === "describe" ? (
         <div className="mt-6 space-y-5">
           <p className="text-sm leading-normal text-ink-dim">
-            Odysseus answers from your brief and files. When the draft looks right to you, Daedalus checks each claim against your files and the web. You judge only what it flags.
+            Odysseus answers from your brief and files. When the draft looks right to you, Daedalus checks the key claims against your files and the web. You judge only what it flags.
           </p>
           <div className="text-sm">
             <span className="text-ink-dim">Sample question: </span>

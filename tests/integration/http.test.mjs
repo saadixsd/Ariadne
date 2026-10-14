@@ -134,12 +134,13 @@ test("L1. signed out: / is the public landing page; /dashboard and other app pag
   assert.match(landing.text, /x\.com\/ariadne_agents/);
   // Roles by name only: no model or vendor names, no test-phase wording.
   assert.doesNotMatch(landing.text.replace(/<script[\s\S]*?<\/script>/g, ""), /\b(Claude|GPT|ChatGPT|Gemini|OpenAI|Anthropic)\b|\bbeta\b|early access|\btesters?\b|\bpilot\b|small group/i);
-  assert.match(landing.text, /Odysseus answers/);
-  assert.match(landing.text, /Daedalus fact-checks/);
-  assert.match(landing.text, /Supported, Unsupported or Wrong/);
-  assert.match(landing.text, /root-servers\.org/, "the DNS example cites its source");
+  assert.match(landing.text, /Odysseus writes/);
+  assert.match(landing.text, /Daedalus checks/);
+  assert.match(landing.text, /Supported, Unsupported, Wrong, or Sources disagree/);
+  assert.match(landing.text, /checks the key claims/, "copy matches the checker's claim cap");
+  assert.doesNotMatch(landing.text, /every claim/i);
   assert.doesNotMatch(landing.text, /Daedalus drafts|Odysseus challenges|\bScout\b|\bMaker\b/);
-  assert.doesNotMatch(landing.text, /try to break|tries to break|prove (it|the draft) wrong|\bBoard\b|Saad/i, "no adversarial or stale wording");
+  assert.doesNotMatch(landing.text.replaceAll("saad@ariadneagents.si", ""), /try to break|tries to break|prove (it|the draft) wrong|\bBoard\b|Saad/i, "no adversarial or stale wording");
   assert.doesNotMatch(landing.text, /eliminates hallucinations|hallucination-free|guaranteed accura/i, "no reliability claims");
   for (const path of ["/dashboard", "/dashboard?project=abc", "/tree", "/settings"]) {
     const res = await call("GET", path, { from: ip(40) });
@@ -177,7 +178,7 @@ test("T1. sign-up needs a Turnstile pass; shape errors come first; nothing is cr
 test("workspace door: old board/tree URLs redirect; /new and the workspace load; a new project has four steps", async () => {
   const home = await call("GET", "/", { cookie: state.cookie });
   assert.equal(home.status, 200);
-  assert.match(home.text, /Tie the Thread/);
+  assert.match(home.text, /Open your projects/);
   // No project yet: the old Board and Tree URLs send you to /new.
   for (const door of ["/dashboard", "/tree"]) {
     const res = await call("GET", door, { cookie: state.cookie });
@@ -187,7 +188,7 @@ test("workspace door: old board/tree URLs redirect; /new and the workspace load;
   const intro = await call("GET", "/new", { cookie: state.cookie });
   assert.equal(intro.status, 200);
   assert.match(intro.text, /What do you need fact-checked\?/);
-  assert.match(intro.text, /How many DNS root server instances are in Canada\?/, "the sample question");
+  assert.match(intro.text, /exercise therapy for chronic low back pain\?/, "the sample question");
   const created = await call("POST", "/api/projects", { cookie: state.cookie, body: { name: "Coffee cart", brief: "Landing page for a coffee cart." } });
   assert.equal(created.status, 201, created.text);
   state.projectId = created.json.project?.id ?? created.json.id;

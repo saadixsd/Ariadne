@@ -12,8 +12,8 @@ const STEPS = [
     body: "Read the draft. If it is what you asked for, move on to the check. If not, tell Odysseus what to change and it redrafts.",
   },
   {
-    title: "Daedalus checks each claim",
-    body: "Every claim is checked against your sources and the web, with the evidence and a link. You decide on what is flagged: accept, edit or reject.",
+    title: "Daedalus checks the key claims",
+    body: "The claims that matter most are checked against your sources and the web, with the evidence and a link; any others are listed as not checked in full. You decide on what is flagged: accept, edit or reject.",
   },
   {
     title: "Tie off, approve, keep the record",

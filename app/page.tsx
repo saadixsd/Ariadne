@@ -12,7 +12,7 @@ import "./landing.css";
 
 const TITLE = "Ariadne · Fact-checked research, claim by claim";
 const DESCRIPTION =
-  "Ariadne drafts a sourced answer to your research question, checks every claim against your sources and the web, and lets you decide on anything flagged. You approve the result and keep the full record.";
+  "Ariadne drafts a sourced answer to your research question, checks the key claims against your sources and the web, and lets you decide on anything flagged. You approve the result and keep the full record.";
 
 export const metadata: Metadata = {
   title: { absolute: TITLE },
@@ -37,7 +37,7 @@ const CF_BEACON = process.env.NEXT_PUBLIC_CF_BEACON_TOKEN;
 const STEPS = [
   { n: "1", who: "You", title: "Ask your question", text: "Write what you need to know and who it is for, and add the papers, reports or notes it should draw on." },
   { n: "2", who: "Odysseus", title: "Get a sourced draft", text: "Odysseus writes an answer with a citation next to each claim. Not quite right? Say what to change and it redrafts." },
-  { n: "3", who: "Daedalus", title: "Every claim is checked", text: "Daedalus checks each claim against your sources and the web, and shows the evidence and the link for its verdict." },
+  { n: "3", who: "Daedalus", title: "The key claims are checked", text: "Daedalus checks the claims that matter most in full against your sources and the web, with the evidence and a link for each verdict. Any others are listed so you can see what was not checked." },
   { n: "4", who: "You", title: "Decide, approve, keep the record", text: "You accept, edit or reject what is flagged. Odysseus revises, you approve, and the whole thread is yours to export." },
 ];
 
@@ -57,7 +57,7 @@ const GETS = [
 ];
 
 const FAQ = [
-  { q: "What do Odysseus and Daedalus do?", a: "Odysseus writes: it drafts the answer from your brief and sources and revises it with your decisions. Daedalus checks: it reviews each claim against your sources and the web and shows its evidence. You make the calls in between." },
+  { q: "What do Odysseus and Daedalus do?", a: "Odysseus writes: it drafts the answer from your brief and sources and revises it with your decisions. Daedalus checks: it reviews the claims that matter most against your sources and the web, shows its evidence, and lists any it did not check in full. You make the calls in between." },
   { q: "Does a check mean the answer is guaranteed correct?", a: "No. The check tells you which claims a source supports and which need your attention, and shows you why. You remain the judge of the final answer." },
   { q: "What sources can I add?", a: "PDF, DOCX and Markdown files. Their text is read in your browser and used for the draft and the check. Daedalus can also search the web." },
   { q: "Who can see my projects?", a: "Only you. The Ariadne team cannot open your projects unless you choose to share one with us when you send feedback, and you can withdraw that in Settings." },
@@ -129,7 +129,7 @@ export default function Landing() {
                 Research answers you can <em>check, claim by claim.</em>
               </h1>
               <p className="lp-lede">
-                Ariadne drafts a sourced answer to your question, reviews every claim against your sources and the web, and
+                Ariadne drafts a sourced answer to your question, checks the key claims against your sources and the web, and
                 brings you only what needs a decision. You approve the result and keep the full record.
               </p>
               <div className="lp-cta">
