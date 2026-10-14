@@ -55,9 +55,11 @@ None.
 - Check the sample-size ranges against a power calculation before planning the trial.
 `;
 
-const MOCK_FACTCHECK = `1. Claim: "Reading time fell by 18% on average across the 12 participants."
+const MOCK_FACTCHECK = `Data checked: 2026-10-13
+
+1. Claim: "Reading time fell by 18% on average across the 12 participants."
    Verdict: supported
-   Evidence: The pilot notes report an 18% mean reduction for n=12.
+   Evidence: The pilot notes say "In our pilot (n=12), the intervention reduced reading time by 18%."
    Source: pilot.pdf
    Severity: high
 

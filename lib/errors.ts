@@ -27,5 +27,9 @@ export function errorResponse(error: unknown): Response {
 
 export function safeErrorMessage(error: unknown): string {
   const raw = error instanceof Error ? error.message : "Provider request failed";
-  return raw.replace(/sk-[A-Za-z0-9_-]+/g, "[redacted]").slice(0, 500);
+  // Shown in the workspace: keys redacted, no model or vendor names.
+  return raw
+    .replace(/sk-[A-Za-z0-9_-]+/g, "[redacted]")
+    .replace(/\b(anthropic|openai|claude|chatgpt|gemini)(-[\w.-]+)?\b|\bgpt-?[\w.-]*/gi, "the AI service")
+    .slice(0, 500);
 }

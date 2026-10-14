@@ -9,7 +9,8 @@ const TONE = { supported: "text-ok", unsupported: "text-gate-ink", wrong: "text-
 
 /** The proof attached to the answer: every claim Daedalus checked, its verdict, source and your decision. */
 export function ClaimTable({ challengeOutput, decisions }: { challengeOutput: string | null | undefined; decisions: Decision[] }) {
-  const flags = useMemo(() => parseCritique(challengeOutput ?? "").flags.filter((f) => f.verdict), [challengeOutput]);
+  const critique = useMemo(() => parseCritique(challengeOutput ?? ""), [challengeOutput]);
+  const flags = critique.flags.filter((f) => f.verdict);
   if (flags.length === 0) return null;
   const byKey = new Map(decisions.map((d) => [d.flagKey, d]));
   const v = verdictCounts(flags);
@@ -17,7 +18,7 @@ export function ClaimTable({ challengeOutput, decisions }: { challengeOutput: st
     <section data-testid="claim-table" className="mt-8 border-t border-line pt-6">
       <h3 className="font-serif text-xl">Claims checked</h3>
       <p className="mt-1 text-xs text-ink-dim">
-        Daedalus checked {v.checked} claim{v.checked === 1 ? "" : "s"} in the draft: {v.supported} supported, {v.unsupported} unsupported, {v.wrong} wrong. A second model&apos;s check, not a guarantee.
+        Daedalus checked {v.checked} claim{v.checked === 1 ? "" : "s"} in the draft: {v.supported} supported, {v.unsupported} unsupported, {v.wrong} wrong. {critique.dataDate ? ` Data checked: ${critique.dataDate}.` : ""} A second model&apos;s check, not a guarantee.
       </p>
       <div className="mt-3 overflow-x-auto">
         <table className="w-full text-left text-[13px]">

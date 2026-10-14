@@ -56,6 +56,17 @@ async function newUser(email: string) {
   });
 }
 
+/** Tie Off needs every flagged claim decided: reject them all (keeps the draft as is). */
+async function decideAll(projectId: string, userId: string) {
+  const ws = await import("../../lib/workspace-server");
+  const pure = await import("../../lib/workspace");
+  const data = (await ws.loadWorkspace(projectId, userId))!;
+  const steps = pure.threadSteps(data.project);
+  for (const issue of pure.issuesFrom(steps.challenge?.output, data.decisions)) {
+    if (!pure.isResolved(issue.state)) await ws.decideIssue(projectId, userId, { flagKey: issue.key, taskId: steps.challenge!.id, state: "rejected" });
+  }
+}
+
 async function newProject(userId: string) {
   const id = await starter.createUserProject(userId, "Test project", "Build a landing page for a coffee cart.");
   const tasks = await prisma.task.findMany({ where: { projectId: id }, orderBy: { createdAt: "asc" } });
@@ -455,6 +466,7 @@ describe("5. structured events", () => {
     const p = await newProject(user.id);
     await agents.runTask(p.draft.id, user.id);
     await agents.runTask(p.review.id, user.id);
+    await decideAll(p.id, user.id);
     await agents.decideTask(p.gate.id, true, undefined, user.id);
     const dto = (await project.getProject(p.id, user.id))!;
     const steps = lineage.buildLineage(dto, p.gate.id)!;
@@ -512,6 +524,7 @@ describe("existing board + tree flow", () => {
     await rejects(agents.runTask(p.build.id, user.id), 409, /Dependencies are not done/);
     await agents.runTask(p.review.id, user.id);
     await rejects(agents.runTask(p.gate.id, user.id), 409, /awaiting approval/);
+    await decideAll(p.id, user.id);
     await agents.decideTask(p.gate.id, true, undefined, user.id);
     const built = await agents.runTask(p.build.id, user.id);
     assert.equal(built.status, "done");
@@ -632,6 +645,7 @@ describe("workspace journey (Oct 14): sources → Draft → Challenge → decisi
     await agents.runTask(review.id, user.id); // the Judge gate opens by itself after Challenge
     data = (await ws.loadWorkspace(id, user.id))!;
     assert.equal(pure.docState(pure.threadSteps(data.project), null), "challenged");
+    await decideAll(id, user.id);
     await agents.decideTask(gate.id, true, undefined, user.id);
     await agents.runTask(build.id, user.id);
 
@@ -719,5 +733,19 @@ describe("forgot password (lib level, mock Brevo)", () => {
     assert.equal(mail().length, count + 1, "3 per hour including the two already sent");
     delete process.env.BREVO_API_KEY;
     delete process.env.EMAIL_FROM;
+  });
+});
+
+describe("Tie Off and Approve wait for every flagged claim", () => {
+  test("409 'Decide N flagged claims first' until each is accepted, edited or rejected", async () => {
+    const user = await newUser(`gate-${Date.now()}@test.dev`);
+    const p = await newProject(user.id);
+    await agents.runTask(p.draft.id, user.id);
+    await agents.runTask(p.review.id, user.id);
+    await rejects(agents.decideTask(p.gate.id, true, undefined, user.id), 409, /Decide 2 flagged claims first/);
+    await decideAll(p.id, user.id);
+    await agents.decideTask(p.gate.id, true, undefined, user.id);
+    const gate = await prisma.task.findUniqueOrThrow({ where: { id: p.gate.id } });
+    assert.equal(gate.status, "done");
   });
 });

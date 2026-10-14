@@ -59,7 +59,7 @@ test("fact-check claims parse with verdicts; supported claims are not issues", a
 
 2. Claim: "Root servers are run by 12 operators."
    Verdict: supported
-   Evidence: The site lists 12 operators.
+   Evidence: The site says "12 independent root server operators".
    Source: https://root-servers.org/
    Severity: low
 
@@ -101,4 +101,22 @@ test("web-search citations: vendor utm tags and inline citation links are droppe
   const flag = parseCritique(raw).flags[0];
   assert.equal(flag.source, "https://root-servers.org/");
   assert.equal(flag.evidence, "Listed there.");
+});
+
+test("fact-check accuracy rules: supported needs a quote, one data date, tracking stripped", async () => {
+  const { parseCritique, stripTracking, NO_QUOTE_ISSUE } = await import("../../lib/critique");
+  const raw = `Data checked: 2026-10-14\n\n1. Claim: "A"\n   Verdict: supported\n   Evidence: The page says it.\n   Source: https://x.org/a?utm_medium=x&id=3&gclid=9\n   Severity: low\n\n2. Claim: "B"\n   Verdict: supported\n   Evidence: The page reads "45 instances, 44 sites".\n   Source: https://x.org/\n   Severity: low`;
+  const c = parseCritique(raw);
+  assert.equal(c.dataDate, "2026-10-14");
+  assert.equal(c.flags[0].verdict, "unsupported");
+  assert.equal(c.flags[0].issue, NO_QUOTE_ISSUE);
+  assert.equal(c.flags[0].source, "https://x.org/a?id=3");
+  assert.equal(c.flags[1].verdict, "supported");
+  assert.equal(stripTracking("see https://a.b/?fbclid=1#top and https://a.b/p?q=1&utm_source=z"), "see https://a.b/#top and https://a.b/p?q=1");
+});
+
+test("errors shown in the workspace never name a model or vendor", async () => {
+  const { safeErrorMessage } = await import("../../lib/errors");
+  const msg = safeErrorMessage(new Error("Anthropic returned 529 for claude-sonnet-4; OpenAI gpt-5.1 timed out"));
+  assert.doesNotMatch(msg, /anthropic|claude|openai|gpt/i);
 });

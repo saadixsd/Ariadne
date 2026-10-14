@@ -9,7 +9,7 @@ import { closeWorkflow } from "@/lib/usage";
 import { getProject } from "@/lib/project";
 import { parseSources, sourceDigest, type SourceInput } from "@/lib/sources";
 import type { ProjectDTO } from "@/lib/types";
-import { documentOf, hashText, ISSUE_STATES, threadSteps, type Decision, type IssueState } from "@/lib/workspace";
+import { documentOf, hashText, isResolved, ISSUE_STATES, issuesFrom, threadSteps, type Decision, type IssueState } from "@/lib/workspace";
 
 export type SourceSummary = { id: string; name: string; bytes: number | null; words: number; opening: string; createdAt: string; originalUntil: string | null };
 
@@ -83,6 +83,25 @@ export async function decideIssue(
   return { flagKey: row.flagKey, state: row.state as IssueState, edit: row.edit, reason: row.reason };
 }
 
+/**
+ * Flagged claims (Wrong / Unsupported) in the latest finished fact-check that you have not
+ * accepted, edited or rejected yet. Tie Off and Approve refuse while any are left.
+ */
+export async function assertClaimsDecided(project: ProjectDTO) {
+  const challenge = threadSteps(project).challenge;
+  if (!challenge || challenge.status !== "done" || !challenge.output) return;
+  const decisions = await prisma.issueDecision.findMany({ where: { projectId: project.id }, select: { flagKey: true, state: true, edit: true, reason: true } });
+  const undecided = issuesFrom(challenge.output, decisions.map((d) => ({ ...d, state: d.state as IssueState }))).filter((i) => !isResolved(i.state));
+  const open = undecided.length;
+  if (open > 0) {
+    throw new TaskRunError(`Decide ${open} flagged claim${open === 1 ? "" : "s"} first: accept, edit or reject each one.`, 409, {
+      undecided: open,
+      flagKeys: undecided.map((i) => i.key),
+      taskId: challenge.id,
+    });
+  }
+}
+
 /** Explicit final approval of the tied-off answer exactly as shown (hash must match). */
 export async function approveDeliverable(projectId: string, userId: string, hash: unknown) {
   const project = await getProject(projectId, userId);
@@ -92,6 +111,7 @@ export async function approveDeliverable(projectId: string, userId: string, hash
   if (doc.from !== "tieOff" || !doc.text) {
     throw new TaskRunError("Tie off first: approve the draft at Judge, then write the tied-off answer.", 409);
   }
+  await assertClaimsDecided(project);
   const current = hashText(doc.text);
   if (hash !== current) throw new TaskRunError("The deliverable changed since you opened it. Reload and approve again.", 409);
   const approvedAt = new Date();

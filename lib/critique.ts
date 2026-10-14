@@ -40,7 +40,13 @@ export type Critique = {
   flags: CritiqueFlag[];
   /** The review as written, kept for the prose fallback when no flags parse out. */
   prose: string;
+  /** The single as-of date the fact-check used ("Data checked: ..."), when it gave one. */
+  dataDate?: string | null;
 };
+
+/** A supported verdict must carry the source's exact words in quotes; otherwise it is unsupported. */
+const QUOTED = /["“”„«»]\s*[^"“”„«»\s][^"“”„«»]{3,}["“”„«»]/;
+export const NO_QUOTE_ISSUE = "No exact quote from the source, so this counts as unsupported.";
 
 const ITEM = /^(\s*)(?:\d{1,2}[.)]|[-*•+])\s+(.*)$/;
 const VERDICT = /^(?:[*_]{1,2})?verdict(?:[*_]{1,2})?\s*[:—–-]?\s*(?:[*_]{1,2})?\s*/i;
@@ -252,9 +258,22 @@ export const MAX_FLAGS = 40;
  * Web-search output tags links with "?utm_source=<vendor>" and appends inline "([site](url))"
  * citations. The Source field already carries the URL, so drop both (no vendor name in the UI).
  */
+/** Removes tracking parameters (utm_*, gclid, fbclid, mc_*, ref/ref_src) from every URL in the text. */
+export function stripTracking(text: string): string {
+  return text.replace(/https?:\/\/[^\s)\]>"'<]+/g, (url) => {
+    const q = url.indexOf("?");
+    if (q < 0) return url;
+    const hashAt = url.indexOf("#", q);
+    const base = url.slice(0, q);
+    const query = url.slice(q + 1, hashAt < 0 ? undefined : hashAt);
+    const hash = hashAt < 0 ? "" : url.slice(hashAt);
+    const kept = query.split("&").filter((pair) => pair && !/^(utm_[^=]*|gclid|fbclid|msclkid|mc_cid|mc_eid|ref|ref_src|_hsenc|_hsmi|yclid)(=|$)/i.test(pair));
+    return base + (kept.length ? `?${kept.join("&")}` : "") + hash;
+  });
+}
+
 export function cleanCitations(text: string): string {
-  return text
-    .replace(/[?&]utm_source=[A-Za-z0-9_.-]+(?=[)\s\]>"']|$)/gm, "")
+  return stripTracking(text)
     .replace(/\s*\(\[[^\]\n]{1,200}\]\(https?:\/\/[^)\s]{1,500}\)\)/g, "");
 }
 
@@ -326,9 +345,16 @@ export function parseCritique(text: string | null | undefined): Critique {
   for (const item of candidates.slice(0, MAX_FLAGS)) {
     const section = sectionFrom(item.heading);
     const parsed = parseAtomicDispute(item.text, section) ?? parseFlagText(item.text, section);
-    if (parsed) flags.push({ id: `f${flags.length + 1}`, ...parsed });
+    if (!parsed) continue;
+    if (parsed.verdict === "supported" && !QUOTED.test(parsed.evidence ?? "")) {
+      parsed.verdict = "unsupported";
+      parsed.issue = NO_QUOTE_ISSUE;
+    }
+    flags.push({ id: `f${flags.length + 1}`, ...parsed });
   }
-  return { verdict, flags, prose: source.trim() };
+  const dated = loose.find((line) => /^(?:[*_]{1,2})?data checked(?:[*_]{1,2})?\s*:/i.test(line.text));
+  const dataDate = dated ? tidy(dated.text.replace(/^(?:[*_]{1,2})?data checked(?:[*_]{1,2})?\s*:\s*/i, "")).slice(0, 80) || null : null;
+  return { verdict, flags, prose: source.trim(), dataDate };
 }
 
 const critiqueCache = new Map<string, Critique>();

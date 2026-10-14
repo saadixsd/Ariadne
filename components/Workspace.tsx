@@ -85,6 +85,7 @@ export function Workspace({ initial }: { initial: WorkspaceData }) {
   const issues = useMemo(() => issuesFrom(steps.challenge?.status === "done" ? steps.challenge.output : null, data.decisions), [steps, data.decisions]);
   const action = nextAction(steps, state === "approved");
   const openCount = issues.filter((i) => i.state === "open" || i.state === "investigating").length;
+  const decideFirst = `Decide ${openCount} flagged claim${openCount === 1 ? "" : "s"} first`;
   const decided = issues.filter((i) => isResolved(i.state)).length;
   const changes = issues.filter((i) => i.state === "accepted" || i.state === "edited").length;
   const judging = action.kind === "judge";
@@ -277,8 +278,13 @@ export function Workspace({ initial }: { initial: WorkspaceData }) {
             >
               Revise with {changes} accepted issue{changes === 1 ? "" : "s"}
             </button>
-            <button className={primary} onClick={() => void act("Tying off…", () => post(`/api/tasks/${action.task.id}/approve`, { approved: true }).then(() => undefined))}>
-              Tie off this draft
+            <button
+              className={primary}
+              disabled={openCount > 0}
+              title={openCount > 0 ? "Accept, edit or reject every flagged claim first" : undefined}
+              onClick={() => void act("Tying off…", () => post(`/api/tasks/${action.task.id}/approve`, { approved: true }).then(() => undefined))}
+            >
+              {openCount > 0 ? decideFirst : "Tie off this draft"}
             </button>
             <span className="text-xs text-ink-faint">Revise clears the draft and asks Odysseus again; it does not run until you click.</span>
           </div>
@@ -286,7 +292,9 @@ export function Workspace({ initial }: { initial: WorkspaceData }) {
       case "approve":
         return (
           <div className="flex flex-wrap items-center gap-2">
-            <button className={primary} onClick={approveNow}>Approve deliverable</button>
+            <button className={primary} onClick={approveNow} disabled={openCount > 0} title={openCount > 0 ? "Accept, edit or reject every flagged claim first" : undefined}>
+              {openCount > 0 ? decideFirst : "Approve deliverable"}
+            </button>
             <span className="text-xs text-ink-dim">Your sign-off. Ariadne does not guarantee it is correct.</span>
           </div>
         );
@@ -311,7 +319,10 @@ export function Workspace({ initial }: { initial: WorkspaceData }) {
   })();
 
   function approveNow() {
-    if (openCount > 0 && !window.confirm(`${openCount} flagged claim${openCount === 1 ? " is" : "s are"} still open or under investigation. Approve the deliverable anyway?`)) return;
+    if (openCount > 0) {
+      setTab("issues");
+      return;
+    }
     void act("Approving…", async () => {
       const res = (await post(`/api/projects/${project.id}/approve`, { hash: hashText(doc.text ?? "") })) as { promptFeedback?: boolean };
       if (res.promptFeedback) setShowFeedback(true);
@@ -408,7 +419,7 @@ export function Workspace({ initial }: { initial: WorkspaceData }) {
               type="button"
               onClick={() => (approveReady ? approveNow() : setTab("issues"))}
               disabled={Boolean(busy) || (!approveReady && !judging)}
-              title={approveReady ? "Your sign-off on the tied-off answer" : judging ? "Judge the flagged claims first" : "Available once the answer is tied off"}
+              title={approveReady ? (openCount > 0 ? decideFirst : "Your sign-off on the tied-off answer") : judging ? "Judge the flagged claims first" : "Available once the answer is tied off"}
               className="rounded-lg bg-thread px-3 py-1.5 text-sm font-medium text-raised hover:bg-thread-bright disabled:opacity-50"
             >
               Review & Approve

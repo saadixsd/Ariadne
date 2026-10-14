@@ -1,5 +1,5 @@
-import { cleanCitations } from "@/lib/critique";
 import "server-only";
+import { cleanCitations, stripTracking } from "@/lib/critique";
 
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
@@ -73,26 +73,72 @@ function assertConfigured(provider: string, model: string) {
   throw new Error(`Unknown provider "${provider}"`);
 }
 
+function today() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+/** Added to every writer call, so projects made before this rule get it too. */
+const WRITER_RULES = (search: boolean) =>
+  `\n\n(Today is ${today()}. ${
+    search
+      ? "Web search is available: use it to look up current facts before you answer."
+      : "Web search is not available for this run; answer from the brief, the sources and what you know."
+  } Answer the question directly. Cite your sources inline, next to each claim, as Markdown links to the page you used. Say clearly when you are uncertain about a fact, and why. Never refuse or stop because you lack access to something: give your best sourced answer and mark what is uncertain. Do not mention which AI model or company is behind you.)`;
+
+const ANTHROPIC_SEARCH = { type: "web_search_20250305", name: "web_search", max_uses: 5 } as const;
+
+function textOf(content: Anthropic.ContentBlock[]) {
+  return content
+    .filter((block): block is Anthropic.TextBlock => block.type === "text")
+    .map((block) => block.text)
+    .join("")
+    .trim();
+}
+
+/**
+ * Odysseus writes with Anthropic's server-side web search when available. The search
+ * runs on Anthropic's side, so the Worker waits on one fetch (wall time, not CPU).
+ * ANTHROPIC_WEB_SEARCH=off, or any search error, falls back to the plain call.
+ */
 async function callAnthropic(model: string, system: string, user: string) {
   const client = new Anthropic({
     apiKey: process.env.ANTHROPIC_API_KEY,
     maxRetries: 0,
-    timeout: 60_000,
+    timeout: 150_000,
   });
+  if (process.env.ANTHROPIC_WEB_SEARCH !== "off") {
+    try {
+      const messages: Anthropic.MessageParam[] = [{ role: "user", content: user + WRITER_RULES(true) }];
+      let response = await client.messages.create({ model, max_tokens: MAX_OUTPUT_TOKENS_ANTHROPIC, system, messages, tools: [ANTHROPIC_SEARCH] });
+      // A long search can pause the turn; let it continue once.
+      if (response.stop_reason === "pause_turn") {
+        messages.push({ role: "assistant", content: response.content });
+        response = await client.messages.create({ model, max_tokens: MAX_OUTPUT_TOKENS_ANTHROPIC, system, messages, tools: [ANTHROPIC_SEARCH] });
+      }
+      const text = stripTracking(textOf(response.content));
+      if (text) return text;
+      throw new Error("empty response with web search");
+    } catch (error) {
+      // Only a refused tool (4xx) or an empty answer falls back; an outage fails as before.
+      const status = (error as { status?: number }).status;
+      if (status !== undefined && (status >= 500 || status === 429)) throw error;
+      console.warn("writer web search unavailable, using plain call:", error instanceof Error ? error.message.slice(0, 200) : "unknown");
+    }
+  }
   const response = await client.messages.create({
     model,
     max_tokens: MAX_OUTPUT_TOKENS_ANTHROPIC,
     system,
-    messages: [{ role: "user", content: user }],
+    messages: [{ role: "user", content: user + WRITER_RULES(false) }],
   });
-  const text = response.content
-    .filter((block): block is Anthropic.TextBlock => block.type === "text")
-    .map((block) => block.text)
-    .join("\n")
-    .trim();
-  if (!text) throw new Error("Anthropic returned an empty response");
+  const text = stripTracking(textOf(response.content));
+  if (!text) throw new Error("The writer returned an empty response");
   return text;
 }
+
+/** Added to every fact-check call (old projects included). */
+const CHECKER_RULES = (search: boolean) =>
+  `\n\n(Today is ${today()}. ${search ? "Web search is available for this check. Cite the URLs you used." : "Web search is not available for this check."} Rules: for every supported verdict, Evidence must quote the exact words from the source page in double quotes; if you cannot quote it, the verdict is unsupported. Start your reply with one line "Data checked: <the single as-of date or timestamp the source shows, or today's date>" and use that same date for every claim; do not give different timestamps for the same source. Do not mention which AI model or company is behind you.)`;
 
 /**
  * Daedalus fact-checks with OpenAI's hosted web search (Responses API) when the model
@@ -105,14 +151,14 @@ async function callOpenAIWithSearch(client: OpenAI, model: string, system: strin
     {
       model,
       instructions: system,
-      input: `${user}\n\n(Web search is available for this check. Cite the URLs you used.)`,
+      input: user + CHECKER_RULES(true),
       tools: [{ type: "web_search" }],
       max_output_tokens: MAX_OUTPUT_TOKENS_OPENAI,
     },
     { timeout: 150_000 },
   );
   const text = cleanCitations(response.output_text?.trim() ?? "");
-  if (!text) throw new Error("OpenAI returned an empty response");
+  if (!text) throw new Error("The fact-checker returned an empty response");
   return text;
 }
 
@@ -134,11 +180,11 @@ async function callOpenAI(model: string, system: string, user: string) {
     max_completion_tokens: MAX_OUTPUT_TOKENS_OPENAI,
     messages: [
       { role: "system", content: system },
-      { role: "user", content: `${user}\n\n(Web search is not available for this check.)` },
+      { role: "user", content: user + CHECKER_RULES(false) },
     ],
   });
-  const text = response.choices[0]?.message?.content?.trim() ?? "";
-  if (!text) throw new Error("OpenAI returned an empty response");
+  const text = cleanCitations(response.choices[0]?.message?.content?.trim() ?? "");
+  if (!text) throw new Error("The fact-checker returned an empty response");
   return text;
 }
 
@@ -556,6 +602,11 @@ export async function decideTask(taskId: string, approved: boolean, note: string
   }
 
   if (approved) {
+    // Tie Off: every flagged claim needs your decision first (own-template threads).
+    const { getProject } = await import("@/lib/project");
+    const { assertClaimsDecided } = await import("@/lib/workspace-server");
+    const dto = await getProject(task.projectId, userId);
+    if (dto) await assertClaimsDecided(dto);
     await prisma.task.update({
       where: { id: task.id },
       data: { status: "done", completedAt: new Date() },

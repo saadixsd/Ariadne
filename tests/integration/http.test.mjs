@@ -251,8 +251,16 @@ test("full HTTP flow: draft -> fact-check -> judge -> request changes -> history
   assert.equal(history.json.runs[0].output, firstDraftOutput, "prior output preserved as a run row");
 
   for (const t of [draft, review]) assert.equal((await call("POST", `/api/tasks/${t.id}/run`, { cookie: c })).status, 200);
+  // Tie Off waits for a decision on every flagged claim (server-enforced).
   res = await call("POST", `/api/tasks/${gate.id}/approve`, { cookie: c, body: { approved: true } });
-  assert.equal(res.status, 200);
+  assert.equal(res.status, 409, res.text);
+  assert.match(res.json.error, /^Decide \d+ flagged claims? first/);
+  for (const flagKey of res.json.flagKeys) {
+    const d = await call("PUT", `/api/projects/${state.projectId}/issues`, { cookie: c, body: { flagKey, taskId: res.json.taskId, state: "rejected" } });
+    assert.equal(d.status, 200, d.text);
+  }
+  res = await call("POST", `/api/tasks/${gate.id}/approve`, { cookie: c, body: { approved: true } });
+  assert.equal(res.status, 200, res.text);
   assert.equal((await call("POST", `/api/tasks/${build.id}/run`, { cookie: c })).status, 200);
   project = (await call("GET", `/api/projects/${state.projectId}`, { cookie: c })).json;
   assert.deepEqual(project.tasks.map((t) => t.status), ["done", "done", "done", "done"]);
