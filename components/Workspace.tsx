@@ -32,36 +32,98 @@ import {
 
 type Tab = "document" | "issues" | "activity" | "context";
 
-/** Wraps the first occurrence of each issue's quote in the rendered document with a <mark>. */
+/** Lowercased text with curly quotes straightened and whitespace runs collapsed, plus each char's source index. */
+function normalized(text: string): { s: string; at: number[] } {
+  let s = "";
+  const at: number[] = [];
+  let space = false;
+  for (let i = 0; i < text.length; i++) {
+    let c = text[i];
+    if (/\s/.test(c)) {
+      if (space) continue;
+      space = true;
+      c = " ";
+    } else space = false;
+    c = c === "“" || c === "”" ? '"' : c === "‘" || c === "’" ? "'" : c.toLowerCase().charAt(0);
+    s += c;
+    at.push(i);
+  }
+  return { s, at };
+}
+
+/** The claim as it would read in the rendered page: no Markdown marks, no wrapping quotes. */
+function claimNeedle(claim: string) {
+  return normalized(
+    claim
+      .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+      .replace(/[*_`]+/g, "")
+      .replace(/^["“”'\s]+|["“”'\s.]+$/g, ""),
+  ).s.trim();
+}
+
+/**
+ * Wraps the claim of each issue in the rendered document with <mark>s. Matches across
+ * inline elements (bold, links) and only ever on whole words: the full claim if present,
+ * else the longest run of its opening words (at least three) that is.
+ */
 function anchorIssues(root: HTMLElement, issues: Issue[]): Set<string> {
   root.querySelectorAll("mark[data-issue]").forEach((m) => m.replaceWith(...Array.from(m.childNodes)));
   root.normalize();
   const found = new Set<string>();
   issues.forEach((issue, index) => {
-    const candidates = [issue.flag.claim, issue.flag.evidence]
-      .map((q) => (q ?? "").replace(/^["“”']+|["“”']+$/g, "").trim())
-      .filter((q) => q.length >= 12);
-    for (const quote of candidates) {
-      const needle = quote.slice(0, 80).toLowerCase();
-      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-      let node: Node | null;
-      while ((node = walker.nextNode())) {
-        const text = node.textContent ?? "";
-        const at = text.toLowerCase().indexOf(needle);
-        if (at < 0) continue;
-        const range = document.createRange();
-        range.setStart(node, at);
-        range.setEnd(node, at + needle.length);
-        const mark = document.createElement("mark");
-        mark.dataset.issue = issue.key;
-        mark.id = `claim-${issue.key}`;
-        mark.title = `Issue #${index + 1}`;
-        mark.className = issue.state === "open" ? "bg-thread-soft cursor-pointer" : "bg-tint cursor-pointer";
-        range.surroundContents(mark);
-        found.add(issue.key);
-        return;
+    const needleFull = claimNeedle(issue.flag.claim ?? "");
+    if (needleFull.length < 12) return;
+    // All text nodes, joined, with a map back to (node, offset).
+    const nodes: Text[] = [];
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    let n: Node | null;
+    while ((n = walker.nextNode())) nodes.push(n as Text);
+    const starts: number[] = [];
+    let joined = "";
+    for (const node of nodes) {
+      starts.push(joined.length);
+      joined += node.data;
+    }
+    const hay = normalized(joined);
+    const words = needleFull.split(" ");
+    let hit = -1;
+    let len = 0;
+    for (let count = words.length; count >= Math.min(3, words.length); count--) {
+      const needle = words.slice(0, count).join(" ");
+      if (needle.length < 12) break;
+      let from = 0;
+      while ((hit = hay.s.indexOf(needle, from)) >= 0) {
+        const before = hay.s[hit - 1];
+        const after = hay.s[hit + needle.length];
+        if ((!before || /[^\p{L}\p{N}]/u.test(before)) && (!after || /[^\p{L}\p{N}]/u.test(after))) break;
+        from = hit + 1;
+      }
+      if (hit >= 0) {
+        len = needle.length;
+        break;
       }
     }
+    if (hit < 0) return;
+    const startAt = hay.at[hit];
+    const endAt = hay.at[hit + len - 1] + 1;
+    // Wrap each text node's slice of [startAt, endAt) separately (a <mark> cannot span elements).
+    nodes.forEach((node, i) => {
+      const s0 = starts[i];
+      const s1 = s0 + node.data.length;
+      const from = Math.max(startAt, s0);
+      const to = Math.min(endAt, s1);
+      if (from >= to) return;
+      const range = document.createRange();
+      range.setStart(node, from - s0);
+      range.setEnd(node, to - s0);
+      const mark = document.createElement("mark");
+      mark.dataset.issue = issue.key;
+      if (!found.has(issue.key)) mark.id = `claim-${issue.key}`;
+      mark.title = `Flagged claim #${index + 1}`;
+      mark.className = issue.state === "open" ? "bg-thread-soft cursor-pointer" : "bg-tint cursor-pointer";
+      range.surroundContents(mark);
+      found.add(issue.key);
+    });
   });
   return found;
 }

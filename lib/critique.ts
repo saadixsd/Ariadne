@@ -33,7 +33,8 @@ export type CritiqueFlag = {
   source: string | null;
 };
 
-export type ClaimVerdict = "supported" | "unsupported" | "wrong";
+/** "disputed" = credible sources give different values; each value is shown with its quote and link for the user to decide. */
+export type ClaimVerdict = "supported" | "unsupported" | "wrong" | "disputed";
 
 export type Critique = {
   verdict: string | null;
@@ -47,6 +48,55 @@ export type Critique = {
 /** A supported verdict must carry the source's exact words in quotes; otherwise it is unsupported. */
 const QUOTED = /["“”„«»]\s*[^"“”„«»\s][^"“”„«»]{3,}["“”„«»]/;
 export const NO_QUOTE_ISSUE = "No exact quote from the source, so this counts as unsupported.";
+export const COMPUTED_ISSUE = "This total was computed by the checker, not stated by a source, so it counts as unsupported.";
+
+/** Exact quoted strings in an Evidence field. */
+export function quotesIn(text: string): string[] {
+  return Array.from(text.matchAll(/["“„«]\s*([^"“”„«»]{4,}?)\s*["”»]/g), (m) => m[1]);
+}
+
+const MONTHS = "jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?";
+/** Numbers a claim asserts, minus dates ("as of 2026", "Oct 13, 2026", ISO dates). */
+export function claimNumbers(claim: string): string[] {
+  const text = claim
+    .replace(/\b\d{4}-\d{2}-\d{2}(?:[T ][\d:.]+Z?)?/g, " ")
+    .replace(new RegExp(`\\b(?:${MONTHS})\\.?\\s+\\d{1,2}(?:st|nd|rd|th)?,?\\s+(?:19|20)\\d{2}\\b`, "gi"), " ")
+    .replace(new RegExp(`\\b\\d{1,2}(?:st|nd|rd|th)?\\s+(?:of\\s+)?(?:${MONTHS})\\.?,?\\s+(?:19|20)\\d{2}\\b`, "gi"), " ")
+    .replace(new RegExp(`\\b(?:as of|in|since|by|during|until|from|through|(?:${MONTHS})\\.?)\\s+(?:19|20)\\d{2}\\b`, "gi"), " ");
+  return Array.from(text.matchAll(/\d[\d,]*(?:\.\d+)?/g), (m) => m[0].replace(/,/g, "").replace(/\.$/, ""));
+}
+
+/** Named things a claim asserts: capitalised words after the first, and standalone capital letters (root letters, grades). */
+function claimEntities(claim: string): { all: string[]; any: string[] } {
+  const words = claim.replace(/[*_`]/g, "").split(/[^\p{L}\p{N}.-]+/u).filter(Boolean);
+  const letters = words.filter((w) => /^[A-Z]$/.test(w) && w !== "A" && w !== "I");
+  const names = words.slice(1).filter((w) => /^\p{Lu}[\p{L}.-]{2,}$/u.test(w));
+  return { all: Array.from(new Set(letters)), any: Array.from(new Set(names)) };
+}
+
+/**
+ * Verifier for a "supported" verdict. Returns the reason to downgrade it to unsupported,
+ * or null when it stands: the evidence must quote the source, the quote must contain every
+ * number the claim asserts (and its named letters / at least one of its names), and a
+ * total the checker computed itself is never a source's figure.
+ */
+export function supportedProblem(claim: string | null, evidence: string | null): string | null {
+  const ev = evidence ?? "";
+  if (/\bcomputed\s*:/i.test(ev) || /\b(i|we) (counted|added|summed|tallied)\b/i.test(ev)) return COMPUTED_ISSUE;
+  if (!QUOTED.test(ev)) return NO_QUOTE_ISSUE;
+  if (!claim) return null;
+  const quoted = quotesIn(ev).join(" \u0000 ");
+  const flat = quoted.replace(/(\d),(?=\d{3}\b)/g, "$1");
+  const missingNumber = claimNumbers(claim).find((n) => !new RegExp(`(?<![\\d.])${n.replace(".", "\\.")}(?![\\d]|\\.\\d)`).test(flat));
+  if (missingNumber) return `The quoted source text does not contain ${missingNumber}, so this counts as unsupported.`;
+  const { all, any } = claimEntities(claim);
+  const missingLetter = all.find((l) => !new RegExp(`(?<![\\p{L}])${l}(?![\\p{L}])`, "u").test(quoted));
+  if (missingLetter) return `The quoted source text does not mention ${missingLetter}, so this counts as unsupported.`;
+  if (claimNumbers(claim).length === 0 && all.length === 0 && any.length > 0 && !any.some((w) => quoted.toLowerCase().includes(w.toLowerCase()))) {
+    return "The quoted source text does not mention what the claim names, so this counts as unsupported.";
+  }
+  return null;
+}
 
 const ITEM = /^(\s*)(?:\d{1,2}[.)]|[-*•+])\s+(.*)$/;
 const VERDICT = /^(?:[*_]{1,2})?verdict(?:[*_]{1,2})?\s*[:—–-]?\s*(?:[*_]{1,2})?\s*/i;
@@ -138,6 +188,7 @@ const FIELD_LINE =
 const CONFIDENCE = /\b(high|medium|low)\b/i;
 
 function parseVerdict(raw: string): ClaimVerdict | null {
+  if (/\b(sources? disagree|disputed|conflict(?:ing)?|contested)\b/i.test(raw)) return "disputed";
   const match = raw.match(/\b(supported|unsupported|wrong|incorrect|false|contradicted)\b/i);
   if (!match) return null;
   const word = match[1].toLowerCase();
@@ -173,12 +224,19 @@ export function parseAtomicDispute(raw: string, fallbackSection: string | null =
   let sawField = false;
   const loose: string[] = [];
 
+  let lastKey: string | null = null;
   for (const line of lines) {
     const field = line.match(FIELD_LINE);
     if (!field) {
+      // A further value under Evidence ("- \"quote\" — url") belongs to it (one per source when they disagree).
+      if (lastKey === "evidence" && evidence && /["“„«]|https?:\/\//.test(line)) {
+        evidence = `${evidence}\n${tidy(line.replace(/^[-*•+]\s+/, ""))}`;
+        continue;
+      }
       loose.push(line);
       continue;
     }
+    lastKey = field[1].toLowerCase();
     sawField = true;
     const key = field[1].toLowerCase();
     const value = tidy(field[2]);
@@ -211,7 +269,7 @@ export function parseAtomicDispute(raw: string, fallbackSection: string | null =
   }
 
   if (!issue && claim && verdict) {
-    issue = verdict === "supported" ? "Supported by the evidence." : verdict === "wrong" ? "The evidence contradicts this claim." : "No evidence found for this claim.";
+    issue = verdict === "disputed" ? "Sources disagree. Compare the values and decide." : verdict === "supported" ? "Supported by the evidence." : verdict === "wrong" ? "The evidence contradicts this claim." : "No evidence found for this claim.";
   }
   if (!issue && claim) {
     // Claim alone with other fields still counts; objection may be missing on a sloppy model.
@@ -275,6 +333,13 @@ export function stripTracking(text: string): string {
 export function cleanCitations(text: string): string {
   return stripTracking(text)
     .replace(/\s*\(\[[^\]\n]{1,200}\]\(https?:\/\/[^)\s]{1,500}\)\)/g, "");
+}
+
+/** Each link in a Source field (several when sources disagree, split on " ; " or whitespace). */
+export function sourceLinks(source: string | null | undefined): string[] {
+  if (!source) return [];
+  const urls = Array.from(source.matchAll(/https?:\/\/[^\s;,)\]>"'<]+/g), (m) => m[0].replace(/[.]+$/, ""));
+  return urls.length ? Array.from(new Set(urls)) : [source];
 }
 
 export function parseCritique(text: string | null | undefined): Critique {
@@ -346,9 +411,12 @@ export function parseCritique(text: string | null | undefined): Critique {
     const section = sectionFrom(item.heading);
     const parsed = parseAtomicDispute(item.text, section) ?? parseFlagText(item.text, section);
     if (!parsed) continue;
-    if (parsed.verdict === "supported" && !QUOTED.test(parsed.evidence ?? "")) {
-      parsed.verdict = "unsupported";
-      parsed.issue = NO_QUOTE_ISSUE;
+    if (parsed.verdict === "supported") {
+      const problem = supportedProblem(parsed.claim, parsed.evidence);
+      if (problem) {
+        parsed.verdict = "unsupported";
+        parsed.issue = problem;
+      }
     }
     flags.push({ id: `f${flags.length + 1}`, ...parsed });
   }

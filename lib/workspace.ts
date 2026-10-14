@@ -58,7 +58,7 @@ export function issuesFrom(challengeOutput: string | null | undefined, decisions
     .map((flag, index) => {
       const key = issueKey(flag);
       const d = byKey.get(key);
-      const rank = (flag.verdict === "wrong" ? 0 : flag.verdict === "unsupported" ? 1 : 2) * 1000 + (flag.confidence ? CONF_RANK[flag.confidence] : 3) * 100 + (flag.opinion ? 10 : 0) + index / 100;
+      const rank = (flag.verdict === "wrong" ? 0 : flag.verdict === "disputed" ? 1 : flag.verdict === "unsupported" ? 2 : 3) * 1000 + (flag.confidence ? CONF_RANK[flag.confidence] : 3) * 100 + (flag.opinion ? 10 : 0) + index / 100;
       return { key, flag, state: d?.state ?? "open", edit: d?.edit ?? null, reason: d?.reason ?? null, rank };
     })
     .sort((a, b) => a.rank - b.rank);

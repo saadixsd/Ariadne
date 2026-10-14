@@ -4,7 +4,7 @@ import { parseCritique } from "@/lib/critique";
 import { TaskRunError } from "@/lib/errors";
 import { prisma } from "@/lib/prisma";
 import { getProject } from "@/lib/project";
-import { buildKnots, type ThreadData } from "@/lib/knots";
+import { buildKnots, VERDICT_LABEL, type ThreadData } from "@/lib/knots";
 import { documentOf, issueKey, threadSteps } from "@/lib/workspace";
 
 const iso = (d: Date | null) => (d ? d.toISOString() : null);
@@ -64,7 +64,7 @@ export async function exportRecord(projectId: string, userId: string): Promise<{
     out.push("## Claims checked", "", "| Claim | Verdict | Your decision | Source |", "| --- | --- | --- | --- |");
     for (const f of latest) {
       const d = decisions.get(issueKey(f));
-      out.push(`| ${cell(f.claim ?? f.issue)} | ${f.verdict} | ${f.verdict === "supported" ? "—" : d?.state ?? "not decided"} | ${cell(f.source ?? "none")} |`);
+      out.push(`| ${cell(f.claim ?? f.issue)} | ${VERDICT_LABEL[f.verdict!]} | ${f.verdict === "supported" ? "—" : d?.state ?? "not decided"} | ${cell(f.source ?? "none")} |`);
     }
     out.push("", "A second model's fact-check of the draft, not a guarantee.", "");
   }
@@ -77,7 +77,7 @@ export async function exportRecord(projectId: string, userId: string): Promise<{
     if (!flags.length) out.push("No issues raised.", "");
     for (const f of flags) {
       const d = decisions.get(issueKey(f));
-      out.push(`- **${f.verdict ?? f.confidence ?? "unrated"}** ${f.claim ? `“${f.claim}”: ` : ""}${f.issue}${f.evidence ? ` Evidence: ${f.evidence}` : ""}${f.source ? ` Source: ${f.source}` : ""}`);
+      out.push(`- **${f.verdict ? VERDICT_LABEL[f.verdict] : f.confidence ?? "unrated"}** ${f.claim ? `“${f.claim}”: ` : ""}${f.issue}${f.evidence ? ` Evidence: ${f.evidence}` : ""}${f.source ? ` Source: ${f.source}` : ""}`);
       out.push(`  - Decision: ${d ? d.state : "not decided"}${d?.edit ? ` (correction: ${d.edit})` : ""}`);
     }
     out.push("");

@@ -82,7 +82,7 @@ export function buildKnots(data: ThreadData, steps: ThreadSteps): Knot[] {
         step: "Challenge",
         actor: "Daedalus",
         summary: v.checked
-          ? `${plural(v.checked, "claim")} checked: ${[v.supported && `${v.supported} supported`, v.unsupported && `${v.unsupported} unsupported`, v.wrong && `${v.wrong} wrong`].filter(Boolean).join(", ")}`
+          ? `${plural(v.checked, "claim")} checked: ${[v.supported && `${v.supported} supported`, v.unsupported && `${v.unsupported} unsupported`, v.wrong && `${v.wrong} wrong`, v.disputed && `${v.disputed} where sources disagree`].filter(Boolean).join(", ")}`
           : flags.length === 0
             ? "No issues raised"
             : `${plural(flags.length, "issue")} raised${flags.some((f) => f.confidence === "high") ? `, ${flags.filter((f) => f.confidence === "high").length} high` : ""}`,
@@ -137,13 +137,19 @@ export function buildKnots(data: ThreadData, steps: ThreadSteps): Knot[] {
   return knots;
 }
 
-export const VERDICT_LABEL: Record<ClaimVerdict, string> = { supported: "Supported", unsupported: "Unsupported", wrong: "Wrong" };
+export const VERDICT_LABEL: Record<ClaimVerdict, string> = { supported: "Supported", unsupported: "Unsupported", wrong: "Wrong", disputed: "Sources disagree" };
 
 export function verdictCounts(flags: Pick<CritiqueFlag, "verdict">[]) {
   const supported = flags.filter((f) => f.verdict === "supported").length;
   const unsupported = flags.filter((f) => f.verdict === "unsupported").length;
   const wrong = flags.filter((f) => f.verdict === "wrong").length;
-  return { supported, unsupported, wrong, checked: supported + unsupported + wrong };
+  const disputed = flags.filter((f) => f.verdict === "disputed").length;
+  return { supported, unsupported, wrong, disputed, checked: supported + unsupported + wrong + disputed };
+}
+
+/** "12 supported, 2 unsupported, 1 wrong, 1 where sources disagree" */
+export function verdictSummary(v: ReturnType<typeof verdictCounts>) {
+  return `${v.supported} supported, ${v.unsupported} unsupported, ${v.wrong} wrong${v.disputed ? `, ${v.disputed} where sources disagree` : ""}`;
 }
 
 export type DiffLine = { t: "same" | "add" | "del"; s: string };

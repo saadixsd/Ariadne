@@ -105,7 +105,7 @@ test("web-search citations: vendor utm tags and inline citation links are droppe
 
 test("fact-check accuracy rules: supported needs a quote, one data date, tracking stripped", async () => {
   const { parseCritique, stripTracking, NO_QUOTE_ISSUE } = await import("../../lib/critique");
-  const raw = `Data checked: 2026-10-14\n\n1. Claim: "A"\n   Verdict: supported\n   Evidence: The page says it.\n   Source: https://x.org/a?utm_medium=x&id=3&gclid=9\n   Severity: low\n\n2. Claim: "B"\n   Verdict: supported\n   Evidence: The page reads "45 instances, 44 sites".\n   Source: https://x.org/\n   Severity: low`;
+  const raw = `Data checked: 2026-10-14\n\n1. Claim: "A"\n   Verdict: supported\n   Evidence: The page says it.\n   Source: https://x.org/a?utm_medium=x&id=3&gclid=9\n   Severity: low\n\n2. Claim: "17 widgets"\n   Verdict: supported\n   Evidence: The page reads "17 widgets, 16 sites".\n   Source: https://x.org/\n   Severity: low`;
   const c = parseCritique(raw);
   assert.equal(c.dataDate, "2026-10-14");
   assert.equal(c.flags[0].verdict, "unsupported");

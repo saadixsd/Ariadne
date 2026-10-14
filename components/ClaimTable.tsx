@@ -1,11 +1,11 @@
 "use client";
 
 import { useMemo } from "react";
-import { parseCritique } from "@/lib/critique";
-import { VERDICT_LABEL, verdictCounts } from "@/lib/knots";
+import { parseCritique, sourceLinks } from "@/lib/critique";
+import { VERDICT_LABEL, verdictCounts, verdictSummary } from "@/lib/knots";
 import { issueKey, stripQuotes, type Decision } from "@/lib/workspace";
 
-const TONE = { supported: "text-ok", unsupported: "text-gate-ink", wrong: "text-danger" } as const;
+const TONE = { supported: "text-ok", unsupported: "text-gate-ink", wrong: "text-danger", disputed: "text-danger" } as const;
 
 /** The proof attached to the answer: every claim Daedalus checked, its verdict, source and your decision. */
 export function ClaimTable({ challengeOutput, decisions }: { challengeOutput: string | null | undefined; decisions: Decision[] }) {
@@ -18,7 +18,7 @@ export function ClaimTable({ challengeOutput, decisions }: { challengeOutput: st
     <section data-testid="claim-table" className="mt-8 border-t border-line pt-6">
       <h3 className="font-serif text-xl">Claims checked</h3>
       <p className="mt-1 text-xs text-ink-dim">
-        Daedalus checked {v.checked} claim{v.checked === 1 ? "" : "s"} in the draft: {v.supported} supported, {v.unsupported} unsupported, {v.wrong} wrong. {critique.dataDate ? ` Data checked: ${critique.dataDate}.` : ""} A second model&apos;s check, not a guarantee.
+        Daedalus checked {v.checked} claim{v.checked === 1 ? "" : "s"} in the draft: {verdictSummary(v)}. {critique.dataDate ? ` Data checked: ${critique.dataDate}.` : ""} A second model&apos;s check, not a guarantee.
       </p>
       <div className="mt-3 overflow-x-auto">
         <table className="w-full text-left text-[13px]">
@@ -34,8 +34,10 @@ export function ClaimTable({ challengeOutput, decisions }: { challengeOutput: st
                   <td className={`py-2 pr-3 font-medium ${TONE[f.verdict!]}`}>{VERDICT_LABEL[f.verdict!]}</td>
                   <td className="py-2 pr-3 capitalize text-ink-dim">{f.verdict === "supported" ? "—" : d?.state ?? "not decided"}</td>
                   <td className="max-w-[220px] break-words py-2 text-ink-dim">
-                    {f.source && /^https?:\/\//i.test(f.source) ? (
-                      <a className="text-thread underline" href={f.source} target="_blank" rel="noopener noreferrer nofollow">{f.source.replace(/^https?:\/\/(www\.)?/, "").slice(0, 60)}</a>
+                    {sourceLinks(f.source).some((u) => /^https?:\/\//i.test(u)) ? (
+                      sourceLinks(f.source).map((u) => (
+                        <a key={u} className="block text-thread underline" href={u} target="_blank" rel="noopener noreferrer nofollow">{u.replace(/^https?:\/\/(www\.)?/, "").slice(0, 60)}</a>
+                      ))
                     ) : (
                       f.source ?? "—"
                     )}

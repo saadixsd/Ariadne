@@ -77,19 +77,27 @@ function today() {
   return new Date().toISOString().slice(0, 10);
 }
 
+const READING_RULES =
+  "Read the pages behind your facts in full with the fetch tool, not just search snippets. When a page loads its data from a linked data file (a .js, .json or .csv it references), fetch that file and read the numbers there. When credible sources give different values, report each value with its source and date instead of picking one. Never present a total you computed yourself as a source's figure: if you add numbers up, say it is your own count and quote the inputs.";
+
 /** Added to every writer call, so projects made before this rule get it too. */
-const WRITER_RULES = (search: boolean) =>
+const WRITER_RULES = (tools: "fetch" | "search" | "none") =>
   `\n\n(Today is ${today()}. ${
-    search
-      ? "Web search is available: use it to look up current facts before you answer."
-      : "Web search is not available for this run; answer from the brief, the sources and what you know."
+    tools === "fetch"
+      ? `Web search and page fetch are available: use them to look up current facts before you answer. ${READING_RULES}`
+      : tools === "search"
+        ? "Web search is available: use it to look up current facts before you answer."
+        : "Web search is not available for this run; answer from the brief, the sources and what you know."
   } Answer the question directly. Cite your sources inline, next to each claim, as Markdown links to the page you used. Say clearly when you are uncertain about a fact, and why. Never refuse or stop because you lack access to something: give your best sourced answer and mark what is uncertain. Do not mention which AI model or company is behind you.)`;
 
 const ANTHROPIC_SEARCH = { type: "web_search_20250305", name: "web_search", max_uses: 5 } as const;
+// Provider-side fetch: the page is read on the provider's servers. The cap keeps the
+// response the Worker has to parse bounded (CPU), while fitting a mid-size data file.
+const ANTHROPIC_FETCH = { type: "web_fetch_20250910", name: "web_fetch", max_uses: 4, max_content_tokens: 80_000 } as const;
 
 function textOf(content: Anthropic.ContentBlock[]) {
-  // With web search the model narrates between searches ("I'll search for…"). Keep only
-  // the text written after the last search result: that is the answer.
+  // With tools the model narrates between calls ("I'll search for…"). Keep only the
+  // text written after the last tool result: that is the answer.
   let last = -1;
   content.forEach((block, i) => {
     if (block.type !== "text") last = i;
@@ -102,33 +110,62 @@ function textOf(content: Anthropic.ContentBlock[]) {
     .trim();
 }
 
+/** Which provider-side tools ran (names and URLs only), for the Worker log. */
+function toolTrace(content: Anthropic.ContentBlock[]) {
+  return content
+    .filter((block) => block.type === "server_tool_use")
+    .map((block) => {
+      const input = (block as { name: string; input: Record<string, unknown> }).input ?? {};
+      return `${(block as { name: string }).name}:${String(input.url ?? input.query ?? "").slice(0, 120)}`;
+    });
+}
+
+async function anthropicWithTools(client: Anthropic, model: string, system: string, user: string, tools: Anthropic.ToolUnion[], mode: "fetch" | "search") {
+  const messages: Anthropic.MessageParam[] = [{ role: "user", content: user + WRITER_RULES(mode) }];
+  let response = await client.messages.create({ model, max_tokens: MAX_OUTPUT_TOKENS_ANTHROPIC, system, messages, tools });
+  const trace = toolTrace(response.content);
+  // Long tool use can pause the turn; let it continue once.
+  if (response.stop_reason === "pause_turn") {
+    messages.push({ role: "assistant", content: response.content });
+    response = await client.messages.create({ model, max_tokens: MAX_OUTPUT_TOKENS_ANTHROPIC, system, messages, tools });
+    trace.push(...toolTrace(response.content));
+  }
+  console.log("[ariadne] writer tools", JSON.stringify({ mode, trace }));
+  const text = stripTracking(textOf(response.content));
+  if (!text) throw new Error("empty response with tools");
+  return text;
+}
+
+function isOutage(error: unknown) {
+  const status = (error as { status?: number }).status;
+  return status !== undefined && (status >= 500 || status === 429);
+}
+
 /**
- * Odysseus writes with Anthropic's server-side web search when available. The search
- * runs on Anthropic's side, so the Worker waits on one fetch (wall time, not CPU).
- * ANTHROPIC_WEB_SEARCH=off, or any search error, falls back to the plain call.
+ * Odysseus writes with Anthropic's server-side web search and page fetch. Both run on
+ * Anthropic's side, so the Worker waits on one fetch (wall time, not CPU). If fetch is
+ * refused (4xx), it retries with search only; then plain. ANTHROPIC_WEB_SEARCH=off skips
+ * both; ANTHROPIC_WEB_FETCH=off skips fetch. An outage fails as before.
  */
 async function callAnthropic(model: string, system: string, user: string) {
   const client = new Anthropic({
     apiKey: process.env.ANTHROPIC_API_KEY,
     maxRetries: 0,
-    timeout: 150_000,
+    timeout: 180_000,
   });
   if (process.env.ANTHROPIC_WEB_SEARCH !== "off") {
-    try {
-      const messages: Anthropic.MessageParam[] = [{ role: "user", content: user + WRITER_RULES(true) }];
-      let response = await client.messages.create({ model, max_tokens: MAX_OUTPUT_TOKENS_ANTHROPIC, system, messages, tools: [ANTHROPIC_SEARCH] });
-      // A long search can pause the turn; let it continue once.
-      if (response.stop_reason === "pause_turn") {
-        messages.push({ role: "assistant", content: response.content });
-        response = await client.messages.create({ model, max_tokens: MAX_OUTPUT_TOKENS_ANTHROPIC, system, messages, tools: [ANTHROPIC_SEARCH] });
+    if (process.env.ANTHROPIC_WEB_FETCH !== "off") {
+      try {
+        return await anthropicWithTools(client, model, system, user, [ANTHROPIC_SEARCH, ANTHROPIC_FETCH], "fetch");
+      } catch (error) {
+        if (isOutage(error)) throw error;
+        console.warn("writer page fetch unavailable, trying search only:", error instanceof Error ? error.message.slice(0, 200) : "unknown");
       }
-      const text = stripTracking(textOf(response.content));
-      if (text) return text;
-      throw new Error("empty response with web search");
+    }
+    try {
+      return await anthropicWithTools(client, model, system, user, [ANTHROPIC_SEARCH], "search");
     } catch (error) {
-      // Only a refused tool (4xx) or an empty answer falls back; an outage fails as before.
-      const status = (error as { status?: number }).status;
-      if (status !== undefined && (status >= 500 || status === 429)) throw error;
+      if (isOutage(error)) throw error;
       console.warn("writer web search unavailable, using plain call:", error instanceof Error ? error.message.slice(0, 200) : "unknown");
     }
   }
@@ -136,7 +173,7 @@ async function callAnthropic(model: string, system: string, user: string) {
     model,
     max_tokens: MAX_OUTPUT_TOKENS_ANTHROPIC,
     system,
-    messages: [{ role: "user", content: user + WRITER_RULES(false) }],
+    messages: [{ role: "user", content: user + WRITER_RULES("none") }],
   });
   const text = stripTracking(textOf(response.content));
   if (!text) throw new Error("The writer returned an empty response");
@@ -145,7 +182,16 @@ async function callAnthropic(model: string, system: string, user: string) {
 
 /** Added to every fact-check call (old projects included). */
 const CHECKER_RULES = (search: boolean) =>
-  `\n\n(Today is ${today()}. ${search ? "Web search is available for this check. Cite the URLs you used." : "Web search is not available for this check."} Rules: for every supported verdict, Evidence must quote the exact words from the source page in double quotes; if you cannot quote it, the verdict is unsupported. Start your reply with one line "Data checked: <the single as-of date or timestamp the source shows, or today's date>" and use that same date for every claim; do not give different timestamps for the same source. Do not mention which AI model or company is behind you.)`;
+  `\n\n(Today is ${today()}. ${
+    search
+      ? "Web search is available for this check, including opening pages: open the source pages and read them in full, not just snippets. When a page loads its data from a linked data file (.js, .json, .csv), open that file. Cite the URLs you used."
+      : "Web search is not available for this check."
+  } Rules:
+- Supported: Evidence must quote, in double quotes, the exact source words that contain the claimed number or name. If you cannot quote it, the verdict is unsupported.
+- Never invent arithmetic. A total or count is supported only if a source states that total verbatim. If you compute one, write "Computed: <each input quoted from the source> = <total>" in Evidence and give the verdict unsupported (or wrong if the quoted inputs clearly contradict the claim), never supported.
+- Sources disagree: when credible sources give different values, use the verdict "sources disagree" and give each value on its own line in Evidence as: "<exact quote>" — <URL>. List every URL in Source, separated by " ; ".
+- Start your reply with one line "Data checked: <the single as-of date or timestamp the source shows, or today's date>" and use that same date for every claim.
+Do not mention which AI model or company is behind you.)`;
 
 /**
  * Daedalus fact-checks with OpenAI's hosted web search (Responses API) when the model
@@ -164,6 +210,13 @@ async function callOpenAIWithSearch(client: OpenAI, model: string, system: strin
     },
     { timeout: 150_000 },
   );
+  const actions = (response.output ?? [])
+    .filter((item) => item.type === "web_search_call")
+    .map((item) => {
+      const action = (item as { action?: { type?: string; url?: string; query?: string } }).action;
+      return `${action?.type ?? "?"}:${String(action?.url ?? action?.query ?? "").slice(0, 120)}`;
+    });
+  console.log("[ariadne] checker tools", JSON.stringify({ actions }));
   const text = cleanCitations(response.output_text?.trim() ?? "");
   if (!text) throw new Error("The fact-checker returned an empty response");
   return text;

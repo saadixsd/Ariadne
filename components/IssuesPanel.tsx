@@ -1,5 +1,7 @@
 "use client";
 
+import { sourceLinks } from "@/lib/critique";
+
 import { useState } from "react";
 import { VERDICT_LABEL } from "@/lib/knots";
 import { isResolved, issueTitle, stripQuotes, type Issue, type IssueState } from "@/lib/workspace";
@@ -26,6 +28,7 @@ const VERDICT_BADGE = {
   wrong: "bg-danger text-raised",
   unsupported: "bg-gate-bg text-gate-ink ring-1 ring-gate-ink/30",
   supported: "bg-ok text-raised",
+  disputed: "bg-raised text-danger ring-1 ring-danger/50",
 } as const;
 
 export function IssuesPanel({
@@ -165,15 +168,26 @@ function IssueCard({
       {flag.verdict && flag.evidence ? (
         <div className="mt-1 space-y-1 text-[13px] leading-normal text-ink-dim">
           <p>
-            <span className="font-medium text-ink">Evidence: </span>
-            {flag.evidence}
+            <span className="font-medium text-ink">{flag.verdict === "disputed" ? "What each source says:" : "Evidence:"} </span>
+            {flag.verdict === "disputed" ? null : flag.evidence}
           </p>
-          {flag.source && /^https?:\/\//i.test(flag.source) ? (
+          {flag.verdict === "disputed" ? (
+            <ul className="list-disc space-y-1 pl-5" data-testid="disputed-values">
+              {flag.evidence.split(/\n|;\s+(?=["“„«])/).map((v) => v.trim()).filter(Boolean).map((v, i) => <li key={i} className="break-words">{v}</li>)}
+            </ul>
+          ) : null}
+          {flag.verdict === "disputed" ? <p className="text-xs text-danger">Sources disagree: compare them and decide which value to keep.</p> : null}
+          {sourceLinks(flag.source).some((u) => /^https?:\/\//i.test(u)) ? (
             <p className="break-words text-xs">
-              <span className="text-ink-faint">Source: </span>
-              <a href={flag.source} target="_blank" rel="noopener noreferrer nofollow" className="text-thread underline">
-                {flag.source.replace(/^https?:\/\//i, "").replace(/\/$/, "")}
-              </a>
+              <span className="text-ink-faint">{sourceLinks(flag.source).length > 1 ? "Sources: " : "Source: "}</span>
+              {sourceLinks(flag.source).map((u, i) => (
+                <span key={u}>
+                  {i ? " · " : ""}
+                  <a href={u} target="_blank" rel="noopener noreferrer nofollow" className="text-thread underline">
+                    {u.replace(/^https?:\/\//i, "").replace(/\/$/, "")}
+                  </a>
+                </span>
+              ))}
             </p>
           ) : flag.source ? (
             <p className="break-words text-xs"><span className="text-ink-faint">Source: </span>{flag.source}</p>
