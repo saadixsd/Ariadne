@@ -3,7 +3,9 @@
 import { LocalTime } from "@/components/LocalTime";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityTab, AgentActivityList, StatusIcon } from "@/components/ActivityPanel";
+import { ActivityTab, StatusIcon } from "@/components/ActivityPanel";
+import { ThreadPanel } from "@/components/ThreadPanel";
+import { diffParagraphs, type DiffLine, type Knot } from "@/lib/knots";
 import { BrandMark } from "@/components/BrandMark";
 import { FeedbackInvite } from "@/components/FeedbackForm";
 import { IssuesPanel } from "@/components/IssuesPanel";
@@ -71,6 +73,8 @@ export function Workspace({ initial }: { initial: WorkspaceData }) {
   const [showFeedback, setShowFeedback] = useState(initial.promptFeedback);
   const [anchored, setAnchored] = useState<Set<string>>(new Set());
   const docRef = useRef<HTMLDivElement>(null);
+  const [knot, setKnot] = useState<Knot | null>(null);
+  const [view, setView] = useState<{ title: string; lines: DiffLine[] | null; text: string | null } | null>(null);
 
   const { project } = data;
   const steps = useMemo(() => threadSteps(project), [project]);
@@ -140,6 +144,48 @@ export function Workspace({ initial }: { initial: WorkspaceData }) {
       ...d,
       decisions: [...d.decisions.filter((x) => x.flagKey !== issue.key), ...(next === "open" ? [] : [{ flagKey: issue.key, state: next, edit: extra?.edit ?? null, reason: extra?.reason ?? null }])],
     }));
+  }
+
+  type VersionRun = { id: string; output: string | null; completedAt: string | null; createdAt: string };
+  async function versions(taskId: string): Promise<VersionRun[]> {
+    const res = await fetch(`/api/tasks/${taskId}/runs?view=versions`, { cache: "no-store" });
+    if (!res.ok) throw new Error(`Could not load versions (${res.status})`);
+    return ((await res.json()) as { runs: VersionRun[] }).runs;
+  }
+
+  async function selectKnot(k: Knot | null) {
+    setKnot(k);
+    setView(null);
+    if (!k?.version || !k.taskId || !k.runId) return;
+    setTab("document");
+    setView({ title: `${k.step} v${k.version} · loading…`, lines: null, text: null });
+    try {
+      const runs = await versions(k.taskId);
+      const at = runs.findIndex((r) => r.id === k.runId);
+      const current = runs[at]?.output ?? "";
+      let prior: string | null = at > 0 ? runs[at - 1].output : null;
+      let priorLabel = at > 0 ? `v${at}` : "";
+      if (k.kind === "tieoff" && at <= 0 && steps.draft) {
+        const drafts = (await versions(steps.draft.id)).filter((r) => (r.completedAt ?? r.createdAt) <= (runs[at]?.completedAt ?? "9"));
+        prior = drafts.at(-1)?.output ?? null;
+        priorLabel = `draft v${drafts.length}`;
+      }
+      setView(
+        prior === null
+          ? { title: `${k.step} v${k.version} · ${k.actor}`, lines: null, text: current }
+          : { title: `${k.step} v${k.version} · changes since ${priorLabel}`, lines: diffParagraphs(prior, current), text: null },
+      );
+    } catch (e) {
+      setView({ title: `${k.step} v${k.version}`, lines: null, text: (e as Error).message });
+    }
+  }
+
+  function rerunFrom(k: Knot) {
+    if (!k.taskId) return;
+    if (!window.confirm(`Run “${k.step}” again? The steps after it are cleared and run again when you click. Earlier versions stay in the thread.`)) return;
+    void selectKnot(null);
+    const id = k.taskId;
+    void act(k.kind === "challenge" ? "Daedalus (GPT) is challenging the draft again…" : "Odysseus (Claude) is writing again…", () => post(`/api/tasks/${id}/rerun`).then(() => undefined));
   }
 
   function showInDocument(key: string) {
@@ -367,7 +413,27 @@ export function Workspace({ initial }: { initial: WorkspaceData }) {
           {showFeedback && state === "approved" ? <div className="mt-3"><FeedbackInvite projectId={project.id} onClose={() => setShowFeedback(false)} /></div> : null}
           {error ? <p role="alert" className="mt-3 rounded-lg bg-thread-soft px-3 py-2 text-sm text-danger">{error}</p> : null}
           <div className="min-h-0 flex-1 overflow-y-auto py-3">
-            <div className={centreTab === "document" ? "" : "hidden"}>
+            {centreTab === "document" && view ? (
+              <article data-testid="knot-view" className="mx-auto max-w-[820px] rounded-2xl bg-white px-5 py-6 shadow-[0_1px_3px_rgba(31,26,20,0.08)] ring-1 ring-line md:px-12 md:py-10">
+                <div className="mb-5 flex flex-wrap items-center justify-between gap-2 text-xs text-ink-dim">
+                  <span className="tracking-[0.12em] uppercase">{view.title}</span>
+                  <button type="button" className="text-thread" onClick={() => void selectKnot(null)}>Back to the current document</button>
+                </div>
+                {view.lines ? (
+                  <div className="space-y-2 text-[15px] leading-relaxed">
+                    {view.lines.every((l) => l.t === "same") ? <p className="text-sm text-ink-dim">No changes from the previous version.</p> : null}
+                    {view.lines.map((l, i) => (
+                      <div key={i} data-diff={l.t} className={l.t === "add" ? "rounded border-l-2 border-ok bg-ok/10 px-2" : l.t === "del" ? "rounded border-l-2 border-danger bg-danger/10 px-2 text-ink-dim line-through" : "px-2"}>
+                        <MarkdownBody text={l.s} />
+                      </div>
+                    ))}
+                  </div>
+                ) : view.text !== null ? (
+                  <div className="markdown paper"><MarkdownBody text={view.text} /></div>
+                ) : null}
+              </article>
+            ) : null}
+            <div className={centreTab === "document" && !view ? "" : "hidden"}>
               <article className="mx-auto max-w-[820px] rounded-2xl bg-white px-5 py-6 shadow-[0_1px_3px_rgba(31,26,20,0.08)] ring-1 ring-line md:px-12 md:py-10">
                 <div className="mb-5 flex flex-wrap items-center justify-between gap-2 text-xs text-ink-dim">
                   <span className="tracking-[0.12em] uppercase">{docLabel}</span>
@@ -387,7 +453,7 @@ export function Workspace({ initial }: { initial: WorkspaceData }) {
                     <h2 className="font-serif text-3xl text-ink">{project.name}</h2>
                     <p className="mt-4">Nothing drafted yet.</p>
                     <p className="mt-2">
-                      When you click <b>Draft and Challenge</b>, Odysseus (Claude) drafts from your brief and sources, then Daedalus (GPT) tries to prove the draft wrong. You judge each issue, revise if you want, tie off, and approve. Nothing runs until you click.
+                      When you click <b>Draft and Challenge</b>, Odysseus (Claude) writes a first answer from your brief and sources. Daedalus (GPT) then checks it against the same goal: what&apos;s unsupported, missing, or out of date. You decide on each issue, Odysseus revises, and you approve the final result. Nothing runs until you click.
                     </p>
                   </div>
                 )}
@@ -407,7 +473,16 @@ export function Workspace({ initial }: { initial: WorkspaceData }) {
               </p>
             ) : null}
           </div>
-          <AgentActivityList steps={steps} approvedAt={data.approvedAt} />
+          <ThreadPanel
+            projectId={project.id}
+            steps={steps}
+            approvedAt={data.approvedAt}
+            decisions={data.decisions}
+            selected={knot?.id ?? null}
+            onSelect={(k) => void selectKnot(k)}
+            onRerun={rerunFrom}
+            locked={Boolean(busy) || action.kind === "busy"}
+          />
         </aside>
       </div>
     </div>

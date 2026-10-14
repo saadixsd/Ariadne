@@ -1,7 +1,6 @@
 "use client";
 
 import { LocalTime } from "@/components/LocalTime";
-import { useState } from "react";
 import MarkdownBody from "@/components/MarkdownBody";
 import type { ProjectDTO, TaskDTO } from "@/lib/types";
 import { stepStatus, type StepStatus, type ThreadSteps } from "@/lib/workspace";
@@ -39,44 +38,11 @@ export function activityRows(steps: ThreadSteps, approvedAt: string | null): Row
   });
   return [
     row(1, "Odysseus (Claude)", "Draft", "Drafts from your brief and sources.", steps.draft),
-    row(2, "Daedalus (GPT)", "Challenge", "Tries to prove the draft wrong, one dispute at a time.", steps.challenge),
+    row(2, "Daedalus (GPT)", "Challenge", "Checks the draft against your goal: what is unsupported, missing or out of date.", steps.challenge),
     row(3, "You", "Judge", "Accept, reject or edit each issue, then tie off or revise.", steps.judge),
     row(4, "Odysseus (Claude)", "Revise", "Writes the tied-off answer from the draft you judged.", steps.tieOff),
     { n: 5, who: "You", step: "Approve", what: "Approve the deliverable.", status: approvedAt ? "done" : "pending", at: approvedAt },
   ];
-}
-
-/** Right-column list: who does what, with status. Collapsible. */
-export function AgentActivityList({ steps, approvedAt }: { steps: ThreadSteps; approvedAt: string | null }) {
-  const [open, setOpen] = useState(true);
-  return (
-    <section className="rounded-2xl bg-raised p-4 ring-1 ring-line" aria-labelledby="aa-h">
-      <div className="flex items-center justify-between">
-        <h2 id="aa-h" className="text-[13px] font-semibold">Agent Activity</h2>
-        <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className="text-xs text-ink-dim hover:text-ink">
-          {open ? "Hide ▴" : "Show ▾"}
-        </button>
-      </div>
-      {open ? (
-        <ol className="mt-3 space-y-3">
-          {activityRows(steps, approvedAt).map((r) => (
-            <li key={r.n} className="flex items-start gap-2.5">
-              <StatusIcon status={r.status} />
-              <div className="min-w-0 flex-1">
-                <p className="text-[13px] leading-tight">
-                  {r.n}. {r.who} — {r.step}
-                </p>
-                <p className="text-[11px] leading-snug text-ink-faint">{r.what}</p>
-              </div>
-              <span className={`shrink-0 text-[11px] ${r.status === "done" ? "text-ink-dim" : r.status === "waiting" || r.status === "running" ? "text-thread" : "text-ink-faint"}`}>
-                {r.status === "done" && r.at ? <LocalTime iso={r.at} format="time" /> : r.status === "done" ? "" : LABEL[r.status]}
-              </span>
-            </li>
-          ))}
-        </ol>
-      ) : null}
-    </section>
-  );
 }
 
 /** Centre "Activity" tab: each step's output on demand, and the event log. */
