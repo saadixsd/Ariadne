@@ -127,7 +127,7 @@ test("L1. signed out: / is the public landing page; /dashboard and other app pag
   assert.match(landing.text, /Check Your First Question/);
   assert.match(landing.text, /Stop <em>Second-Guessing<\/em> Your Research\./);
   assert.match(landing.text, /Every Key Claim, Checked Against Its Source\./);
-  assert.match(landing.text, /<title>Ariadne · Stop Second-Guessing Your Research<\/title>/);
+  assert.match(landing.text, /<title>Ariadne<\/title>/);
   assert.match(landing.text, /Ariadne drafts a sourced answer to your research question/, "the one-liner");
   assert.match(landing.text, /Already have an account\? <a href="\/sign-in">Sign in<\/a>/);
   assert.doesNotMatch(landing.text, /DNS|hallucinat|beta|early access/i);

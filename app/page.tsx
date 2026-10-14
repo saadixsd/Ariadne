@@ -10,7 +10,8 @@ import "./landing.css";
 // account links when the non-secret "ariadne_in" marker cookie says you are signed in.
 // Only what works today is described. No testimonials, logos, counts or results.
 
-const TITLE = "Ariadne · Stop Second-Guessing Your Research";
+const TITLE = "Ariadne";
+const SHARE_TITLE = "Ariadne · Stop Second-Guessing Your Research";
 const DESCRIPTION =
   "Every key claim, checked against its source. Ariadne drafts a sourced answer to your research question, checks the key claims against your sources and the web, and lets you decide on anything flagged.";
 
@@ -19,8 +20,8 @@ export const metadata: Metadata = {
   description: DESCRIPTION,
   alternates: { canonical: "/" },
   robots: { index: true, follow: true },
-  openGraph: { type: "website", siteName: SITE_NAME, url: "/", title: TITLE, description: DESCRIPTION, images: [OG_IMAGE] },
-  twitter: { card: "summary_large_image", site: "@ariadne_agents", title: TITLE, description: DESCRIPTION, images: [OG_IMAGE.url] },
+  openGraph: { type: "website", siteName: SITE_NAME, url: "/", title: SHARE_TITLE, description: DESCRIPTION, images: [OG_IMAGE] },
+  twitter: { card: "summary_large_image", site: "@ariadne_agents", title: SHARE_TITLE, description: DESCRIPTION, images: [OG_IMAGE.url] },
 };
 
 const JSON_LD = {

@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import { ONE_LINER } from "@/lib/one-liner";
-import { OG_IMAGE, SITE_NAME, SITE_URL, TAGLINE } from "@/lib/site";
+import { OG_IMAGE, SITE_NAME, SITE_URL } from "@/lib/site";
 
 const instrumentSerif = localFont({
   variable: "--font-instrument-serif",
@@ -33,7 +33,7 @@ const dmMono = localFont({
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: { default: `${SITE_NAME} · ${TAGLINE}`, template: `%s · ${SITE_NAME}` },
+  title: { default: SITE_NAME, template: `%s · ${SITE_NAME}` },
   description: ONE_LINER,
   applicationName: SITE_NAME,
   openGraph: { type: "website", siteName: SITE_NAME, locale: "en_US", images: [OG_IMAGE] },

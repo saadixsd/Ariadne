@@ -6,6 +6,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityTab, StatusIcon } from "@/components/ActivityPanel";
 import { ClaimTable } from "@/components/ClaimTable";
 import { ThreadPanel } from "@/components/ThreadPanel";
+import { ExportPicker } from "@/components/ExportPicker";
+import { buildExportModel } from "@/lib/export-doc";
 import { diffParagraphs, type DiffLine, type Knot } from "@/lib/knots";
 import { HomeMark } from "@/components/BrandMark";
 import { FeedbackInvite } from "@/components/FeedbackForm";
@@ -18,7 +20,6 @@ import {
   docState,
   documentOf,
   draftVersion,
-  goalLine,
   stepStatus,
   hashText,
   isResolved,
@@ -140,6 +141,7 @@ export function Workspace({ initial }: { initial: WorkspaceData }) {
   const [tab, setTab] = useState<Tab>("document");
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [exportOpen, setExportOpen] = useState(false);
   const [showFeedback, setShowFeedback] = useState(initial.promptFeedback);
   const [anchored, setAnchored] = useState<Set<string>>(new Set());
   const docRef = useRef<HTMLDivElement>(null);
@@ -399,16 +401,18 @@ export function Workspace({ initial }: { initial: WorkspaceData }) {
   }
 
   function save() {
-    if (!doc.text) return;
-    const url = URL.createObjectURL(new Blob([doc.text], { type: "text/markdown" }));
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${project.name.replace(/[^\w\- ]+/g, "").trim().replace(/\s+/g, "-").slice(0, 60) || "deliverable"}.md`;
-    a.click();
-    URL.revokeObjectURL(url);
+    if (doc.text) setExportOpen(true);
   }
+  const buildExport = () =>
+    buildExportModel({
+      name: project.name,
+      brief: project.brief,
+      text: doc.text ?? "",
+      status: state === "approved" ? "Approved answer" : DOC_STATE_LABEL[state],
+      challenge: steps.challenge?.output,
+      issues,
+    });
 
-  const goal = goalLine(project.brief, project.name);
   const stepper: { label: string; task?: typeof steps.draft }[] = [
     { label: "Draft", task: steps.draft },
     { label: "Challenge", task: steps.challenge },
@@ -458,8 +462,7 @@ export function Workspace({ initial }: { initial: WorkspaceData }) {
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 lg:px-6">
           <HomeMark />
           <div className="min-w-0 flex-1 basis-[55%] sm:basis-0">
-            <h1 className="truncate font-serif text-[22px] leading-tight">{project.name}</h1>
-            {goal ? <p className="truncate text-[13px] text-ink-dim" title={goal}>{goal}</p> : null}
+            <h1 className="truncate font-serif text-[22px] leading-tight" title={project.name}>{project.name}</h1>
           </div>
           <ol className="order-last flex w-full items-start gap-1 overflow-x-auto xl:order-none xl:w-auto" aria-label="Steps">
             {stepper.map((s, n) => {
@@ -480,7 +483,7 @@ export function Workspace({ initial }: { initial: WorkspaceData }) {
             <span data-testid="doc-state" className={`rounded-full px-2 py-0.5 text-xs ${state === "approved" ? "bg-ok text-raised" : "bg-tint ring-1 ring-line"}`}>
               {DOC_STATE_LABEL[state]}
             </span>
-            <button type="button" onClick={save} disabled={!doc.text} title="Download the current document as Markdown" className="rounded-lg bg-raised px-3 py-1.5 text-sm ring-1 ring-line hover:ring-thread disabled:opacity-50">
+            <button type="button" onClick={save} disabled={!doc.text} title="Download as PDF, Word, PowerPoint or Markdown" aria-haspopup="dialog" data-testid="export-open" className="rounded-lg bg-raised px-3 py-1.5 text-sm ring-1 ring-line hover:ring-thread disabled:opacity-50">
               Save
             </button>
             {state !== "approved" ? (
@@ -602,9 +605,11 @@ export function Workspace({ initial }: { initial: WorkspaceData }) {
             onSelect={(k) => void selectKnot(k)}
             onRerun={rerunFrom}
             locked={Boolean(busy) || action.kind === "busy"}
+            onExport={save}
           />
         </aside>
       </div>
+      <ExportPicker open={exportOpen} onClose={() => setExportOpen(false)} build={buildExport} name={project.name} />
     </div>
   );
 }

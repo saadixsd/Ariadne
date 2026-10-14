@@ -20,6 +20,7 @@ export function ThreadPanel({
   onSelect,
   onRerun,
   locked,
+  onExport,
 }: {
   projectId: string;
   steps: ThreadSteps;
@@ -29,6 +30,7 @@ export function ThreadPanel({
   onSelect: (knot: Knot | null) => void;
   onRerun: (knot: Knot) => void;
   locked: boolean;
+  onExport: () => void;
 }) {
   const [data, setData] = useState<ThreadData | null>(null);
   const [failed, setFailed] = useState(false);
@@ -112,10 +114,10 @@ export function ThreadPanel({
       </ol>
       {approvedAt ? (
         <div className="mt-1 border-t border-line pt-3">
-          <a href={`/api/projects/${projectId}/export`} className="inline-block rounded-lg bg-raised px-3 py-1.5 text-sm ring-1 ring-line hover:ring-thread" data-testid="export-record">
-            Export record (.md)
-          </a>
-          <p className="mt-1 text-[11px] text-ink-faint">Sources, every issue, your decision on each, and the approved answer.</p>
+          <button type="button" onClick={onExport} aria-haspopup="dialog" className="inline-block rounded-lg bg-raised px-3 py-1.5 text-sm ring-1 ring-line hover:ring-thread" data-testid="export-record">
+            Export…
+          </button>
+          <p className="mt-1 text-[11px] text-ink-faint">PDF, Word, PowerPoint or Markdown: the approved answer, its sources, the fact-check and your decisions.</p>
         </div>
       ) : null}
     </section>
