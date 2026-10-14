@@ -162,13 +162,37 @@ function IssueCard({
         <span className={`shrink-0 text-[11px] ${issue.state === "open" ? "text-ink-faint" : "text-ok"}`}>{STATE_LABEL[issue.state]}</span>
       </div>
       {flag.claim ? <p className="mt-2 text-sm leading-normal font-medium">“{stripQuotes(flag.claim)}”</p> : null}
-      <p className="mt-1 text-[13px] leading-normal text-ink-dim">{flag.issue}</p>
+      {flag.verdict && flag.evidence ? (
+        <div className="mt-1 space-y-1 text-[13px] leading-normal text-ink-dim">
+          <p>
+            <span className="font-medium text-ink">Evidence: </span>
+            {flag.evidence}
+          </p>
+          {flag.source && /^https?:\/\//i.test(flag.source) ? (
+            <p className="break-words text-xs">
+              <span className="text-ink-faint">Source: </span>
+              <a href={flag.source} target="_blank" rel="noopener noreferrer nofollow" className="text-thread underline">
+                {flag.source.replace(/^https?:\/\//i, "").replace(/\/$/, "")}
+              </a>
+            </p>
+          ) : flag.source ? (
+            <p className="break-words text-xs"><span className="text-ink-faint">Source: </span>{flag.source}</p>
+          ) : flag.verdict === "unsupported" ? (
+            <p className="text-xs text-gate-ink">No source found: check this one yourself.</p>
+          ) : null}
+          {flag.fix ? <p className="text-xs"><span className="text-ink-faint">Suggested fix: </span>{flag.fix}</p> : null}
+        </div>
+      ) : (
+        <p className="mt-1 text-[13px] leading-normal text-ink-dim">{flag.issue}</p>
+      )}
       {issue.state === "edited" && issue.edit ? <p className="mt-1 text-xs text-ok">Your correction: {issue.edit}</p> : null}
       {issue.state === "rejected" && issue.reason ? <p className="mt-1 text-xs text-ink-dim">Your reason: {issue.reason}</p> : null}
       <div className="mt-2 flex flex-wrap items-center gap-3 text-xs">
-        <button type="button" aria-expanded={evidence} onClick={() => setEvidence(!evidence)} className="text-thread hover:text-thread-bright">
-          View evidence {evidence ? "▴" : "▾"}
-        </button>
+        {flag.verdict && flag.evidence ? null : (
+          <button type="button" aria-expanded={evidence} onClick={() => setEvidence(!evidence)} className="text-thread hover:text-thread-bright">
+            View evidence {evidence ? "▴" : "▾"}
+          </button>
+        )}
         {anchored ? (
           <button type="button" onClick={onShow} className="text-ink-dim hover:text-ink">
             Show in document

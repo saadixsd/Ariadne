@@ -140,10 +140,13 @@ export default function Landing() {
                 <li>you approve, with the checks attached</li>
               </ol>
               <div className="lp-cta lp-rise" style={{ "--delay": ".36s" } as React.CSSProperties}>
-                <a className="lp-btn lp-btn-thread" href="/sign-up" data-door-cta>
+                <a className="lp-btn lp-btn-thread" href="/sign-up" data-door-cta data-when="out">
                   Tie the Thread
                 </a>
-                <p className="lp-note">
+                <a className="lp-btn lp-btn-thread" href="/dashboard" data-when="in" hidden>
+                  Open your projects
+                </a>
+                <p className="lp-note" data-when="out">
                   Already have an account? <a href="/sign-in">Sign in</a>
                 </p>
               </div>
@@ -180,7 +183,7 @@ export default function Landing() {
                   <div className="lp-step-body">
                     <p className="lp-step-n">1 · Draft</p>
                     <h3>Odysseus answers</h3>
-                    <p className="lp-step-who">Odysseus</p>
+                    <p className="lp-step-who">The writer</p>
                     <p className="lp-step-text">
                       Answers your question from your brief and the sources you upload (PDF, DOCX, Markdown), stating each
                       fact as a specific claim. Not what you asked? Tell it why and it redrafts.
@@ -194,7 +197,7 @@ export default function Landing() {
                   <div className="lp-step-body">
                     <p className="lp-step-n">2 · Challenge</p>
                     <h3>Daedalus fact-checks</h3>
-                    <p className="lp-step-who">Daedalus</p>
+                    <p className="lp-step-who">The fact-checker</p>
                     <p className="lp-step-text">
                       When the draft looks right to you, Daedalus checks it claim by claim against your sources and a
                       web search, and labels each claim Supported, Unsupported or Wrong, with the evidence and a link.
