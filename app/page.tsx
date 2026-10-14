@@ -264,8 +264,8 @@ export default function Landing() {
               </h2>
               <p className="lp-lede">
                 Ask several assistants how many DNS root server instances are in Canada and you can get several confident,
-                different numbers. The answer is a lookup, not an opinion: root-servers.org lists every instance by
-                country. On October 13, 2026 it listed 45 in Canada.
+                different numbers. The answer is a lookup, not an opinion, and it depends on the source and the date: sources
+                such as root-servers.org count differently and change often. A good answer names both.
               </p>
             </div>
             <ul className="lp-questions">

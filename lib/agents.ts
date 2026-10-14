@@ -88,7 +88,14 @@ const WRITER_RULES = (search: boolean) =>
 const ANTHROPIC_SEARCH = { type: "web_search_20250305", name: "web_search", max_uses: 5 } as const;
 
 function textOf(content: Anthropic.ContentBlock[]) {
+  // With web search the model narrates between searches ("I'll search for…"). Keep only
+  // the text written after the last search result: that is the answer.
+  let last = -1;
+  content.forEach((block, i) => {
+    if (block.type !== "text") last = i;
+  });
   return content
+    .slice(last + 1)
     .filter((block): block is Anthropic.TextBlock => block.type === "text")
     .map((block) => block.text)
     .join("")
