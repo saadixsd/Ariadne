@@ -32,13 +32,6 @@ import {
 
 type Tab = "document" | "issues" | "activity" | "context";
 
-/** Small content hash for the document's React key. */
-function docKey(from: string | null, text: string) {
-  let h = 0;
-  for (let i = 0; i < text.length; i++) h = (h * 31 + text.charCodeAt(i)) | 0;
-  return `${from}:${text.length}:${h}`;
-}
-
 /** Lowercased text with curly quotes straightened and whitespace runs collapsed, plus each char's source index. */
 function normalized(text: string): { s: string; at: number[] } {
   let s = "";
@@ -562,8 +555,7 @@ export function Workspace({ initial }: { initial: WorkspaceData }) {
                 </div>
                 {doc.text ? (
                   <>
-                  {/* Keyed by content: the claim <mark>s rewrite this DOM, so React must replace it, not patch it. */}
-                  <div key={docKey(doc.from, doc.text)} ref={docRef} data-testid="document" className="markdown paper">
+                  <div ref={docRef} data-testid="document" className="markdown paper">
                     <MarkdownBody text={doc.text} />
                   </div>
                   {doc.from === "tieOff" ? <ClaimTable challengeOutput={steps.challenge?.output} decisions={data.decisions} /> : null}

@@ -1,8 +1,0 @@
-[
-  { "id": "dns-canada", "name": "DNS root servers in Canada", "brief": "How many DNS root server instances are in Canada, and which root server letters operate there? Give the count as the operators' own data shows it today, with sources and the as-of date." },
-  { "id": "quebec-bill96", "name": "Quebec French Law", "brief": "Goal: Quebec French Law\n\nNeed: analysis on the new French laws and how English businesses are affected\n\nDeliverable: a short briefing note" },
-  { "id": "ozempic-label", "name": "Semaglutide and weight loss", "brief": "Goal: understand the evidence for semaglutide for weight management in adults without diabetes.\n\nNeed: the main trial results (weight change vs placebo), the approved indications in Canada and the US, and the most common adverse effects.\n\nDeliverable: an evidence summary for a policy team." },
-  { "id": "canada-carbon", "name": "Canada consumer carbon price", "brief": "Goal: Canadian climate policy\n\nNeed: what happened to the federal consumer fuel charge and the Canada Carbon Rebate, with dates, and what remains of carbon pricing for industry.\n\nDeliverable: a one-page policy brief." },
-  { "id": "eu-ai-act", "name": "EU AI Act timeline", "brief": "Goal: compliance planning\n\nNeed: the EU AI Act's application dates for prohibited practices, general-purpose AI obligations and high-risk systems, including any changes or delays adopted since.\n\nDeliverable: a timeline table with sources." },
-  { "id": "measles-canada", "name": "Measles elimination status", "brief": "Goal: public health briefing\n\nNeed: Canada's measles elimination status and what triggered any change, with the official dates and case counts from the public health agency.\n\nDeliverable: a short briefing note." }
-]

@@ -52,8 +52,8 @@
     { "pattern": "www.ariadneagents.si/*", "zone_name": "ariadneagents.si" }
   ],
   "vars": {
-    "ANTHROPIC_MODEL": "claude-sonnet-5-5",
-    "OPENAI_MODEL": "gpt-6.1-sol",
+    "ANTHROPIC_MODEL": "claude-haiku-4-5-20251001",
+    "OPENAI_MODEL": "gpt-6-luna",
     // Turnstile tokens are only accepted when issued on these hostnames (lib/signup-guard.ts).
     "TURNSTILE_HOSTNAMES": "ariadneagents.si,www.ariadneagents.si"
   },

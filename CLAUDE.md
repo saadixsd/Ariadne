@@ -62,8 +62,8 @@ Old docs say "Scout" and "Maker" — same agents, renamed Sep 30 2026. If you se
 Scout/Maker in the codebase, that occurrence is stale; update it to
 Odysseus/Daedalus.
 
-**Models (Worker vars):** Claude Sonnet `claude-sonnet-5-5`,
-GPT `gpt-6.1-sol`.
+**Models (Worker vars):** Claude Haiku `claude-haiku-4-5-20251001`,
+GPT `gpt-6-luna`.
 
 **Default workflow for new projects:** a generic 5-task template in `lib/starter-thread.ts`
 ("Research the brief" Odysseus → "Draft the answer" Odysseus → "Challenge the draft"
