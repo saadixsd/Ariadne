@@ -36,7 +36,7 @@ export default async function FeedbackInbox({ searchParams }: { searchParams: Pr
         </Link>
       </div>
       <p className="mt-2 text-sm leading-normal text-ink-dim">
-        Tell us what helped and what got in the way. Saad reads every answer. Nothing here runs an agent.
+        Tell us what helped and what got in the way. The Ariadne team reads every answer. Nothing here runs an agent.
       </p>
       <FeedbackPageForm projects={projects} projectId={projects.some((p) => p.id === project) ? (project ?? null) : null} />
       <h2 className="mt-8 text-xs font-semibold tracking-[0.14em] text-ink-dim uppercase">What you sent</h2>

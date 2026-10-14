@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 
-/** Saad-only: set triage on one feedback row. */
+/** Admin-only: set triage on one feedback row. */
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     await requireAdminApi();

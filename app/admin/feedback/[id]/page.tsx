@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 /**
  * The project behind one feedback row. Without the person's opt-in only the shape shows
  * (steps, status, run counts, issue decisions). The brief, outputs and uploaded text show
- * only when they ticked "Saad may open this project".
+ * only when they ticked "Let the Ariadne team view this project".
  */
 export default async function AdminFeedbackProject({ params }: { params: Promise<{ id: string }> }) {
   await requireAdminPage();

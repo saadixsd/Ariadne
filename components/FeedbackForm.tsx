@@ -57,7 +57,7 @@ export function FeedbackForm({
   if (done) {
     return (
       <div>
-        <p className="font-serif text-[24px] leading-tight">Thank you. Saad reads every answer.</p>
+        <p className="font-serif text-[24px] leading-tight">Thank you. The Ariadne team reads every answer.</p>
         <p className="mt-2 text-sm text-ink-dim">You can add more any time at Feedback.</p>
       </div>
     );
@@ -106,9 +106,14 @@ export function FeedbackForm({
         <textarea rows={2} value={changeFirst} onChange={(e) => setChangeFirst(e.target.value)} className={field} maxLength={2000} />
       </label>
       {projectId ? (
-        <label className="mt-3 flex items-start gap-2 text-sm text-ink-dim">
-          <input type="checkbox" checked={allowView} onChange={(e) => setAllowView(e.target.checked)} className="mt-1" />
-          <span>Saad may open this project to understand my feedback. Off by default; without it he sees only the steps and issue counts, not your text.</span>
+        <label className="mt-3 flex items-start gap-2 text-sm">
+          <input type="checkbox" checked={allowView} onChange={(e) => setAllowView(e.target.checked)} className="mt-1" aria-describedby="allow-view-help" />
+          <span>
+            Let the Ariadne team view this project to understand your feedback
+            <span id="allow-view-help" className="mt-0.5 block text-xs text-ink-dim">
+              Off by default. If you leave it off, we only see which steps ran and how many issues were raised, never your documents or text. You can turn this off anytime in Settings.
+            </span>
+          </span>
         </label>
       ) : null}
       {error ? (

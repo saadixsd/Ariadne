@@ -1,6 +1,6 @@
 /*
   The hands on the thread. Odysseus (Claude) is the Drafter: researches, drafts, revises.
-  Daedalus (GPT) is the Challenger: tries to prove the draft wrong. You hold the thread,
+  Daedalus (GPT) is the Challenger: checks the draft against your goal. You hold the thread,
   as Ariadne did, and judge at every knot. (Until Oct 6 2026 new projects had Daedalus
   drafting and Odysseus reviewing; projects made then keep their own agent roles.)
 
@@ -23,6 +23,6 @@ export function handName(name: string): string {
 /** The fixed roster shown in Settings. Read-only: no model switching in V1. */
 export const HANDS = [
   { name: ODYSSEUS, provider: "anthropic", family: "Claude", does: "The Drafter. Researches the brief, writes the answer and revises it." },
-  { name: DAEDALUS, provider: "openai", family: "GPT", does: "The Challenger. Tries to prove the draft wrong. It critiques the work; it doesn't write a second answer." },
+  { name: DAEDALUS, provider: "openai", family: "GPT", does: "The Challenger. Checks the draft against your goal: what is unsupported, missing or out of date. It improves the work; it doesn't write a second answer." },
   { name: HUMAN_HAND, provider: "human", family: "Human", does: "The judge. Nothing is final until you tie it off." },
 ] as const;

@@ -1,4 +1,5 @@
 import { BrandMark } from "@/components/BrandMark";
+import { FeedbackConsent } from "@/components/FeedbackConsent";
 import { Monogram } from "@/components/ThreadBits";
 import { NameForm } from "@/components/NameForm";
 import { ProjectsManager } from "@/components/ProjectsManager";
@@ -41,6 +42,14 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
     orderBy: { createdAt: "asc" },
     select: { id: true, name: true, createdAt: true, tasks: { select: { status: true } } },
   });
+  const sharedFeedback = (
+    await prisma.feedback.findMany({
+      where: { userId: user.id, projectId: { not: null } },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+      select: { id: true, createdAt: true, projectId: true, allowProjectView: true },
+    })
+  ).map((f) => ({ id: f.id, createdAt: f.createdAt.toISOString(), project: owned.find((p) => p.id === f.projectId)?.name ?? null, allowProjectView: f.allowProjectView }));
   const projects = owned.map((project) => ({
     id: project.id,
     name: project.name,
@@ -88,6 +97,16 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
             </a>
           </div>
           <ProjectsManager projects={projects} maxName={MAX_PROJECT_NAME_CHARS} />
+        </section>
+
+        <section id="feedback" aria-labelledby="feedback-title" className="rt-card scroll-mt-4 px-5 py-4">
+          <h2 id="feedback-title" className="font-serif text-[24px] leading-tight">
+            Feedback you&apos;ve shared
+          </h2>
+          <p className="mt-1 text-[13px] text-ink-dim">
+            When this is on, the Ariadne team may open that project to understand your feedback. When it is off, we only see which steps ran and how many issues were raised.
+          </p>
+          <FeedbackConsent items={sharedFeedback} />
         </section>
 
         <section aria-labelledby="budget-title" className="rt-card px-5 py-4">

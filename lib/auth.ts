@@ -25,7 +25,7 @@ export type SessionUser = {
   isAdmin: boolean;
 };
 
-/** Saad-only pages: ADMIN_EMAILS is a comma-separated Worker var. Empty means nobody. */
+/** Admin-only pages: ADMIN_EMAILS is a comma-separated Worker var. Empty means nobody. */
 export function isAdminEmail(email: string): boolean {
   const list = (process.env.ADMIN_EMAILS ?? "")
     .split(",")

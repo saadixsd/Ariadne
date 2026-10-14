@@ -16,7 +16,7 @@ import "./landing.css";
 
 const TITLE = "Ariadne · One model drafts. Another challenges. You judge.";
 const DESCRIPTION =
-  "Ariadne has one AI model draft your work and a second model try to prove it wrong, claim by claim. You judge every issue and approve the result. A second opinion, not a guarantee.";
+  "Ariadne has one AI model draft your work and a second model check it against the same goal, claim by claim. You decide on every issue and approve the result. A second opinion, not a guarantee.";
 
 export const metadata: Metadata = {
   title: { absolute: TITLE },
@@ -126,11 +126,11 @@ export default function Landing() {
                 </span>
               </h1>
               <p className="lp-lede lp-rise" style={{ "--delay": ".24s" } as React.CSSProperties}>
-                Ariadne has one AI create the work and another try to break it — while you make the final call.
+                Ariadne has one AI create the work and another check it against your goal — while you make the final call.
               </p>
               <ol className="lp-flow lp-rise" aria-label="What happens" style={{ "--delay": ".3s" } as React.CSSProperties}>
                 <li>AI does the research</li>
-                <li>another AI tries to break it</li>
+                <li>another AI checks it</li>
                 <li>you decide what&apos;s right</li>
                 <li>Ariadne revises it</li>
                 <li>you approve the final result</li>
@@ -153,7 +153,7 @@ export default function Landing() {
             <div className="lp-intro">
               <p className="lp-eyebrow">How it works</p>
               <h2 id="how-title">
-                One model drafts. <em>Another tries to break it.</em>
+                One model drafts. <em>Another checks it.</em>
               </h2>
               <p className="lp-lede">
                 You don&apos;t copy answers between two chat windows. Ariadne handles the handoff. You handle
@@ -191,7 +191,7 @@ export default function Landing() {
                     <h3>Daedalus challenges</h3>
                     <p className="lp-step-who">GPT · the Challenger</p>
                     <p className="lp-step-text">
-                      A different model tries to break the draft: what&apos;s wrong, unsupported, outdated,
+                      A different model checks the draft against your goal: what&apos;s wrong, unsupported, outdated,
                       contradicted or missing.
                     </p>
                     <span className="lp-badge">Works today</span>
@@ -251,7 +251,7 @@ export default function Landing() {
 
             <blockquote className="lp-quote">
               <p>
-                Don&apos;t ask another AI if the answer is good. <em>Ask it to try to prove the answer wrong.</em>
+                Don&apos;t just ask another AI if the answer is good. <em>Ask it what is unsupported, missing or out of date.</em>
               </p>
               <footer>That&apos;s why the step is called Challenge, not Review.</footer>
             </blockquote>
@@ -480,7 +480,7 @@ export default function Landing() {
                 <h3>Deep Work</h3>
                 <p className="lp-ways-lead">Working on something important?</p>
                 <p>
-                  Let another model try to break the answer before you sign off on it. Draft → Challenge → Judge →
+                  Let another model check the answer against your goal before you sign off on it. Draft → Challenge → Judge →
                   Revise → Tie Off, still answer-first, with the detail underneath.
                 </p>
               </li>

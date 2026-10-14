@@ -81,7 +81,7 @@ export async function createRoster(projectId: string) {
       name: DAEDALUS,
       provider: "openai",
       model: modelFor("openai"),
-      role: "The Challenger. Tries to prove the draft wrong: what is incorrect, unsupported, outdated, contradicted or missing. Critiques the work, never writes an answer of its own.",
+      role: "The Challenger. Checks the draft against the same goal: what is incorrect, unsupported, outdated, contradicted or missing. Reviews the work, never writes an answer of its own.",
       status: "idle",
     },
   });
