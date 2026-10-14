@@ -3,7 +3,7 @@
  * first-run "What are you making?" dialog, so the three never drift apart.
  */
 export const ONE_LINER =
-  "Stop guessing which AI answers are true. Ariadne makes two models check each other, claim by claim, so you only verify what's flagged.";
+  "Ariadne drafts a sourced answer to your research question, checks every claim against your sources and the web, and brings you only what needs a decision.";
 
 /** The wedge, in order. "Tie off" is the knot. */
 export const WEDGE_STEPS = ["Draft", "Challenge", "Judge", "Tie Off"] as const;

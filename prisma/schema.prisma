@@ -24,6 +24,8 @@ model User {
   utmCampaign      String?
   /// When the first-completion feedback prompt was shown (answered or dismissed).
   feedbackPromptAt DateTime?
+  /// First-run intro finished or skipped (null: show it on the next app page).
+  introSeenAt      DateTime?
   createdAt     DateTime           @default(now())
   sessions      Session[]
   codes         VerificationCode[]

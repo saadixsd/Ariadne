@@ -1,4 +1,5 @@
 import { notFound, redirect } from "next/navigation";
+import { IntroTour } from "@/components/IntroTour";
 import { Workspace } from "@/components/Workspace";
 import { currentUser } from "@/lib/auth";
 import { loadWorkspace } from "@/lib/workspace-server";
@@ -12,5 +13,10 @@ export default async function WorkspacePage({ params }: { params: Promise<{ id: 
   const { id } = await params;
   const data = await loadWorkspace(id, user.id);
   if (!data) notFound();
-  return <Workspace initial={data} />;
+  return (
+    <>
+      <Workspace initial={data} />
+      <IntroTour show={!user.introSeenAt} />
+    </>
+  );
 }

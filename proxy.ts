@@ -4,7 +4,7 @@ import { CAMPAIGN_COOKIE, CAMPAIGN_COOKIE_MAX_AGE, campaignFromParams, encodeCam
 
 // "/" is the public landing page (static). Everything else that is not a door page or the
 // API needs a session; signed-out visitors are sent to /sign-in.
-const PUBLIC_PATHS = ["/", "/sign-in", "/sign-up", "/verify", "/forgot-password", "/reset-password"];
+const PUBLIC_PATHS = ["/", "/sign-in", "/sign-up", "/verify", "/forgot-password", "/reset-password", "/privacy"];
 // Query keys that only ever meant "open the board" when the board lived at "/".
 const LEGACY_BOARD_KEYS = ["project", "new"];
 // The door pages are static. Only a visitor who already holds a session cookie needs

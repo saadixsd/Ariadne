@@ -4,6 +4,7 @@ import { Monogram } from "@/components/ThreadBits";
 import { NameForm } from "@/components/NameForm";
 import { ProjectsManager } from "@/components/ProjectsManager";
 import { SignOutButton } from "@/components/SignOutButton";
+import { ShowIntroAgain } from "@/components/IntroTour";
 import { accountDisplay } from "@/lib/account";
 import { currentUser } from "@/lib/auth";
 import { HANDS } from "@/lib/hands";
@@ -158,6 +159,16 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
               </li>
             ))}
           </ul>
+        </section>
+
+        <section aria-labelledby="help-title" className="rt-card px-5 py-4">
+          <h2 id="help-title" className="font-serif text-[24px] leading-tight">
+            Help
+          </h2>
+          <p className="mt-1 text-[13px] text-ink-dim">The four-step intro from your first visit: question and sources, draft, check, approve.</p>
+          <p className="mt-2">
+            <ShowIntroAgain />
+          </p>
         </section>
 
         <section className="flex flex-wrap items-center justify-between gap-3 px-1">

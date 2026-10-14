@@ -16,6 +16,7 @@ CREATE TABLE "User" (
     "utmSource" TEXT,
     "utmCampaign" TEXT,
     "feedbackPromptAt" DATETIME,
+    "introSeenAt" DATETIME,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 

@@ -124,10 +124,11 @@ test("2. no project changes owners on sign-up / sign-in", () => {
 test("L1. signed out: / is the public landing page; /dashboard and other app pages go to /sign-in", async () => {
   const landing = await call("GET", "/", { from: ip(40) });
   assert.equal(landing.status, 200);
-  assert.match(landing.text, /Tie the Thread/);
-  assert.match(landing.text, /Stop guessing which AI answers are true\. Ariadne makes two models check each other, claim by claim, so you only verify what(&#x27;|')s flagged\./, "the one-liner");
-  assert.match(landing.text, /AI fact-checking for researchers/);
+  assert.match(landing.text, /Start a project/);
+  assert.match(landing.text, /Research answers you can <em>check, claim by claim\.<\/em>/);
+  assert.match(landing.text, /Ariadne drafts a sourced answer to your research question/, "the one-liner");
   assert.match(landing.text, /Already have an account\? <a href="\/sign-in">Sign in<\/a>/);
+  assert.doesNotMatch(landing.text, /DNS|hallucinat|beta|early access/i);
   assert.match(landing.text, /href="\/sign-up"/);
   assert.match(landing.text, /instagram\.com\/ariadne_agents/);
   assert.match(landing.text, /x\.com\/ariadne_agents/);

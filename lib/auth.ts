@@ -24,6 +24,8 @@ export type SessionUser = {
   /** Outreach ref code (lib/campaign.ts); a signed one counts like an invite for run limits. */
   refCode: string | null;
   isAdmin: boolean;
+  /** Null until the first-run intro is finished or skipped. */
+  introSeenAt: Date | null;
 };
 
 /** Admin-only pages: ADMIN_EMAILS is a comma-separated Worker var. Empty means nobody. */
@@ -63,6 +65,7 @@ export async function currentUser(): Promise<SessionUser | null> {
     inviteCode: session.user.inviteCode,
     refCode: session.user.refCode,
     isAdmin: isAdminEmail(session.user.email),
+    introSeenAt: session.user.introSeenAt ?? null,
   };
 }
 
