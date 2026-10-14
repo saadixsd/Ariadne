@@ -21,6 +21,12 @@ export function draftBrief(goal: string, details: string, files: { name: string;
   return parts.join("\n\n");
 }
 
+// A real, checkable question with a public authoritative source (root-servers.org).
+// The app never states the answer itself; the models find it and Daedalus checks it.
+const SAMPLE_GOAL = "How many DNS root server instances are in Canada?";
+const SAMPLE_DETAILS =
+  "Give the current count of root server instances located in Canada, which root servers (letters) they belong to, and the cities. Use root-servers.org as the authoritative source and give the date of the data.";
+
 export function NewProjectFlow({ runsLeft, runsLimit }: { runsLeft: number; runsLimit: number }) {
   const [step, setStep] = useState<"describe" | "confirm">("describe");
   const [goal, setGoal] = useState("");
@@ -88,7 +94,7 @@ export function NewProjectFlow({ runsLeft, runsLimit }: { runsLeft: number; runs
           My projects
         </Link>
       </div>
-      <h1 className="mt-4 font-serif text-[40px] leading-none tracking-[-0.015em]">{step === "describe" ? "What do you need checked?" : "Check the brief"}</h1>
+      <h1 className="mt-4 font-serif text-[40px] leading-none tracking-[-0.015em]">{step === "describe" ? "What do you need fact-checked?" : "Check the brief"}</h1>
       <ol className="mt-3 flex gap-3 text-xs text-ink-dim">
         <li className={step === "describe" ? "text-thread" : ""}>1 Describe or upload</li>
         <li className={step === "confirm" ? "text-thread" : ""}>2 Confirm brief</li>
@@ -97,13 +103,29 @@ export function NewProjectFlow({ runsLeft, runsLimit }: { runsLeft: number; runs
 
       {step === "describe" ? (
         <div className="mt-6 space-y-5">
+          <p className="text-sm leading-normal text-ink-dim">
+            Odysseus (Claude) answers from your brief and files. When the draft looks right to you, Daedalus (GPT) checks each claim against your files and the web. You judge only what it flags.
+          </p>
+          <div className="text-sm">
+            <span className="text-ink-dim">Sample question: </span>
+            <button
+              type="button"
+              className="text-thread underline-offset-2 hover:underline"
+              onClick={() => {
+                setGoal(SAMPLE_GOAL);
+                setDetails(SAMPLE_DETAILS);
+              }}
+            >
+              {SAMPLE_GOAL}
+            </button>
+          </div>
           <label className="block text-sm">
-            Goal, in one line
-            <input value={goal} onChange={(e) => setGoal(e.target.value)} maxLength={120} placeholder="e.g. Is the effect in Smith 2024 robust to the missing control?" className={field} />
+            Question or goal, in one line
+            <input value={goal} onChange={(e) => setGoal(e.target.value)} maxLength={120} placeholder="e.g. What sample size did Smith et al. (2024) use, and was there a control group?" className={field} />
           </label>
           <label className="block text-sm">
             Details (optional)
-            <textarea rows={5} value={details} onChange={(e) => setDetails(e.target.value)} maxLength={3500} placeholder="What the answer must cover, who it is for, what you already know." className={field} />
+            <textarea rows={5} value={details} onChange={(e) => setDetails(e.target.value)} maxLength={3500} placeholder="What the answer must cover, which sources count, what you already know." className={field} />
           </label>
           <div>
             <p className="text-sm">Files (optional): PDF, DOCX or Markdown, up to {MAX_SOURCE_FILES}</p>
@@ -138,7 +160,7 @@ export function NewProjectFlow({ runsLeft, runsLimit }: { runsLeft: number; runs
       ) : (
         <div className="mt-6 space-y-4">
           <p className="text-sm leading-normal text-ink-dim">
-            Odysseus and Daedalus both work from this brief{ready.length ? ` and the text of ${ready.length} file${ready.length > 1 ? "s" : ""}` : ""}. Edit anything, then confirm.
+            Odysseus answers and Daedalus fact-checks from this brief{ready.length ? ` and the text of ${ready.length} file${ready.length > 1 ? "s" : ""}` : ""}. Edit anything, then confirm.
           </p>
           <textarea rows={12} value={brief} onChange={(e) => setBrief(e.target.value)} maxLength={5000} className={field} aria-label="Brief" />
           {error ? <p role="alert" className="text-sm text-danger">{error}</p> : null}

@@ -52,11 +52,13 @@ const CONF_RANK = { high: 0, medium: 1, low: 2 } as const;
 export function issuesFrom(challengeOutput: string | null | undefined, decisions: Decision[]): Issue[] {
   const byKey = new Map(decisions.map((d) => [d.flagKey, d]));
   const flags = parseCritique(challengeOutput ?? "").flags;
+  // Only flagged claims need a decision: a claim the check found supported is not an issue.
   return flags
+    .filter((flag) => flag.verdict !== "supported")
     .map((flag, index) => {
       const key = issueKey(flag);
       const d = byKey.get(key);
-      const rank = (flag.confidence ? CONF_RANK[flag.confidence] : 3) * 100 + (flag.opinion ? 10 : 0) + index / 100;
+      const rank = (flag.verdict === "wrong" ? 0 : flag.verdict === "unsupported" ? 1 : 2) * 1000 + (flag.confidence ? CONF_RANK[flag.confidence] : 3) * 100 + (flag.opinion ? 10 : 0) + index / 100;
       return { key, flag, state: d?.state ?? "open", edit: d?.edit ?? null, reason: d?.reason ?? null, rank };
     })
     .sort((a, b) => a.rank - b.rank);
@@ -116,6 +118,7 @@ export const DOC_STATE_LABEL: Record<DocState, string> = {
 
 export type NextAction =
   | { kind: "run"; task: TaskDTO; label: string; runs: number; then?: TaskDTO }
+  | { kind: "review_draft"; task: TaskDTO; challenge: TaskDTO }
   | { kind: "open_judge"; task: TaskDTO }
   | { kind: "judge"; task: TaskDTO }
   | { kind: "approve" }
@@ -133,8 +136,10 @@ export function nextAction(steps: ThreadSteps, approved: boolean): NextAction {
   if (running) return { kind: "busy", task: running };
   const failed = all.find((t) => t.status === "failed");
   if (failed) return { kind: "failed", task: failed };
-  if (draft.status === "pending") return { kind: "run", task: draft, label: "Draft and Challenge", runs: 2, then: challenge };
-  if (challenge.status === "pending") return { kind: "run", task: challenge, label: "Challenge", runs: 1 };
+  // Each step waits for you: Odysseus drafts; you accept the draft (or ask for a redraft)
+  // before Daedalus fact-checks it. Nothing advances on its own.
+  if (draft.status === "pending") return { kind: "run", task: draft, label: draft.instructions.includes(CHANGE_MARKER) ? "Redraft" : "Draft", runs: 1 };
+  if (challenge.status === "pending") return { kind: "review_draft", task: draft, challenge };
   if (judge.status === "pending") return { kind: "open_judge", task: judge };
   if (judge.status === "awaiting_approval") return { kind: "judge", task: judge };
   if (tieOff.status === "pending") return { kind: "run", task: tieOff, label: "Write the tied-off answer", runs: 1 };

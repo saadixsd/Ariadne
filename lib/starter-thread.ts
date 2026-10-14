@@ -15,7 +15,7 @@ type TaskSpec = {
 // and "Reset demo" are gone; nothing here seeds fake data.)
 //
 // Roles (fixed by the founder, Oct 6 2026): Odysseus (Claude) is the Drafter;
-// Daedalus (GPT) is the Challenger; You judge. Marketing sells four stages —
+// Daedalus (GPT) is the Challenger (the fact-checker); You judge. Marketing sells four stages —
 // Draft → Challenge → Judge → Tie Off — so new projects use four steps (research
 // is folded into Draft; the final writeup is the Tie Off artifact). Existing
 // projects keep whatever steps they already have; this list only seeds new ones.
@@ -25,25 +25,25 @@ const OWN_TASKS: TaskSpec[] = [
     agent: "Odysseus",
     title: "Draft the answer",
     instructions:
-      "Read the shared context. Settle what the brief asks for: the goals, the constraints, and the questions the answer has to settle. Note what you already know that bears on them, and where you are unsure.\n\nThen write what the brief asks for. Lead with the answer. Supporting points next, with a source or your reasoning for each, and say plainly where you are unsure. You cannot search the web here — work from the brief and what you already know.",
+      "Read the shared context. Settle what the brief asks: the exact question, the constraints, and what a correct answer has to show.\n\nThen answer it. Lead with the direct answer. State each fact as a specific, checkable claim (numbers, dates, names), and give its source next to it: a file from the shared context, or a named public source. When you are not sure of a fact, say so plainly instead of guessing; another model will fact-check every claim. You cannot search the web here — work from the brief, the sources and what you already know.",
     dependsOn: [],
     requiresApproval: false,
   },
   {
     key: "review",
     agent: "Daedalus",
-    title: "Challenge the draft",
+    title: "Fact-check the draft",
     instructions:
-      "Try to prove the draft wrong. Do not write your own answer.\n\nFor each problem, write a numbered dispute in exactly this shape (one blank line between disputes):\n\n1. Claim: <the specific claim from the draft>\n   Objection: <incorrect, unsupported, outdated, contradicted, a weak source, missing, or misleading — and why>\n   Evidence: <a quote or citation that appears in the draft> OR Opinion: <why you doubt it from your own knowledge — you cannot search the web>\n   Confidence: high | medium | low\n   Fix: <suggested fix>\n\nPrefer fewer precise disputes over a long essay. Do not open with a Verdict. If you find nothing material, say so in one short paragraph and list no disputes.",
+      "Fact-check the draft claim by claim, working toward the same goal as the brief. Do not write your own answer.\n\nList every factual claim in the draft (numbers, dates, names, causal statements, citations). Check each one against the shared sources and, when web search is available, against current authoritative sources on the web. Prefer primary sources (official registries, the operator's own site, papers) over summaries.\n\nWrite each claim in exactly this shape (one blank line between claims):\n\n1. Claim: \"<the claim, quoted from the draft>\"\n   Verdict: supported | unsupported | wrong\n   Evidence: <what the source says, quoted or summarised, with its date when it matters>\n   Source: <the URL you checked, or the shared file name; none if you found nothing>\n   Severity: high | medium | low  (how much the claim matters to the answer)\n   Fix: <the corrected claim, for wrong or unsupported claims>\n\nsupported = a source you checked says the same. wrong = a source you checked says otherwise. unsupported = you could not find a source either way. Never mark a claim supported or wrong without a source. If you cannot search the web, say so in one line first and mark claims you cannot check against the shared sources as unsupported.",
     dependsOn: ["draft"],
     requiresApproval: false,
   },
   {
     key: "approve",
     agent: "You",
-    title: "Judge the draft",
+    title: "Judge the flagged claims",
     instructions:
-      "Read the draft and the challenge. Tie it off, or ask for changes: add the challenges you agree with to your note, and Odysseus revises.",
+      "Read the draft and the fact-check. Decide on each flagged claim, then tie it off, or ask Odysseus to revise with your decisions.",
     dependsOn: ["review"],
     requiresApproval: true,
   },
@@ -52,7 +52,7 @@ const OWN_TASKS: TaskSpec[] = [
     agent: "Odysseus",
     title: "Write the tied-off answer",
     instructions:
-      "Write the tied-off answer from the draft the human approved. Keep its claims and conclusions as approved; do not add new claims.\n\nUse these headings, in this order:\n\n## Answer\nLead with the answer.\n\n## Sources\nThe sources or reasoning that support it. Say when something rests on the draft alone.\n\n## Disagreements\nChallenges that stayed open or that the human did not take. Write \"None.\" if there are none.\n\n## Attention required\nWhat the reader should still verify or watch. Write \"None.\" if there is nothing.",
+      "Write the tied-off answer from the draft the human approved, applying the human's decisions on the fact-checked claims. Do not add new claims.\n\nUse these headings, in this order:\n\n## Answer\nLead with the answer.\n\n## Sources\nThe sources behind each key claim, with links where the fact-check gave them.\n\n## Open points\nClaims that stayed unsupported or that the human left undecided. Write \"None.\" if there are none.",
     dependsOn: ["approve"],
     requiresApproval: false,
   },
@@ -81,7 +81,7 @@ export async function createRoster(projectId: string) {
       name: DAEDALUS,
       provider: "openai",
       model: modelFor("openai"),
-      role: "The Challenger. Checks the draft against the same goal: what is incorrect, unsupported, outdated, contradicted or missing. Reviews the work, never writes an answer of its own.",
+      role: "The fact-checker. Checks each claim in the draft against the sources and the web, toward the same goal, and labels it supported, unsupported or wrong. Never writes an answer of its own.",
       status: "idle",
     },
   });

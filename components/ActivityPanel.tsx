@@ -38,8 +38,8 @@ export function activityRows(steps: ThreadSteps, approvedAt: string | null): Row
   });
   return [
     row(1, "Odysseus (Claude)", "Draft", "Drafts from your brief and sources.", steps.draft),
-    row(2, "Daedalus (GPT)", "Challenge", "Checks the draft against your goal: what is unsupported, missing or out of date.", steps.challenge),
-    row(3, "You", "Judge", "Accept, reject or edit each issue, then tie off or revise.", steps.judge),
+    row(2, "Daedalus (GPT)", "Challenge", "Fact-checks each claim: supported, unsupported or wrong, with evidence.", steps.challenge),
+    row(3, "You", "Judge", "Accept, reject or edit each flagged claim, then tie off or revise.", steps.judge),
     row(4, "Odysseus (Claude)", "Revise", "Writes the tied-off answer from the draft you judged.", steps.tieOff),
     { n: 5, who: "You", step: "Approve", what: "Approve the deliverable.", status: approvedAt ? "done" : "pending", at: approvedAt },
   ];

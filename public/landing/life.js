@@ -374,17 +374,17 @@
       waiting(false);
       place(0);
       active("d");
-      say("Odysseus writes the draft from your brief.");
+      say("Odysseus answers from your brief and sources.");
       return pause(1500, id)
         .then(function (ok) { if (!ok) return; say("Ariadne hands it along the thread…"); return travel(at.d, at.o, 1400, id); })
-        .then(function () { if (id !== run) return; active("o"); say("Daedalus, a different model, tries to break it: what is wrong, unsupported or missing."); return pause(2100, id); })
+        .then(function () { if (id !== run) return; active("o"); say("Daedalus, a different model, fact-checks each claim: supported, unsupported or wrong."); return pause(2100, id); })
         .then(function (ok) { if (!ok) return; return travel(at.o, at.y, 1400, id); })
         .then(function () { if (id !== run) return; stopAtKnot(); });
     }
     function stopAtKnot() {
       active("y");
       waiting(true);
-      say("It stops at your knot. You decide what survives.");
+      say("It stops at your knot. You judge only the flagged claims.");
     }
 
     tie.addEventListener("click", function () {
@@ -395,7 +395,7 @@
         if (id !== run) return;
         active(null);
         nodes.t.classList.add("is-tied");
-        say("Tied off. The answer is yours, and it says so.");
+        say("Tied off, with the checks attached.");
         again.hidden = false;
         again.focus({ preventScroll: true });
       });
@@ -407,7 +407,7 @@
       say("Sent back with your note. Odysseus revises…");
       travel(at.y, at.d, 1400, id)
         .then(function () { if (id !== run) return; active("d"); return pause(1200, id); })
-        .then(function (ok) { if (!ok) return; say("…Daedalus challenges the new draft, and it comes back to you."); return travel(at.d, at.y, 1600, id); })
+        .then(function (ok) { if (!ok) return; say("…Daedalus checks the new draft, and it comes back to you."); return travel(at.d, at.y, 1600, id); })
         .then(function () { if (id !== run) return; stopAtKnot(); tie.focus({ preventScroll: true }); });
     });
     again.addEventListener("click", function () { pass(); });

@@ -55,6 +55,27 @@ None.
 - Check the sample-size ranges against a power calculation before planning the trial.
 `;
 
+const MOCK_FACTCHECK = `1. Claim: "Reading time fell by 18% on average across the 12 participants."
+   Verdict: supported
+   Evidence: The pilot notes report an 18% mean reduction for n=12.
+   Source: pilot.pdf
+   Severity: high
+
+2. Claim: "Follow-up is planned for 2027."
+   Verdict: unsupported
+   Evidence: No follow-up date appears in the shared sources or in what I found.
+   Source: none
+   Severity: low
+   Fix: Remove the date or cite where it comes from.
+
+3. Claim: "A crossover with washout needs 24–30 participants."
+   Verdict: wrong
+   Evidence: The sample size depends on the expected effect and variance; the pilot reports no variance, so no range can be stated.
+   Source: https://example.org/sample-size-guide
+   Severity: medium
+   Fix: Say the sample size needs a power calculation once variance is known.
+`;
+
 const MOCK_GPT = `1. Claim: The intervention is widely considered best practice in reading research.
    Objection: Unsupported — the draft cites no source for this, and the pilot notes say nothing about wider adoption.
    Opinion: I know of no consensus statement that names this intervention as best practice.
@@ -128,6 +149,17 @@ export function startMockLlm(port = 0) {
         model: request.model,
         choices: [{ index: 0, finish_reason: "stop", message: { role: "assistant", content: `${MOCK_GPT}\n<!-- mock #${n} -->` } }],
         usage: { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20 },
+      });
+    }
+    if (req.url?.endsWith("/responses")) {
+      return send(200, {
+        id: `resp_${n}`,
+        object: "response",
+        created_at: Math.floor(Date.now() / 1000),
+        status: "completed",
+        model: request.model,
+        output: [{ id: `msg_${n}`, type: "message", role: "assistant", status: "completed", content: [{ type: "output_text", text: `${MOCK_FACTCHECK}\n<!-- mock #${n} -->`, annotations: [] }] }],
+        usage: { input_tokens: 10, output_tokens: 10, total_tokens: 20 },
       });
     }
     return send(404, { error: { message: `mock: unknown path ${req.url}` } });

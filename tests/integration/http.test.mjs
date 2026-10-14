@@ -125,29 +125,26 @@ test("L1. signed out: / is the public landing page; /dashboard and other app pag
   const landing = await call("GET", "/", { from: ip(40) });
   assert.equal(landing.status, 200);
   assert.match(landing.text, /Tie the Thread/);
-  assert.match(landing.text, /Ariadne helps you verify important AI-generated work by having one AI model challenge another, while you remain the final judge\./, "the one-liner");
-  assert.match(landing.text, /Important AI work/);
-  assert.match(landing.text, /Ariadne has one AI create the work and another try to break it/);
+  assert.match(landing.text, /Stop guessing which AI answers are true\. Ariadne makes two models check each other, claim by claim, so you only verify what(&#x27;|')s flagged\./, "the one-liner");
+  assert.match(landing.text, /AI fact-checking for researchers/);
   assert.match(landing.text, /Already have an account\? <a href="\/sign-in">Sign in<\/a>/);
   assert.match(landing.text, /href="\/sign-up"/);
   assert.match(landing.text, /instagram\.com\/ariadne_agents/);
   assert.match(landing.text, /x\.com\/ariadne_agents/);
-  // Roles as fixed by the founder: Odysseus (Claude) drafts, Daedalus (GPT) challenges.
-  assert.match(landing.text, /Odysseus drafts/);
-  assert.match(landing.text, /Daedalus challenges/);
+  // Roles: Odysseus (Claude) answers, Daedalus (GPT) fact-checks.
+  assert.match(landing.text, /Odysseus answers/);
+  assert.match(landing.text, /Daedalus fact-checks/);
+  assert.match(landing.text, /Supported, Unsupported or Wrong/);
+  assert.match(landing.text, /root-servers\.org/, "the DNS example cites its source");
   assert.doesNotMatch(landing.text, /Daedalus drafts|Odysseus challenges|\bScout\b|\bMaker\b/);
-  // Honest status: what is not built yet is labelled, never shown as working.
-  assert.match(landing.text, /Coming next/, "unbuilt steps are labelled");
-  for (const unbuilt of ["Quick Answer", "Deep Work", "Re-challenge", "web search"]) assert.match(landing.text, new RegExp(unbuilt), unbuilt);
-  assert.match(landing.text, /They don(&#x27;|')t search the web yet/);
-  assert.match(landing.text, /not real output/, "the example is labelled as an illustration");
+  assert.doesNotMatch(landing.text, /try to break|tries to break|prove (it|the draft) wrong|Board\b|Saad/i, "no adversarial or stale wording");
   assert.doesNotMatch(landing.text, /eliminates hallucinations|hallucination-free|guaranteed accura/i, "no reliability claims");
   for (const path of ["/dashboard", "/dashboard?project=abc", "/tree", "/settings"]) {
     const res = await call("GET", path, { from: ip(40) });
     assert.equal(res.status, 307, path);
     assert.equal(new URL(res.headers.get("location"), BASE).pathname, "/sign-in", path);
   }
-  // Old board links still find the board (which then asks a signed-out visitor to sign in).
+  // Old board links still resolve (to the Workspace door, which asks a signed-out visitor to sign in).
   const old = await call("GET", "/?project=abc&new=1", { from: ip(40) });
   assert.equal(old.status, 307);
   const to = new URL(old.headers.get("location"), BASE);
@@ -155,7 +152,7 @@ test("L1. signed out: / is the public landing page; /dashboard and other app pag
   assert.equal(to.search, "?project=abc&new=1");
   const signUp = await call("GET", "/sign-up", { from: ip(40) });
   assert.equal(signUp.status, 200);
-  assert.match(signUp.text, /one AI drafts the answer, another tries to break it, and you decide/, "sign-up says what comes next");
+  assert.match(signUp.text, /GPT fact-checks each claim against your sources and the web, and you judge only what it flags/, "sign-up says what comes next");
 });
 
 test("T1. sign-up needs a Turnstile pass; shape errors come first; nothing is created on failure", async () => {
@@ -175,53 +172,35 @@ test("T1. sign-up needs a Turnstile pass; shape errors come first; nothing is cr
   assert.equal(sql(`SELECT inviteCode FROM "User" WHERE email = ?`, email)[0].inviteCode, null, "open sign-up records no invite");
 });
 
-test("board + tree pages load for a signed-in user; onboarding creates the project", async () => {
-  // A signed-in visitor still gets the landing page at /; "Tie the Thread" (/sign-up) and
-  // "Sign in" then take them on to the board.
+test("workspace door: old board/tree URLs redirect; /new and the workspace load; a new project has four steps", async () => {
   const home = await call("GET", "/", { cookie: state.cookie });
   assert.equal(home.status, 200);
   assert.match(home.text, /Tie the Thread/);
-  assert.match(home.text, /instagram\.com\/ariadne_agents/);
-  for (const door of ["/sign-up", "/sign-in"]) {
+  // No project yet: the old Board and Tree URLs send you to /new.
+  for (const door of ["/dashboard", "/tree"]) {
     const res = await call("GET", door, { cookie: state.cookie });
-    // app/loading.tsx makes the page stream, so Next sends the redirect in the page
-    // (200 + NEXT_REDIRECT) rather than as a 307. Either way the browser lands on the board.
-    if (res.status === 307) {
-      assert.equal(new URL(res.headers.get("location"), BASE).pathname, "/dashboard", door);
-    } else {
-      assert.equal(res.status, 200, door);
-      assert.match(res.text, /NEXT_REDIRECT[^"]*\/dashboard|url=\/dashboard/, door);
-      assert.doesNotMatch(res.text, /Create your account|Create account/, door);
-    }
+    const where = res.status === 307 ? new URL(res.headers.get("location"), BASE).pathname : (res.text.match(/NEXT_REDIRECT[^"]*?(\/[a-z]+)/)?.[1] ?? "");
+    assert.equal(where, "/new", door);
   }
-  const intro = await call("GET", "/dashboard", { cookie: state.cookie });
+  const intro = await call("GET", "/new", { cookie: state.cookie });
   assert.equal(intro.status, 200);
-  assert.match(intro.text, /What are you making\?/);
-  assert.match(intro.text, /one AI model challenge another, while you remain the final judge/, "first-run copy carries the one-liner");
-  assert.match(intro.text, /How Ariadne works/, "first-run orientation");
-  assert.match(intro.text, /Another AI tries to break it\./);
-  assert.match(intro.text, /What are you trying to figure out\?/, "the empty box asks a question");
-  assert.match(intro.text, /Nothing runs yet/, "Continue is honest: it does not call a model");
-  assert.doesNotMatch(intro.text, /human middleware/);
-  const created = await call("POST", "/api/onboarding", { cookie: state.cookie, body: { name: "Coffee cart", brief: "Landing page for a coffee cart." } });
-  assert.equal(created.status, 201);
-  state.projectId = created.json.id;
-  const board = await call("GET", `/dashboard?project=${state.projectId}`, { cookie: state.cookie });
-  assert.equal(board.status, 200);
-  assert.match(board.text, /Coffee cart/);
-  // A brand-new account without an invite is in its first-day trial.
-  assert.match(board.text, /6(<!-- -->)?\/(<!-- -->)?6(<!-- -->)? runs left/);
+  assert.match(intro.text, /What do you need fact-checked\?/);
+  assert.match(intro.text, /How many DNS root server instances are in Canada\?/, "the sample question");
+  const created = await call("POST", "/api/projects", { cookie: state.cookie, body: { name: "Coffee cart", brief: "Landing page for a coffee cart." } });
+  assert.equal(created.status, 201, created.text);
+  state.projectId = created.json.project?.id ?? created.json.id;
+  const ws = await call("GET", `/p/${state.projectId}`, { cookie: state.cookie });
+  assert.equal(ws.status, 200);
+  assert.match(ws.text, /Coffee cart/);
+  const dash = await call("GET", `/dashboard?project=${state.projectId}`, { cookie: state.cookie });
+  const where = dash.status === 307 ? new URL(dash.headers.get("location"), BASE).pathname : (dash.text.match(/NEXT_REDIRECT[^"]*?(\/p\/[a-z0-9]+)/)?.[1] ?? "");
+  assert.equal(where, `/p/${state.projectId}`, "old board link opens the Workspace");
   const settings = await call("GET", "/settings", { cookie: state.cookie });
-  assert.match(settings.text, /data-trial/);
-  const signedInHome = await call("GET", `/?project=${state.projectId}`, { cookie: state.cookie });
-  assert.equal(signedInHome.status, 307);
-  assert.equal(new URL(signedInHome.headers.get("location"), BASE).search, `?project=${state.projectId}`);
-  const tree = await call("GET", `/tree?project=${state.projectId}`, { cookie: state.cookie });
-  assert.equal(tree.status, 200);
+  assert.equal(settings.status, 200);
   const project = await call("GET", `/api/projects/${state.projectId}`, { cookie: state.cookie });
   state.tasks = project.json.tasks;
   state.agents = project.json.agents;
-  assert.equal(state.tasks.length, 5);
+  assert.equal(state.tasks.length, 4);
 });
 
 test("8. over-long brief / title / instructions / note rejected server-side with a clear error", async () => {
@@ -247,10 +226,10 @@ test("8. over-long brief / title / instructions / note rejected server-side with
   state.capsChecked = true;
 });
 
-test("full HTTP flow: run -> gate -> note cap -> request changes -> history kept -> approve -> build", async () => {
+test("full HTTP flow: draft -> fact-check -> judge -> request changes -> history kept -> approve -> tie off", async () => {
   const c = state.cookie;
-  const [research, draft, review, gate, build] = state.tasks;
-  for (const t of [research, draft, review]) {
+  const [draft, review, gate, build] = state.tasks;
+  for (const t of [draft, review]) {
     const res = await call("POST", `/api/tasks/${t.id}/run`, { cookie: c });
     assert.equal(res.status, 200, res.text);
   }
@@ -262,7 +241,7 @@ test("full HTTP flow: run -> gate -> note cap -> request changes -> history kept
   assert.equal(res.status, 400);
   assert.equal(res.json.error, "Note is too long (2,001 characters). The limit is 2,000.");
 
-  res = await call("POST", `/api/tasks/${gate.id}/approve`, { cookie: c, body: { approved: false, note: "Shorter hero." } });
+  res = await call("POST", `/api/tasks/${gate.id}/approve`, { cookie: c, body: { approved: false, note: "Shorter answer." } });
   assert.equal(res.status, 200, res.text);
   const history = await call("GET", `/api/tasks/${draft.id}/runs`, { cookie: c });
   assert.equal(history.status, 200);
@@ -275,27 +254,24 @@ test("full HTTP flow: run -> gate -> note cap -> request changes -> history kept
   assert.equal(res.status, 200);
   assert.equal((await call("POST", `/api/tasks/${build.id}/run`, { cookie: c })).status, 200);
   project = (await call("GET", `/api/projects/${state.projectId}`, { cookie: c })).json;
-  assert.deepEqual(project.tasks.map((t) => t.status), ["done", "done", "done", "done", "done"]);
+  assert.deepEqual(project.tasks.map((t) => t.status), ["done", "done", "done", "done"]);
   const draftRuns = (await call("GET", `/api/tasks/${draft.id}/runs`, { cookie: c })).json;
   assert.equal(draftRuns.runs.length, 2);
   assert.equal(draftRuns.output, draftRuns.runs[1].output, "latest shown");
-  const handoff = project.events.find((e) => e.type === "handoff" && e.taskId === draft.id);
-  assert.equal(handoff.fromTaskId, research.id);
-  assert.ok(handoff.runId && handoff.payload?.fromAgent === "Odysseus");
   const approved = project.events.find((e) => e.type === "approved");
   assert.equal(approved.payload.approver, "You");
 
-  // The board (server-rendered) shows handoffs built from the structured columns. The Red
-  // Thread redesign replaced the Activity cards with a ledger that shows the latest entries;
-  // after the full flow the newest handoff is the approved gate handing over to Odysseus,
-  // who writes the final version.
-  const board = await call("GET", `/dashboard?project=${state.projectId}`, { cookie: c });
-  assert.equal(board.status, 200);
-  assert.match(board.text, /You → Odysseus · approved draft/, "ledger handoff rendered from fromTaskId/payload");
+  // The thread endpoint returns the run history; export waits for the final approval.
+  const thread = await call("GET", `/api/projects/${state.projectId}/thread`, { cookie: c });
+  assert.equal(thread.status, 200);
+  assert.ok(thread.json.runs.length >= 5);
+  assert.equal((await call("GET", `/api/projects/${state.projectId}/export`, { cookie: c })).status, 409);
 
-  // Runs are private.
+  // Runs, thread and export are private.
   const stranger = await call("POST", "/api/auth/sign-up", { body: { email: `stranger-${run}@test.dev`, password: "password123", turnstileToken: "pass" }, from: ip(11) });
   assert.equal((await call("GET", `/api/tasks/${draft.id}/runs`, { cookie: stranger.cookie })).status, 404);
+  assert.equal((await call("GET", `/api/projects/${state.projectId}/thread`, { cookie: stranger.cookie })).status, 404);
+  assert.equal((await call("GET", `/api/projects/${state.projectId}/export`, { cookie: stranger.cookie })).status, 404);
 });
 
 test("P2. the project poll answers 304 while nothing changed, 200 when something did; reset is gone", async () => {

@@ -4,6 +4,7 @@ import { LocalTime } from "@/components/LocalTime";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityTab, StatusIcon } from "@/components/ActivityPanel";
+import { ClaimTable } from "@/components/ClaimTable";
 import { ThreadPanel } from "@/components/ThreadPanel";
 import { diffParagraphs, type DiffLine, type Knot } from "@/lib/knots";
 import { BrandMark } from "@/components/BrandMark";
@@ -74,6 +75,7 @@ export function Workspace({ initial }: { initial: WorkspaceData }) {
   const [anchored, setAnchored] = useState<Set<string>>(new Set());
   const docRef = useRef<HTMLDivElement>(null);
   const [knot, setKnot] = useState<Knot | null>(null);
+  const [redraftNote, setRedraftNote] = useState("");
   const [view, setView] = useState<{ title: string; lines: DiffLine[] | null; text: string | null } | null>(null);
 
   const { project } = data;
@@ -124,7 +126,7 @@ export function Workspace({ initial }: { initial: WorkspaceData }) {
 
   async function runSteps(ids: string[]) {
     for (const id of ids) {
-      setBusy(id === steps.challenge?.id ? "Daedalus (GPT) is challenging the draft…" : id === steps.tieOff?.id ? "Odysseus is writing the tied-off answer…" : "Odysseus (Claude) is drafting…");
+      setBusy(id === steps.challenge?.id ? "Daedalus (GPT) is fact-checking the draft…" : id === steps.tieOff?.id ? "Odysseus is writing the tied-off answer…" : "Odysseus (Claude) is drafting…");
       await post(`/api/tasks/${id}/run`);
     }
   }
@@ -185,7 +187,7 @@ export function Workspace({ initial }: { initial: WorkspaceData }) {
     if (!window.confirm(`Run “${k.step}” again? The steps after it are cleared and run again when you click. Earlier versions stay in the thread.`)) return;
     void selectKnot(null);
     const id = k.taskId;
-    void act(k.kind === "challenge" ? "Daedalus (GPT) is challenging the draft again…" : "Odysseus (Claude) is writing again…", () => post(`/api/tasks/${id}/rerun`).then(() => undefined));
+    void act(k.kind === "challenge" ? "Daedalus (GPT) is fact-checking the draft again…" : "Odysseus (Claude) is writing again…", () => post(`/api/tasks/${id}/rerun`).then(() => undefined));
   }
 
   function showInDocument(key: string) {
@@ -221,13 +223,47 @@ export function Workspace({ initial }: { initial: WorkspaceData }) {
         return <p className="text-sm text-ink-dim">This project was made with an older custom thread that the Workspace cannot run. Its outputs are under Activity. <Link className="text-thread" href="/new">Start a new project</Link>.</p>;
       case "run": {
         const revising = action.task.id === steps.draft?.id && action.task.instructions.includes("Human requested changes:");
-        const label = revising ? "Revise draft, then Challenge again" : action.label;
+        const label = revising ? "Revise the draft" : action.label;
         return (
           <button className={primary} onClick={() => void act(label, () => runSteps(action.then ? [action.task.id, action.then.id] : [action.task.id]))}>
             {label} · uses {action.runs} run{action.runs > 1 ? "s" : ""}
           </button>
         );
       }
+      case "review_draft":
+        return (
+          <div className="flex w-full flex-wrap items-center gap-2">
+            <span className="text-sm text-ink-dim">Read the draft. Is it what you asked for?</span>
+            <button className={primary} onClick={() => void act("Daedalus (GPT) is fact-checking the draft…", () => runSteps([action.challenge.id]))}>
+              Draft looks right, fact-check it
+            </button>
+            <details className="relative">
+              <summary className={`${secondary} cursor-pointer list-none`}>Not right yet: redraft</summary>
+              <div className="absolute left-0 z-20 mt-1 w-[min(420px,80vw)] rounded-lg bg-raised p-3 ring-1 ring-line">
+                <textarea
+                  rows={3}
+                  value={redraftNote}
+                  onChange={(e) => setRedraftNote(e.target.value)}
+                  maxLength={2000}
+                  placeholder="What should Odysseus change? e.g. answer the exact question first, use my sources"
+                  className="w-full rounded-lg bg-canvas px-2 py-1 text-sm ring-1 ring-line"
+                />
+                <button
+                  className={`${primary} mt-2`}
+                  disabled={!redraftNote.trim()}
+                  onClick={() => {
+                    const note = redraftNote.trim();
+                    setRedraftNote("");
+                    void act("Odysseus (Claude) is redrafting…", () => post(`/api/tasks/${action.task.id}/steer`, { note }).then(() => undefined));
+                  }}
+                >
+                  Redraft with my feedback
+                </button>
+                <p className="mt-1 text-[11px] text-ink-faint">Each redraft adds a knot to the thread. Redrafts count toward this project&apos;s rerun limit.</p>
+              </div>
+            </details>
+          </div>
+        );
       case "open_judge":
         return <button className={primary} onClick={() => void act("Opening Judge…", () => post(`/api/tasks/${action.task.id}/run`).then(() => undefined))}>Open Judge</button>;
       case "judge":
@@ -275,7 +311,7 @@ export function Workspace({ initial }: { initial: WorkspaceData }) {
   })();
 
   function approveNow() {
-    if (openCount > 0 && !window.confirm(`${openCount} issue${openCount === 1 ? " is" : "s are"} still open or under investigation. Approve the deliverable anyway?`)) return;
+    if (openCount > 0 && !window.confirm(`${openCount} flagged claim${openCount === 1 ? " is" : "s are"} still open or under investigation. Approve the deliverable anyway?`)) return;
     void act("Approving…", async () => {
       const res = (await post(`/api/projects/${project.id}/approve`, { hash: hashText(doc.text ?? "") })) as { promptFeedback?: boolean };
       if (res.promptFeedback) setShowFeedback(true);
@@ -330,7 +366,7 @@ export function Workspace({ initial }: { initial: WorkspaceData }) {
   );
   const centreTabs: { id: Tab; label: string }[] = [
     { id: "document", label: "Deliverable" },
-    { id: "issues", label: `Review Issues${issues.length ? ` (${openCount})` : ""}` },
+    { id: "issues", label: `Flagged claims${issues.length ? ` (${openCount})` : ""}` },
     { id: "activity", label: "Activity" },
   ];
   const mobileTabs: { id: Tab; label: string }[] = [{ id: "context", label: "Context" }, ...centreTabs];
@@ -372,7 +408,7 @@ export function Workspace({ initial }: { initial: WorkspaceData }) {
               type="button"
               onClick={() => (approveReady ? approveNow() : setTab("issues"))}
               disabled={Boolean(busy) || (!approveReady && !judging)}
-              title={approveReady ? "Your sign-off on the tied-off answer" : judging ? "Judge the issues first" : "Available once the answer is tied off"}
+              title={approveReady ? "Your sign-off on the tied-off answer" : judging ? "Judge the flagged claims first" : "Available once the answer is tied off"}
               className="rounded-lg bg-thread px-3 py-1.5 text-sm font-medium text-raised hover:bg-thread-bright disabled:opacity-50"
             >
               Review & Approve
@@ -394,7 +430,7 @@ export function Workspace({ initial }: { initial: WorkspaceData }) {
       <div className="sticky top-0 z-10 flex border-b border-line bg-panel lg:hidden" role="tablist">
         {mobileTabs.map((t) => (
           <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)} className={`flex-1 py-2 text-[13px] ${tab === t.id ? "border-b-2 border-thread font-medium" : "text-ink-dim"}`}>
-            {t.id === "issues" ? `Issues${issues.length ? ` (${openCount})` : ""}` : t.label}
+            {t.id === "issues" ? `Flagged${issues.length ? ` (${openCount})` : ""}` : t.label}
           </button>
         ))}
       </div>
@@ -445,15 +481,18 @@ export function Workspace({ initial }: { initial: WorkspaceData }) {
                   ) : null}
                 </div>
                 {doc.text ? (
+                  <>
                   <div ref={docRef} data-testid="document" className="markdown paper">
                     <MarkdownBody text={doc.text} />
                   </div>
+                  {doc.from === "tieOff" ? <ClaimTable challengeOutput={steps.challenge?.output} decisions={data.decisions} /> : null}
+                  </>
                 ) : (
                   <div ref={docRef} className="text-sm leading-normal text-ink-dim">
                     <h2 className="font-serif text-3xl text-ink">{project.name}</h2>
                     <p className="mt-4">Nothing drafted yet.</p>
                     <p className="mt-2">
-                      When you click <b>Draft and Challenge</b>, Odysseus (Claude) writes a first answer from your brief and sources. Daedalus (GPT) then checks it against the same goal: what&apos;s unsupported, missing, or out of date. You decide on each issue, Odysseus revises, and you approve the final result. Nothing runs until you click.
+                      When you click <b>Draft</b>, Odysseus (Claude) answers from your brief and sources. Once the draft looks right to you, Daedalus (GPT) fact-checks it claim by claim against your sources and the web, and labels each claim Supported, Unsupported or Wrong, with evidence. You judge only the flagged claims, Odysseus revises, and you approve an answer with the checks attached. Nothing runs until you click.
                     </p>
                   </div>
                 )}

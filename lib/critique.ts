@@ -3,9 +3,10 @@
   deterministic: no model is called, nothing is stored. The knot shows Daedalus's
   challenge as discrete disputes; a re-spun draft is compared with the version before it.
 
-  Everything here is a heuristic over plain text, so the UI labels it as such
-  ("looks addressed" / "not yet"), never as a verdict. Points without a source in
-  the draft are labelled Opinion — the Worker does not search the web on the free plan.
+  Fact-check output (Claim / Verdict / Evidence / Source / Severity / Fix) parses into
+  flags with a verdict; the verdict is Daedalus's, shown as such. Points with no source
+  are labelled Opinion. The search itself runs on OpenAI's side (lib/agents.ts), so the
+  Worker only parses text, and only in the browser where it can.
 */
 
 export type DisputeConfidence = "high" | "medium" | "low";
@@ -26,7 +27,13 @@ export type CritiqueFlag = {
   confidence: DisputeConfidence | null;
   /** The suggested fix, when the review gives one. */
   fix: string | null;
+  /** Fact-check verdict on the claim, when the review gives one. */
+  verdict: ClaimVerdict | null;
+  /** Source URL or file name behind the evidence, when given. */
+  source: string | null;
 };
+
+export type ClaimVerdict = "supported" | "unsupported" | "wrong";
 
 export type Critique = {
   verdict: string | null;
@@ -115,12 +122,21 @@ export function parseFlagText(raw: string, fallbackSection: string | null = null
     opinion: false,
     confidence: null,
     fix: fix || null,
+    verdict: null,
+    source: null,
   };
 }
 
 const FIELD_LINE =
-  /^(?:\*\*|__)?(claim|objection|issue|problem|evidence|opinion|confidence|suggested fix|proposed fix|fix|suggestion)(?:\*\*|__)?\s*[:—–]\s*(.*)$/i;
+  /^(?:\*\*|__)?(claim|verdict|objection|issue|problem|evidence|opinion|source|confidence|severity|suggested fix|proposed fix|fix|suggestion)(?:\*\*|__)?\s*[:—–]\s*(.*)$/i;
 const CONFIDENCE = /\b(high|medium|low)\b/i;
+
+function parseVerdict(raw: string): ClaimVerdict | null {
+  const match = raw.match(/\b(supported|unsupported|wrong|incorrect|false|contradicted)\b/i);
+  if (!match) return null;
+  const word = match[1].toLowerCase();
+  return word === "supported" ? "supported" : word === "unsupported" ? "unsupported" : "wrong";
+}
 
 function parseConfidence(raw: string): DisputeConfidence | null {
   const match = raw.match(CONFIDENCE);
@@ -134,7 +150,7 @@ function parseConfidence(raw: string): DisputeConfidence | null {
 export function parseAtomicDispute(raw: string, fallbackSection: string | null = null): Omit<CritiqueFlag, "id"> | null {
   const lines = raw
     .replace(/\r\n?/g, "\n")
-    .split(/\n|(?:;\s+)(?=(?:\*\*|__)?(?:claim|objection|issue|problem|evidence|opinion|confidence|suggested fix|proposed fix|fix|suggestion)\b)/i)
+    .split(/\n|(?:;\s+)(?=(?:\*\*|__)?(?:claim|verdict|objection|issue|problem|evidence|opinion|source|confidence|severity|suggested fix|proposed fix|fix|suggestion)\b)/i)
     .map((line) => line.trim())
     .filter(Boolean);
   if (lines.length === 0) return null;
@@ -145,6 +161,8 @@ export function parseAtomicDispute(raw: string, fallbackSection: string | null =
   let opinion = false;
   let confidence: DisputeConfidence | null = null;
   let fix: string | null = null;
+  let verdict: ClaimVerdict | null = null;
+  let source: string | null = null;
   let section: string | null = fallbackSection;
   let sawField = false;
   const loose: string[] = [];
@@ -166,7 +184,9 @@ export function parseAtomicDispute(raw: string, fallbackSection: string | null =
     } else if (key === "opinion") {
       opinion = true;
       evidence = value || null;
-    } else if (key === "confidence") confidence = parseConfidence(value);
+    } else if (key === "confidence" || key === "severity") confidence = parseConfidence(value);
+    else if (key === "verdict") verdict = parseVerdict(value);
+    else if (key === "source") source = value && !/^(none|n\/a|-)$/i.test(value) ? value : null;
     else if (key === "fix" || key === "suggested fix" || key === "proposed fix" || key === "suggestion") {
       fix = value ? value.charAt(0).toUpperCase() + value.slice(1) : null;
     }
@@ -184,6 +204,9 @@ export function parseAtomicDispute(raw: string, fallbackSection: string | null =
     }
   }
 
+  if (!issue && claim && verdict) {
+    issue = verdict === "supported" ? "Supported by the evidence." : verdict === "wrong" ? "The evidence contradicts this claim." : "No evidence found for this claim.";
+  }
   if (!issue && claim) {
     // Claim alone with other fields still counts; objection may be missing on a sloppy model.
     const leftover = loose.find((line) => {
@@ -199,6 +222,7 @@ export function parseAtomicDispute(raw: string, fallbackSection: string | null =
   }
   // A dispute that never named Evidence is Opinion unless it already set opinion from the Opinion: line.
   if (!evidence && !opinion) opinion = true;
+  if (source && evidence) opinion = false;
   return {
     section,
     claim,
@@ -207,6 +231,8 @@ export function parseAtomicDispute(raw: string, fallbackSection: string | null =
     opinion,
     confidence,
     fix: fix || null,
+    verdict,
+    source,
   };
 }
 
@@ -240,7 +266,7 @@ export function parseCritique(text: string | null | undefined): Critique {
     if (inFence) continue;
     const trimmed = line.trim();
     if (!trimmed) continue;
-    if (!verdict && VERDICT.test(trimmed)) {
+    if (!verdict && /^\S/.test(line) && !ITEM.test(line) && VERDICT.test(trimmed)) {
       verdict = tidy(trimmed.replace(VERDICT, "")) || null;
       continue;
     }
@@ -272,7 +298,7 @@ export function parseCritique(text: string | null | undefined): Critique {
     if (parent && item.indent > base) {
       // Field-shaped nested bullets ("- Objection: ...") keep a newline for atomic parse;
       // other nested notes still fold with a semicolon.
-      const glue = /^(?:\*\*|__)?(claim|objection|issue|problem|evidence|opinion|confidence|suggested fix|proposed fix|fix|suggestion)\b/i.test(item.text.trim())
+      const glue = /^(?:\*\*|__)?(claim|verdict|objection|issue|problem|evidence|opinion|source|confidence|severity|suggested fix|proposed fix|fix|suggestion)\b/i.test(item.text.trim())
         ? "\n"
         : "; ";
       parent.text += `${glue}${item.text}`;

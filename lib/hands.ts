@@ -1,6 +1,6 @@
 /*
   The hands on the thread. Odysseus (Claude) is the Drafter: researches, drafts, revises.
-  Daedalus (GPT) is the Challenger: checks the draft against your goal. You hold the thread,
+  Daedalus (GPT) fact-checks the draft, claim by claim, toward your goal. You hold the thread,
   as Ariadne did, and judge at every knot. (Until Oct 6 2026 new projects had Daedalus
   drafting and Odysseus reviewing; projects made then keep their own agent roles.)
 
@@ -22,7 +22,7 @@ export function handName(name: string): string {
 
 /** The fixed roster shown in Settings. Read-only: no model switching in V1. */
 export const HANDS = [
-  { name: ODYSSEUS, provider: "anthropic", family: "Claude", does: "The Drafter. Researches the brief, writes the answer and revises it." },
-  { name: DAEDALUS, provider: "openai", family: "GPT", does: "The Challenger. Checks the draft against your goal: what is unsupported, missing or out of date. It improves the work; it doesn't write a second answer." },
-  { name: HUMAN_HAND, provider: "human", family: "Human", does: "The judge. Nothing is final until you tie it off." },
+  { name: ODYSSEUS, provider: "anthropic", family: "Claude", does: "Answers from your brief and sources, and revises with your decisions." },
+  { name: DAEDALUS, provider: "openai", family: "GPT", does: "Fact-checks the draft claim by claim against your sources and the web, and labels each claim supported, unsupported or wrong, with evidence. It doesn't write a second answer." },
+  { name: HUMAN_HAND, provider: "human", family: "Human", does: "You judge the flagged claims. Nothing moves on, and nothing is final, until you say so." },
 ] as const;

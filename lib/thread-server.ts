@@ -58,16 +58,26 @@ export async function exportRecord(projectId: string, userId: string): Promise<{
   out.push("## Brief", "", project.brief.trim() || "(none)", "");
   out.push("## Sources", "", ...(sources.length ? sources.map((s) => `- ${s.name}`) : ["- (none)"]), "");
   out.push("## Approved answer", "", doc.text ?? "(none)", "");
-  out.push("## Issues and decisions", "");
+  const latest = parseCritique(steps.challenge?.output ?? "").flags.filter((f) => f.verdict);
+  if (latest.length) {
+    const cell = (t: string) => t.replace(/\|/g, "\\|").replace(/\s+/g, " ").trim();
+    out.push("## Claims checked", "", "| Claim | Verdict | Your decision | Source |", "| --- | --- | --- | --- |");
+    for (const f of latest) {
+      const d = decisions.get(issueKey(f));
+      out.push(`| ${cell(f.claim ?? f.issue)} | ${f.verdict} | ${f.verdict === "supported" ? "—" : d?.state ?? "not decided"} | ${cell(f.source ?? "none")} |`);
+    }
+    out.push("", "A second model's fact-check of the draft, not a guarantee.", "");
+  }
+  out.push("## Fact-check rounds and decisions", "");
   let round = 0;
   for (const run of data.runs.filter((r) => r.output).sort((a, b) => (a.completedAt ?? a.createdAt).localeCompare(b.completedAt ?? b.createdAt))) {
     round++;
     const flags = parseCritique(run.output).flags;
-    out.push(`### Challenge round ${round}`, "");
+    out.push(`### Fact-check round ${round}`, "");
     if (!flags.length) out.push("No issues raised.", "");
     for (const f of flags) {
       const d = decisions.get(issueKey(f));
-      out.push(`- **${f.confidence ?? "unrated"}** ${f.claim ? `“${f.claim}”: ` : ""}${f.issue}`);
+      out.push(`- **${f.verdict ?? f.confidence ?? "unrated"}** ${f.claim ? `“${f.claim}”: ` : ""}${f.issue}${f.evidence ? ` Evidence: ${f.evidence}` : ""}${f.source ? ` Source: ${f.source}` : ""}`);
       out.push(`  - Decision: ${d ? d.state : "not decided"}${d?.edit ? ` (correction: ${d.edit})` : ""}`);
     }
     out.push("");

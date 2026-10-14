@@ -93,18 +93,47 @@ async function callAnthropic(model: string, system: string, user: string) {
   return text;
 }
 
+/**
+ * Daedalus fact-checks with OpenAI's hosted web search (Responses API) when the model
+ * and account allow it. The search runs on OpenAI's side, so the Worker only waits on
+ * one fetch (wall time, not CPU). Any failure falls back to the plain call below,
+ * which says it cannot search. OPENAI_WEB_SEARCH=off turns it off.
+ */
+async function callOpenAIWithSearch(client: OpenAI, model: string, system: string, user: string) {
+  const response = await client.responses.create(
+    {
+      model,
+      instructions: system,
+      input: `${user}\n\n(Web search is available for this check. Cite the URLs you used.)`,
+      tools: [{ type: "web_search" }],
+      max_output_tokens: MAX_OUTPUT_TOKENS_OPENAI,
+    },
+    { timeout: 150_000 },
+  );
+  const text = response.output_text?.trim() ?? "";
+  if (!text) throw new Error("OpenAI returned an empty response");
+  return text;
+}
+
 async function callOpenAI(model: string, system: string, user: string) {
   const client = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
     maxRetries: 0,
     timeout: 60_000,
   });
+  if (process.env.OPENAI_WEB_SEARCH !== "off") {
+    try {
+      return await callOpenAIWithSearch(client, model, system, user);
+    } catch (error) {
+      console.warn("web search check unavailable, using plain check:", error instanceof Error ? error.message.slice(0, 200) : "unknown");
+    }
+  }
   const response = await client.chat.completions.create({
     model,
     max_completion_tokens: MAX_OUTPUT_TOKENS_OPENAI,
     messages: [
       { role: "system", content: system },
-      { role: "user", content: user },
+      { role: "user", content: `${user}\n\n(Web search is not available for this check.)` },
     ],
   });
   const text = response.choices[0]?.message?.content?.trim() ?? "";

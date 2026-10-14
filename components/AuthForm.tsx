@@ -130,7 +130,7 @@ export function AuthForm({
 
   const copy =
     mode === "sign-up"
-      ? { eyebrow: "The door", title: "Begin a thread", lede: "Create your account. Next, you tell Ariadne what you need to know: one AI drafts the answer, another checks it against your goal, and you decide." }
+      ? { eyebrow: "The door", title: "Begin a thread", lede: "Create your account. Next, you tell Ariadne what you need to know: Claude answers, GPT fact-checks each claim against your sources and the web, and you judge only what it flags." }
       : mode === "verify"
         ? { eyebrow: "One knot", title: "Check your email", lede: "Enter the 6-digit code. It expires in 15 minutes." }
         : { eyebrow: "The door", title: "Pick up the thread", lede: "Your work is where you left it." };

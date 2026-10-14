@@ -4,8 +4,8 @@
   Pure and deterministic; the server sends small rows and the browser builds knots,
   so the Worker does no parsing for it.
 */
-import { parseCritique } from "@/lib/critique";
-import { issueKey, issueTitle, type ThreadSteps } from "@/lib/workspace";
+import { parseCritique, type ClaimVerdict, type CritiqueFlag } from "@/lib/critique";
+import { issueKey, issueTitle, stripQuotes, type ThreadSteps } from "@/lib/workspace";
 
 export type ThreadRun = {
   id: string;
@@ -54,6 +54,16 @@ export function buildKnots(data: ThreadData, steps: ThreadSteps): Knot[] {
   const claimed = new Set<string>();
   const version = new Map<string, number>();
   const knots: Knot[] = [];
+  const owner = new Map<string, string>();
+  for (const run of runs) {
+    if (role(run.taskId) !== "challenge" || !VERSIONED.has(run.outcome)) continue;
+    for (const f of parseCritique(run.output ?? "").flags) {
+      const key = issueKey(f);
+      const d = decisions.get(key);
+      if (!d) continue;
+      if (!owner.has(key) || time(run) <= d.updatedAt) owner.set(key, run.id);
+    }
+  }
 
   for (const run of runs) {
     const r = role(run.taskId)!;
@@ -65,23 +75,25 @@ export function buildKnots(data: ThreadData, steps: ThreadSteps): Knot[] {
     }
     if (r === "challenge") {
       const flags = parseCritique(run.output ?? "").flags;
-      const high = flags.filter((f) => f.confidence === "high").length;
+      const v = verdictCounts(flags);
       knots.push({
         ...base,
         kind: "challenge",
         step: "Challenge",
         actor: "Daedalus (GPT)",
-        summary: flags.length === 0 ? "No issues raised" : `${plural(flags.length, "issue")} raised${high ? `, ${high} high` : ""}`,
-        lines: flags.map((f) => `${f.confidence ? `${f.confidence[0].toUpperCase()}${f.confidence.slice(1)} · ` : ""}${issueTitle(f)}`),
+        summary: v.checked
+          ? `${plural(v.checked, "claim")} checked: ${[v.supported && `${v.supported} supported`, v.unsupported && `${v.unsupported} unsupported`, v.wrong && `${v.wrong} wrong`].filter(Boolean).join(", ")}`
+          : flags.length === 0
+            ? "No issues raised"
+            : `${plural(flags.length, "issue")} raised${flags.some((f) => f.confidence === "high") ? `, ${flags.filter((f) => f.confidence === "high").length} high` : ""}`,
+        lines: flags.map((f) => `${f.verdict ? `${VERDICT_LABEL[f.verdict]} · ` : f.confidence ? `${f.confidence[0].toUpperCase()}${f.confidence.slice(1)} · ` : ""}${f.claim ? stripQuotes(f.claim).slice(0, 140) : issueTitle(f)}`),
       });
-      const mine = flags.map((f) => ({ key: issueKey(f), title: issueTitle(f) })).filter((f) => decisions.has(f.key) && !claimed.has(f.key));
+      const mine = flags.map((f) => ({ key: issueKey(f), title: f.claim ? stripQuotes(f.claim).slice(0, 100) : issueTitle(f) })).filter((f) => owner.get(f.key) === run.id && !claimed.has(f.key));
       if (mine.length) {
         mine.forEach((f) => claimed.add(f.key));
         const ds = mine.map((f) => ({ ...f, d: decisions.get(f.key)! }));
         const count = (s: string) => ds.filter((x) => x.d.state === s).length;
-        const parts = [["accepted", "accepted"], ["edited", "edited"], ["rejected", "rejected"], ["investigating", "investigating"]]
-          .map(([s, w]) => (count(s) ? `${count(s)} ${w}` : ""))
-          .filter(Boolean);
+        const parts = ["accepted", "edited", "rejected", "investigating"].map((s) => (count(s) ? `${count(s)} ${s}` : "")).filter(Boolean);
         knots.push({
           id: `${run.id}-d`,
           kind: "decisions",
@@ -123,6 +135,15 @@ export function buildKnots(data: ThreadData, steps: ThreadSteps): Knot[] {
     knots.push({ id: "approve", kind: "approve", step: "Approve", actor: "You", at: null, summary: "Waiting for your sign-off", taskId: null, runId: null, version: null, lines: [], canRerun: false, waiting: true });
   }
   return knots;
+}
+
+export const VERDICT_LABEL: Record<ClaimVerdict, string> = { supported: "Supported", unsupported: "Unsupported", wrong: "Wrong" };
+
+export function verdictCounts(flags: Pick<CritiqueFlag, "verdict">[]) {
+  const supported = flags.filter((f) => f.verdict === "supported").length;
+  const unsupported = flags.filter((f) => f.verdict === "unsupported").length;
+  const wrong = flags.filter((f) => f.verdict === "wrong").length;
+  return { supported, unsupported, wrong, checked: supported + unsupported + wrong };
 }
 
 export type DiffLine = { t: "same" | "add" | "del"; s: string };

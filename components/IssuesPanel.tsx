@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { VERDICT_LABEL } from "@/lib/knots";
 import { isResolved, issueTitle, stripQuotes, type Issue, type IssueState } from "@/lib/workspace";
 
 type Filter = "all" | "high" | "medium" | "resolved";
@@ -13,12 +14,18 @@ const STATE_LABEL: Record<IssueState, string> = {
   investigating: "Needs investigation",
 };
 
-// Daedalus rates its own confidence in each dispute (high / medium / low). We show that,
-// labelled as confidence, and never call it severity or a verdict.
+// Fact-check projects: Daedalus gives each claim a verdict (wrong / unsupported) and a
+// severity. Older projects only have Daedalus's confidence (high / medium / low).
 const BADGE = {
   high: "bg-thread-soft text-thread-bright",
   medium: "bg-gate-bg text-gate-ink",
   low: "bg-tint text-ink-dim",
+} as const;
+
+const VERDICT_BADGE = {
+  wrong: "bg-danger text-raised",
+  unsupported: "bg-gate-bg text-gate-ink ring-1 ring-gate-ink/30",
+  supported: "bg-ok text-raised",
 } as const;
 
 export function IssuesPanel({
@@ -55,18 +62,18 @@ export function IssuesPanel({
       {!compact ? (
         <div className="flex items-center gap-2">
           <h2 id="issues-title" className="font-serif text-[22px] leading-none">
-            Review Issues
+            Flagged claims
           </h2>
           {issues.length ? <span className="rounded-full bg-thread px-1.5 text-[11px] leading-[18px] font-medium text-raised">{open}</span> : null}
         </div>
       ) : null}
       {!challengeDone ? (
         <p className="mt-3 rounded-xl bg-panel p-3 text-sm leading-normal text-ink-dim ring-1 ring-line">
-          No issues yet. When Daedalus (GPT) challenges the draft, each objection shows here for you to judge.
+          Nothing flagged yet. When Daedalus (GPT) fact-checks the draft, each claim it marks Wrong or Unsupported shows here, with its evidence, for you to judge.
         </p>
       ) : issues.length === 0 ? (
         <p className="mt-3 rounded-xl bg-panel p-3 text-sm leading-normal text-ink-dim ring-1 ring-line">
-          Daedalus listed no disputes. That does not mean the draft is right; read it yourself before you approve.
+          Daedalus flagged no claims. That does not prove the draft is right; read it yourself before you approve.
         </p>
       ) : (
         <>
@@ -84,7 +91,7 @@ export function IssuesPanel({
             ))}
           </div>
           <p className="mt-2 text-[11px] leading-normal text-ink-faint">
-            High / Medium is Daedalus&apos;s own confidence. It is a second model, not an authority. Resolving issues is not approving the deliverable.
+            High / Medium is Daedalus&apos;s rating of how much a claim matters. Daedalus is a second model, not an authority: open the evidence and source before you decide. Deciding on claims is not approving the answer.
           </p>
           <ol className="mt-3 space-y-3 pb-2">
             {shown.length === 0 ? <li className="text-sm text-ink-dim">Nothing here.</li> : null}
@@ -140,8 +147,13 @@ function IssueCard({
     <li id={`issue-${issue.key}`} className={`scroll-mt-4 rounded-xl bg-raised p-3.5 shadow-[0_1px_2px_rgba(31,26,20,0.06)] ring-1 ring-line ${resolved ? "opacity-80" : ""}`}>
       <div className="flex items-start justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
+          {flag.verdict ? (
+            <span data-verdict={flag.verdict} className={`shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-semibold ${VERDICT_BADGE[flag.verdict]}`} title="Daedalus's fact-check verdict on this claim">
+              {VERDICT_LABEL[flag.verdict]}
+            </span>
+          ) : null}
           {flag.confidence ? (
-            <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-medium capitalize ${BADGE[flag.confidence]}`} title="Daedalus's confidence in this dispute">
+            <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-medium capitalize ${BADGE[flag.confidence]}`} title={flag.verdict ? "Severity: how much this claim matters to your goal" : "Daedalus's confidence in this dispute"}>
               {flag.confidence}
             </span>
           ) : null}
@@ -165,8 +177,13 @@ function IssueCard({
       </div>
       {evidence ? (
         <div className="mt-2 space-y-1 rounded-lg bg-panel p-2.5 text-xs leading-normal ring-1 ring-line">
-          {flag.opinion ? (
-            <p className="text-gate-ink">Opinion: no source in the draft. Daedalus is working from its own knowledge and cannot search the web here.</p>
+          {flag.verdict && flag.evidence ? (
+            <p>
+              <span className="text-ink-dim">Evidence: </span>
+              {flag.evidence}
+            </p>
+          ) : flag.opinion ? (
+            <p className="text-gate-ink">No source given: Daedalus is working from its own knowledge here. Check this one yourself.</p>
           ) : flag.evidence ? (
             <p>
               <span className="text-ink-dim">From the draft: </span>
@@ -175,6 +192,18 @@ function IssueCard({
           ) : (
             <p className="text-ink-dim">Daedalus gave no evidence for this point.</p>
           )}
+          {flag.source ? (
+            <p className="break-words">
+              <span className="text-ink-dim">Source: </span>
+              {/^https?:\/\//i.test(flag.source) ? (
+                <a href={flag.source} target="_blank" rel="noopener noreferrer nofollow" className="text-thread underline">
+                  {flag.source}
+                </a>
+              ) : (
+                flag.source
+              )}
+            </p>
+          ) : null}
           {flag.fix ? (
             <p>
               <span className="text-ink-dim">Suggested fix: </span>
@@ -189,7 +218,7 @@ function IssueCard({
             rows={3}
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder={mode === "edit" ? "Your correction for this claim" : "Why the challenge is wrong (optional)"}
+            placeholder={mode === "edit" ? "Your correction for this claim" : "Why the claim is fine as written (optional)"}
             className="w-full rounded-lg bg-canvas px-2 py-1 text-sm ring-1 ring-line"
             maxLength={mode === "edit" ? 2000 : 1000}
           />
@@ -227,9 +256,11 @@ function IssueCard({
           <button type="button" disabled={busy} className={outline} onClick={() => { setText(issue.reason ?? ""); setMode("reject"); }}>
             Reject
           </button>
-          <button type="button" disabled={busy} className="rounded-lg bg-thread px-3 py-1.5 text-xs font-medium text-raised hover:bg-thread-bright disabled:opacity-50" onClick={() => void decide("accepted")}>
-            Accept
-          </button>
+          {issue.state !== "accepted" ? (
+            <button type="button" disabled={busy} className="rounded-lg bg-thread px-3 py-1.5 text-xs font-medium text-raised hover:bg-thread-bright disabled:opacity-50" onClick={() => void decide("accepted")}>
+              Accept
+            </button>
+          ) : null}
         </div>
       ) : null}
     </li>

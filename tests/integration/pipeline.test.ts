@@ -141,7 +141,7 @@ describe("3. stuck running recovery", () => {
     const recovery = dto.events.find((e) => e.taskId === p.review.id && e.payload?.reason === "stuck_run_reclaimed");
     assert.ok(recovery, "recovery event emitted");
     assert.equal(recovery.type, "failed");
-    assert.match(recovery.message, /Recovered "Challenge the draft"/);
+    assert.match(recovery.message, /Recovered "Fact-check the draft"/);
     assert.equal(recovery.runId, "dead-run-1");
 
     const rows = await runsFor(p.review.id);
@@ -328,7 +328,8 @@ describe("site-wide daily ceiling and output caps", () => {
     await agents.runTask(p.draft.id, user.id); // Odysseus (the Drafter) -> Anthropic
     await agents.runTask(p.review.id, user.id); // Daedalus (the Challenger) -> OpenAI
     assert.equal(mock.state.lastBody.anthropic.max_tokens, limits.MAX_OUTPUT_TOKENS_ANTHROPIC);
-    assert.equal(mock.state.lastBody.openai.max_completion_tokens, limits.MAX_OUTPUT_TOKENS_OPENAI);
+    assert.equal(mock.state.lastBody.openai.max_output_tokens ?? mock.state.lastBody.openai.max_completion_tokens, limits.MAX_OUTPUT_TOKENS_OPENAI);
+    assert.deepEqual(mock.state.lastBody.openai.tools, [{ type: "web_search" }], "Daedalus fact-checks with web search");
     assert.equal(limits.MAX_OUTPUT_TOKENS_ANTHROPIC, 8192);
     assert.equal(limits.MAX_OUTPUT_TOKENS_OPENAI, 16384);
   });

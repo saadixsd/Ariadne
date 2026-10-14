@@ -29,6 +29,8 @@ test("flags: numbered points with a labelled fix", () => {
     opinion: false,
     confidence: null,
     fix: "Move the signup button into the hero.",
+    verdict: null,
+    source: null,
   });
   assert.equal(critique.flags[1].fix, "Add a short pricing line with the monthly price.");
   assert.equal(critique.flags[2].fix, null);
