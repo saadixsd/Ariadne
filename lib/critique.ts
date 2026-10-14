@@ -248,8 +248,18 @@ export const MAX_FLAGS = 40;
  * their parent), or, failing that, two or more "Section: issue — fix" lines. Points
  * under a "Strengths" / "What works" heading are not flags. No flags → prose fallback.
  */
+/**
+ * Web-search output tags links with "?utm_source=<vendor>" and appends inline "([site](url))"
+ * citations. The Source field already carries the URL, so drop both (no vendor name in the UI).
+ */
+export function cleanCitations(text: string): string {
+  return text
+    .replace(/[?&]utm_source=[A-Za-z0-9_.-]+(?=[)\s\]>"']|$)/gm, "")
+    .replace(/\s*\(\[[^\]\n]{1,200}\]\(https?:\/\/[^)\s]{1,500}\)\)/g, "");
+}
+
 export function parseCritique(text: string | null | undefined): Critique {
-  const source = (text ?? "").replace(/\r\n?/g, "\n");
+  const source = cleanCitations((text ?? "").replace(/\r\n?/g, "\n"));
   // Flags come from the head of a review; a runaway output must not cost a long parse.
   const lines = source.slice(0, MAX_PARSE_CHARS).split("\n");
   let verdict: string | null = null;

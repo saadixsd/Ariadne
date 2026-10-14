@@ -93,3 +93,12 @@ test("decisions knot counts every accepted claim, in the round that raised it", 
   assert.deepEqual(knots.map((k) => k.kind), ["draft", "challenge", "challenge", "decisions"]);
   assert.equal(knots[3].summary, "2 accepted");
 });
+
+test("web-search citations: vendor utm tags and inline citation links are dropped", async () => {
+  const { cleanCitations, parseCritique } = await import("../../lib/critique");
+  const raw = `1. Claim: "X"\n   Verdict: supported\n   Evidence: Listed there. ([root-servers.org](https://root-servers.org/?utm_source=openai))\n   Source: https://root-servers.org/?utm_source=openai\n   Severity: low`;
+  assert.doesNotMatch(cleanCitations(raw), /openai/);
+  const flag = parseCritique(raw).flags[0];
+  assert.equal(flag.source, "https://root-servers.org/");
+  assert.equal(flag.evidence, "Listed there.");
+});

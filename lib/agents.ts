@@ -1,3 +1,4 @@
+import { cleanCitations } from "@/lib/critique";
 import "server-only";
 
 import Anthropic from "@anthropic-ai/sdk";
@@ -110,7 +111,7 @@ async function callOpenAIWithSearch(client: OpenAI, model: string, system: strin
     },
     { timeout: 150_000 },
   );
-  const text = response.output_text?.trim() ?? "";
+  const text = cleanCitations(response.output_text?.trim() ?? "");
   if (!text) throw new Error("OpenAI returned an empty response");
   return text;
 }
