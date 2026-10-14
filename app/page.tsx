@@ -10,9 +10,9 @@ import "./landing.css";
 // account links when the non-secret "ariadne_in" marker cookie says you are signed in.
 // Only what works today is described. No testimonials, logos, counts or results.
 
-const TITLE = "Ariadne · Fact-checked research, claim by claim";
+const TITLE = "Ariadne · Stop Second-Guessing Your Research";
 const DESCRIPTION =
-  "Ariadne drafts a sourced answer to your research question, checks the key claims against your sources and the web, and lets you decide on anything flagged. You approve the result and keep the full record.";
+  "Every key claim, checked against its source. Ariadne drafts a sourced answer to your research question, checks the key claims against your sources and the web, and lets you decide on anything flagged.";
 
 export const metadata: Metadata = {
   title: { absolute: TITLE },
@@ -85,11 +85,11 @@ function Brand() {
 function PrimaryCta() {
   return (
     <>
-      <a className="lp-btn lp-btn-primary" href="/sign-up" data-when="out">
-        Start a project
+      <a className="lp-btn lp-btn-primary lp-btn-lg" href="/sign-up" data-when="out">
+        Check Your First Question
       </a>
-      <a className="lp-btn lp-btn-primary" href="/dashboard" data-when="in" hidden>
-        Open your projects
+      <a className="lp-btn lp-btn-primary lp-btn-lg" href="/dashboard" data-when="in" hidden>
+        Open Your Projects
       </a>
     </>
   );
@@ -111,10 +111,10 @@ export default function Landing() {
               Sign in
             </a>
             <a className="lp-btn lp-btn-primary lp-btn-sm" href="/sign-up" data-when="out">
-              Start a project
+              Check Your First Question
             </a>
             <a className="lp-btn lp-btn-primary lp-btn-sm" href="/dashboard" data-when="in" hidden>
-              Open your projects
+              Open Your Projects
             </a>
           </nav>
         </div>
@@ -126,8 +126,9 @@ export default function Landing() {
             <div>
               <p className="lp-eyebrow">Fact-checked research</p>
               <h1 id="lp-title" className="lp-title">
-                Research answers you can <em>check, claim by claim.</em>
+                Stop <em>Second-Guessing</em> Your Research.
               </h1>
+              <p className="lp-sublede">Every Key Claim, Checked Against Its Source.</p>
               <p className="lp-lede">
                 Ariadne drafts a sourced answer to your question, checks the key claims against your sources and the web, and
                 brings you only what needs a decision. You approve the result and keep the full record.

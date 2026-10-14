@@ -124,8 +124,10 @@ test("2. no project changes owners on sign-up / sign-in", () => {
 test("L1. signed out: / is the public landing page; /dashboard and other app pages go to /sign-in", async () => {
   const landing = await call("GET", "/", { from: ip(40) });
   assert.equal(landing.status, 200);
-  assert.match(landing.text, /Start a project/);
-  assert.match(landing.text, /Research answers you can <em>check, claim by claim\.<\/em>/);
+  assert.match(landing.text, /Check Your First Question/);
+  assert.match(landing.text, /Stop <em>Second-Guessing<\/em> Your Research\./);
+  assert.match(landing.text, /Every Key Claim, Checked Against Its Source\./);
+  assert.match(landing.text, /<title>Ariadne · Stop Second-Guessing Your Research<\/title>/);
   assert.match(landing.text, /Ariadne drafts a sourced answer to your research question/, "the one-liner");
   assert.match(landing.text, /Already have an account\? <a href="\/sign-in">Sign in<\/a>/);
   assert.doesNotMatch(landing.text, /DNS|hallucinat|beta|early access/i);
@@ -178,7 +180,7 @@ test("T1. sign-up needs a Turnstile pass; shape errors come first; nothing is cr
 test("workspace door: old board/tree URLs redirect; /new and the workspace load; a new project has four steps", async () => {
   const home = await call("GET", "/", { cookie: state.cookie });
   assert.equal(home.status, 200);
-  assert.match(home.text, /Open your projects/);
+  assert.match(home.text, /Open Your Projects/);
   // No project yet: the old Board and Tree URLs send you to /new.
   for (const door of ["/dashboard", "/tree"]) {
     const res = await call("GET", door, { cookie: state.cookie });
