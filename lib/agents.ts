@@ -95,7 +95,7 @@ const WRITER_RULES = (tools: "fetch" | "search" | "none") =>
 const ANTHROPIC_SEARCH = { type: "web_search_20250305", name: "web_search", max_uses: 2 } as const;
 // Provider-side fetch: the page is read on the provider's servers. The cap keeps the
 // response the Worker has to parse bounded (CPU), while fitting a mid-size data file.
-const ANTHROPIC_FETCH = { type: "web_fetch_20250910", name: "web_fetch", max_uses: 2, max_content_tokens: 15_000 } as const;
+const ANTHROPIC_FETCH = { type: "web_fetch_20250910", name: "web_fetch", max_uses: 1, max_content_tokens: 8_000 } as const;
 
 /** Opening lines where the writer narrates its own process ("Now I have enough. Let me draft…"). */
 const NARRATION = /^(?:now |ok(?:ay)?[,.]? |great[,.]? |perfect[,.]? )?(?:let me|i'll|i will|i have|i've|i now have|i'm going to|i need to|based on (?:my|the) (?:research|search(?:es)?))\b[^\n]{0,200}$/i;
