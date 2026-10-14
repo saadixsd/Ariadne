@@ -1,5 +1,6 @@
 import "server-only";
 import { cleanCitations, stripTracking } from "@/lib/critique";
+import { CHECKER_PLAYBOOK, WRITER_PLAYBOOK } from "@/lib/playbooks.generated";
 
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
@@ -88,12 +89,15 @@ const WRITER_RULES = (tools: "fetch" | "search" | "none") =>
       : tools === "search"
         ? "Web search is available: use it to look up current facts before you answer."
         : "Web search is not available for this run; answer from the brief, the sources and what you know."
-  } Answer the question directly. Cite your sources inline, next to each claim, as Markdown links to the page you used. Say clearly when you are uncertain about a fact, and why. Never refuse or stop because you lack access to something: give your best sourced answer and mark what is uncertain. Do not mention which AI model or company is behind you.)`;
+  } Use the whole brief (title, goal, need, deliverable and files) together; if anything is ambiguous, take the most reasonable reading in that context, state it in one line starting "Assumption:" at the top, then answer fully. Never ask clarifying questions instead of answering. Answer the question directly. Cite your sources inline, next to each claim, as Markdown links to the page you used. Say clearly when you are uncertain about a fact, and why. Never refuse or stop because you lack access to something: give your best sourced answer and mark what is uncertain. Do not mention which AI model or company is behind you.)`;
 
 const ANTHROPIC_SEARCH = { type: "web_search_20250305", name: "web_search", max_uses: 5 } as const;
 // Provider-side fetch: the page is read on the provider's servers. The cap keeps the
 // response the Worker has to parse bounded (CPU), while fitting a mid-size data file.
 const ANTHROPIC_FETCH = { type: "web_fetch_20250910", name: "web_fetch", max_uses: 4, max_content_tokens: 80_000 } as const;
+
+/** Opening lines where the writer narrates its own process ("Now I have enough. Let me draft…"). */
+const NARRATION = /^(?:now |ok(?:ay)?[,.]? |great[,.]? |perfect[,.]? )?(?:let me|i'll|i will|i have|i've|i now have|i'm going to|i need to|based on (?:my|the) (?:research|search(?:es)?))\b[^\n]{0,200}$/i;
 
 function textOf(content: Anthropic.ContentBlock[]) {
   // With tools the model narrates between calls ("I'll search for…"). Keep only the
@@ -102,12 +106,29 @@ function textOf(content: Anthropic.ContentBlock[]) {
   content.forEach((block, i) => {
     if (block.type !== "text") last = i;
   });
-  return content
+  // Search results come back as structured citations on text blocks; show them inline as
+  // Markdown links (once per URL in a row) so the reader and the checker can open them.
+  let previous = "";
+  const text = content
     .slice(last + 1)
     .filter((block): block is Anthropic.TextBlock => block.type === "text")
-    .map((block) => block.text)
+    .map((block) => {
+      const urls = Array.from(new Set((block.citations ?? []).map((c) => ("url" in c ? String(c.url ?? "") : "")).filter(Boolean)));
+      const links = urls.filter((u) => u !== previous).map((u) => {
+        const host = u.replace(/^https?:\/\/(www\.)?/, "").split("/")[0];
+        return ` [${host}](${u})`;
+      });
+      if (urls.length) previous = urls[urls.length - 1];
+      if (!links.length || /\]\(https?:\/\//.test(block.text)) return block.text;
+      // Keep the sentence's trailing punctuation/newlines after the links.
+      const m = block.text.match(/^([\s\S]*?)([.,;:]?\s*)$/);
+      return `${m?.[1] ?? block.text}${links.join("")}${m?.[2] ?? ""}`;
+    })
     .join("")
     .trim();
+  const lines = text.split("\n");
+  while (lines.length && (NARRATION.test(lines[0].trim()) || /^-{3,}$/.test(lines[0].trim()) || !lines[0].trim())) lines.shift();
+  return lines.join("\n").trim() || text;
 }
 
 /** Which provider-side tools ran (names and URLs only), for the Worker log. */
@@ -248,9 +269,10 @@ async function callOpenAI(model: string, system: string, user: string) {
   return text;
 }
 
+/** The playbooks (agents/playbooks/*.md, compiled at build time) lead each agent's system prompt. */
 async function callProvider(provider: string, model: string, system: string, user: string) {
-  if (provider === "anthropic") return callAnthropic(model, system, user);
-  if (provider === "openai") return callOpenAI(model, system, user);
+  if (provider === "anthropic") return callAnthropic(model, `${WRITER_PLAYBOOK}\n\n${system}`, user);
+  if (provider === "openai") return callOpenAI(model, `${CHECKER_PLAYBOOK}\n\n${system}`, user);
   throw new Error(`Unknown provider "${provider}"`);
 }
 

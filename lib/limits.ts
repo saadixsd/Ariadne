@@ -67,10 +67,10 @@ export const MAX_RESETS_PER_HOUR_PER_IP = 5;
 export const MAX_RESET_EMAILS_PER_HOUR = 3;
 export const RESET_LINK_MS = 30 * 60 * 1000;
 
-// Output caps per provider call. Claude has always been capped at 8,192 output tokens.
+// Output caps per provider call. Claude: 16,384 (thinking counts toward it on current models).
 // GPT gets the same visible budget plus headroom, because max_completion_tokens also
 // counts a reasoning model's hidden reasoning tokens. Before this, GPT calls had no cap.
-export const MAX_OUTPUT_TOKENS_ANTHROPIC = 8_192;
+export const MAX_OUTPUT_TOKENS_ANTHROPIC = 16_384;
 export const MAX_OUTPUT_TOKENS_OPENAI = 16_384;
 
 // A synchronous run takes at most ~120s (60s SDK timeout x 2 tries). A task

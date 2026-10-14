@@ -333,7 +333,7 @@ describe("site-wide daily ceiling and output caps", () => {
     }
   });
 
-  test("provider calls carry output caps (Claude 8,192; GPT 16,384 including reasoning)", async () => {
+  test("provider calls carry output caps (Claude 16,384 including thinking; GPT 16,384 including reasoning)", async () => {
     const user = await newUser("token-caps@test.dev");
     const p = await newProject(user.id);
     await agents.runTask(p.draft.id, user.id); // Odysseus (the Drafter) -> Anthropic
@@ -341,7 +341,7 @@ describe("site-wide daily ceiling and output caps", () => {
     assert.equal(mock.state.lastBody.anthropic.max_tokens, limits.MAX_OUTPUT_TOKENS_ANTHROPIC);
     assert.equal(mock.state.lastBody.openai.max_output_tokens ?? mock.state.lastBody.openai.max_completion_tokens, limits.MAX_OUTPUT_TOKENS_OPENAI);
     assert.deepEqual(mock.state.lastBody.openai.tools, [{ type: "web_search" }], "Daedalus fact-checks with web search");
-    assert.equal(limits.MAX_OUTPUT_TOKENS_ANTHROPIC, 8192);
+    assert.equal(limits.MAX_OUTPUT_TOKENS_ANTHROPIC, 16384);
     assert.equal(limits.MAX_OUTPUT_TOKENS_OPENAI, 16384);
   });
 });
