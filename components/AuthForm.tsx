@@ -117,6 +117,7 @@ export function AuthForm({
   }, [mode]);
   const [address, setAddress] = useState(email);
   const [password, setPassword] = useState("");
+  const [agreed, setAgreed] = useState(false);
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -187,7 +188,7 @@ export function AuthForm({
       const response = await fetch(signUp ? "/api/auth/sign-up" : "/api/auth/sign-in", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(signUp ? { email: address, password, turnstileToken: humanToken, inviteCode: invite } : { email: address, password }),
+        body: JSON.stringify(signUp ? { email: address, password, turnstileToken: humanToken, inviteCode: invite, privacyConsent: agreed } : { email: address, password }),
       });
       const body = (await response.json().catch(() => ({}))) as { error?: string; verify?: boolean; invite?: boolean };
       if (!response.ok) {
@@ -314,6 +315,18 @@ export function AuthForm({
                     placeholder="From your invitation"
                     className="door-input"
                   />
+                </label>
+              ) : null}
+              {mode === "sign-up" ? (
+                <label className="flex items-start gap-2 text-[13px] leading-normal text-ink-dim" data-testid="privacy-consent">
+                  <input type="checkbox" required checked={agreed} onChange={(event) => setAgreed(event.target.checked)} className="mt-0.5 h-4 w-4 accent-[var(--color-thread)]" />
+                  <span>
+                    I agree to the{" "}
+                    <a href="/privacy" target="_blank" rel="noopener" className="text-thread underline">
+                      Privacy Policy
+                    </a>
+                    .
+                  </span>
                 </label>
               ) : null}
               {mode === "sign-up" ? <div ref={turnstileBox} className="min-h-0 empty:hidden" data-turnstile /> : null}

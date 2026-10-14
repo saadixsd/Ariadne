@@ -44,7 +44,7 @@ async function applyMigrations() {
   }>;
   const { DatabaseSync } = await loadSqlite();
   const db = new DatabaseSync(dbFile);
-  for (const file of ["0001_baseline.sql", "0002_ship_blockers.sql", "0003_phase2.sql", "0004_invite_code.sql", "0005_attribution_feedback.sql", "0006_workspace.sql", "0007_r2_workflow_quota.sql", "0008_r2_budget.sql", "0009_password_reset.sql", "0010_run_usage.sql", "0011_intro.sql"]) {
+  for (const file of ["0001_baseline.sql", "0002_ship_blockers.sql", "0003_phase2.sql", "0004_invite_code.sql", "0005_attribution_feedback.sql", "0006_workspace.sql", "0007_r2_workflow_quota.sql", "0008_r2_budget.sql", "0009_password_reset.sql", "0010_run_usage.sql", "0011_intro.sql", "0012_privacy_consent.sql"]) {
     db.exec(readFileSync(path.join(root, "migrations", file), "utf8"));
   }
   db.close();

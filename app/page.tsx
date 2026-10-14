@@ -32,7 +32,6 @@ const JSON_LD = {
   ],
 };
 
-const CF_BEACON = process.env.NEXT_PUBLIC_CF_BEACON_TOKEN;
 
 const STEPS = [
   { n: "1", who: "You", title: "Ask your question", text: "Write what you need to know and who it is for, and add the papers, reports or notes it should draw on." },
@@ -252,6 +251,7 @@ export default function Landing() {
           <div className="lp-foot-links">
             <a href="mailto:saad@ariadneagents.si">saad@ariadneagents.si</a>
             <a href="/privacy">Privacy</a>
+            <a href="/privacy#cookies" data-consent-open>Cookie settings</a>
             <a href="/sign-in">Sign in</a>
             <nav className="lp-social" aria-label="Ariadne elsewhere">
               <a href="https://www.instagram.com/ariadne_agents/" target="_blank" rel="noopener noreferrer" aria-label="Ariadne on Instagram">
@@ -273,9 +273,6 @@ export default function Landing() {
       </footer>
       <Script src="/landing/auth.js" strategy="afterInteractive" />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD).replace(/</g, "\\u003c") }} />
-      {CF_BEACON ? (
-        <Script src="https://static.cloudflareinsights.com/beacon.min.js" strategy="lazyOnload" data-cf-beacon={JSON.stringify({ token: CF_BEACON })} />
-      ) : null}
     </div>
   );
 }

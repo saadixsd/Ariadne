@@ -15,6 +15,8 @@ CREATE TABLE "User" (
     "refCode" TEXT,
     "utmSource" TEXT,
     "utmCampaign" TEXT,
+    "privacyConsentAt" DATETIME,
+    "privacyPolicyVersion" TEXT,
     "feedbackPromptAt" DATETIME,
     "introSeenAt" DATETIME,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP

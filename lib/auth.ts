@@ -147,7 +147,7 @@ export function checkSignUpInput(emailInput: string, password: string) {
   return email;
 }
 
-export async function signUp(emailInput: string, password: string, options: { inviteCode?: string | null; refCode?: string | null; utmSource?: string | null; utmCampaign?: string | null } = {}) {
+export async function signUp(emailInput: string, password: string, options: { inviteCode?: string | null; refCode?: string | null; utmSource?: string | null; utmCampaign?: string | null; privacyPolicyVersion?: string | null } = {}) {
   const email = checkSignUpInput(emailInput, password);
 
   const prisma = await getPrisma();
@@ -166,6 +166,8 @@ export async function signUp(emailInput: string, password: string, options: { in
       refCode: options.refCode ?? null,
       utmSource: options.utmSource ?? null,
       utmCampaign: options.utmCampaign ?? null,
+      privacyConsentAt: options.privacyPolicyVersion ? new Date() : null,
+      privacyPolicyVersion: options.privacyPolicyVersion ?? null,
     },
   });
 

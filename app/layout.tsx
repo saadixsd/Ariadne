@@ -58,8 +58,13 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang="en"
       className={`${instrumentSerif.variable} ${instrumentSans.variable} ${dmMono.variable} h-full antialiased`}
+      // Analytics token, used by public/consent.js only after the visitor accepts (empty: no analytics).
+      data-cf-beacon={process.env.NEXT_PUBLIC_CF_BEACON_TOKEN || undefined}
     >
-      <body className="h-full font-sans text-ink">{children}</body>
+      <body className="h-full font-sans text-ink">
+        {children}
+        <script src="/consent.js" defer />
+      </body>
     </html>
   );
 }

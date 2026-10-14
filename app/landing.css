@@ -133,3 +133,17 @@ html:has(.lp) { scroll-behavior: smooth; }
   .lp-btn-sm { padding: 0 12px; font-size: 14px; }
 }
 @media (prefers-reduced-motion: reduce) { html:has(.lp) { scroll-behavior: auto; } }
+
+/* Privacy policy page */
+.lp-policy .lp-wrap { max-width: 760px; }
+.lp-policy-title { font-family: var(--font-serif); font-size: clamp(36px, 6vw, 52px); line-height: 1.05; margin: 8px 0 6px; font-weight: 400; }
+.lp-policy-meta { color: var(--color-ink-faint); font-size: 14px; margin: 0 0 24px; }
+.lp-policy h2 { font-family: var(--font-serif); font-size: 26px; font-weight: 400; margin: 34px 0 10px; }
+.lp-policy p, .lp-policy li { color: var(--color-ink-dim); line-height: 1.6; }
+.lp-policy ul { padding-left: 20px; display: grid; gap: 8px; }
+.lp-policy a { color: var(--color-thread); }
+.lp-policy-table { overflow-x: auto; margin: 12px 0; }
+.lp-policy table { border-collapse: collapse; width: 100%; font-size: 14px; }
+.lp-policy th, .lp-policy td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--color-line-strong); vertical-align: top; color: var(--color-ink-dim); }
+.lp-policy th { color: var(--color-ink); font-weight: 600; }
+.lp-policy td:first-child { font-family: var(--font-mono, monospace); font-size: 13px; white-space: nowrap; }

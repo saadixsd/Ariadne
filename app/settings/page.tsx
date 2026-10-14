@@ -171,6 +171,17 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
           </p>
         </section>
 
+        <section aria-labelledby="privacy-title" className="rt-card px-5 py-4">
+          <h2 id="privacy-title" className="font-serif text-[24px] leading-tight">
+            Privacy
+          </h2>
+          <p className="mt-1 text-[13px] text-ink-dim">How Ariadne handles your account, projects and files, and your rights. Optional cookies stay off unless you turn them on.</p>
+          <p className="mt-2 flex flex-wrap gap-4 text-sm">
+            <a href="/privacy" className="text-thread underline underline-offset-2 hover:text-thread-bright">Privacy Policy</a>
+            <a href="/privacy#cookies" data-consent-open className="text-thread underline underline-offset-2 hover:text-thread-bright">Cookie settings</a>
+          </p>
+        </section>
+
         <section className="flex flex-wrap items-center justify-between gap-3 px-1">
           <p className="text-[13px] text-ink-dim">Signing out ends this session on this device.</p>
           <SignOutButton />

@@ -22,6 +22,9 @@ model User {
   refCode          String?
   utmSource        String?
   utmCampaign      String?
+  /// Sign-up consent to the privacy policy (lib/policy.ts).
+  privacyConsentAt     DateTime?
+  privacyPolicyVersion String?
   /// When the first-completion feedback prompt was shown (answered or dismissed).
   feedbackPromptAt DateTime?
   /// First-run intro finished or skipped (null: show it on the next app page).

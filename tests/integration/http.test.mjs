@@ -70,7 +70,7 @@ test("1a. 6 rapid signups from one IP: 5 succeed, the 6th is throttled (429 + Re
   const statuses = [];
   let last;
   for (let i = 1; i <= 6; i++) {
-    last = await call("POST", "/api/auth/sign-up", { body: { email: `burst${i}-${run}@test.dev`, password: "password123", turnstileToken: "pass" }, from: ip(7) });
+    last = await call("POST", "/api/auth/sign-up", { body: { email: `burst${i}-${run}@test.dev`, password: "password123", privacyConsent: true, turnstileToken: "pass" }, from: ip(7) });
     statuses.push(last.status);
   }
   assert.deepEqual(statuses, [201, 201, 201, 201, 201, 429]);
@@ -82,7 +82,7 @@ test("1a. 6 rapid signups from one IP: 5 succeed, the 6th is throttled (429 + Re
 });
 
 test("1b. legitimate signup from another IP still works and gets a session", async () => {
-  const res = await call("POST", "/api/auth/sign-up", { body: { email: `legit-${run}@test.dev`, password: "password123", turnstileToken: "pass" }, from: ip(8) });
+  const res = await call("POST", "/api/auth/sign-up", { body: { email: `legit-${run}@test.dev`, password: "password123", privacyConsent: true, turnstileToken: "pass" }, from: ip(8) });
   assert.equal(res.status, 201);
   assert.ok(res.cookie);
   state.cookie = res.cookie;
@@ -162,19 +162,38 @@ test("L1. signed out: / is the public landing page; /dashboard and other app pag
 
 test("T1. sign-up needs a Turnstile pass; shape errors come first; nothing is created on failure", async () => {
   const email = `turnstile-${run}@test.dev`;
-  const none = await call("POST", "/api/auth/sign-up", { body: { email, password: "password123" }, from: ip(41) });
+  const none = await call("POST", "/api/auth/sign-up", { body: { email, password: "password123", privacyConsent: true }, from: ip(41) });
   assert.equal(none.status, 403);
   assert.equal(none.json.code, "turnstile");
-  const failed = await call("POST", "/api/auth/sign-up", { body: { email, password: "password123", turnstileToken: "fail-token" }, from: ip(42) });
+  const failed = await call("POST", "/api/auth/sign-up", { body: { email, password: "password123", privacyConsent: true, turnstileToken: "fail-token" }, from: ip(42) });
   assert.equal(failed.status, 403);
   assert.equal(failed.cookie, undefined);
   assert.equal(sql(`SELECT count(*) AS n FROM "User" WHERE email = ?`, email)[0].n, 0, "no account without a pass");
   const badEmail = await call("POST", "/api/auth/sign-up", { body: { email: "not-an-email", password: "password123" }, from: ip(43) });
   assert.equal(badEmail.status, 400, "a typo is reported before the Turnstile token is spent");
-  const ok = await call("POST", "/api/auth/sign-up", { body: { email, password: "password123", turnstileToken: "pass-1" }, from: ip(44) });
+  const ok = await call("POST", "/api/auth/sign-up", { body: { email, password: "password123", privacyConsent: true, turnstileToken: "pass-1" }, from: ip(44) });
   assert.equal(ok.status, 201);
   assert.ok(ok.cookie);
   assert.equal(sql(`SELECT inviteCode FROM "User" WHERE email = ?`, email)[0].inviteCode, null, "open sign-up records no invite");
+  const consent = sql(`SELECT privacyConsentAt, privacyPolicyVersion FROM "User" WHERE email = ?`, email)[0];
+  assert.ok(consent.privacyConsentAt, "consent time recorded");
+  assert.match(consent.privacyPolicyVersion, /^\d{4}-\d{2}-\d{2}$/, "policy version recorded");
+  const noConsent = await call("POST", "/api/auth/sign-up", { body: { email: `noconsent-${run}@test.dev`, password: "password123", turnstileToken: "pass-2" }, from: ip(45) });
+  assert.equal(noConsent.status, 400);
+  assert.match(noConsent.json.error, /Privacy Policy/);
+  assert.equal(sql(`SELECT count(*) AS n FROM "User" WHERE email = ?`, `noconsent-${run}@test.dev`)[0].n, 0, "no account without consent");
+});
+
+test("privacy: the policy page is public and covers the required parts; consent script on every page; no attribution cookie without consent", async () => {
+  const page = await call("GET", "/privacy", { from: ip(46) });
+  assert.equal(page.status, 200);
+  for (const re of [/Effective /, /person in charge of the protection of personal information/, /Commission d(?:&#x27;|')acc/, /Office of the Privacy Commissioner of Canada/, /outside Québec and outside Canada/, /ariadne_session/, /ariadne_in/, /ariadne_consent/, /ariadne_ref/, /portability/, /withdraw your consent/]) assert.match(page.text, re);
+  assert.doesNotMatch(page.text, /Saad Kashif/);
+  const landing = await call("GET", "/?ref=r-abc123-0000aaaa&utm_source=email", { from: ip(46) });
+  assert.match(landing.text, /src="\/consent\.js"/);
+  assert.doesNotMatch(String(landing.headers.get("set-cookie") ?? ""), /ariadne_ref=/, "no attribution cookie before consent");
+  const opted = await call("GET", "/?ref=r-abc123-0000aaaa&utm_source=email", { from: ip(46), cookie: "ariadne_consent=all" });
+  assert.match(String(opted.headers.get("set-cookie") ?? ""), /ariadne_ref=/, "kept after consent");
 });
 
 test("workspace door: old board/tree URLs redirect; /new and the workspace load; a new project has four steps", async () => {
@@ -281,7 +300,7 @@ test("full HTTP flow: draft -> fact-check -> judge -> request changes -> history
   assert.equal((await call("GET", `/api/projects/${state.projectId}/export`, { cookie: c })).status, 409);
 
   // Runs, thread and export are private.
-  const stranger = await call("POST", "/api/auth/sign-up", { body: { email: `stranger-${run}@test.dev`, password: "password123", turnstileToken: "pass" }, from: ip(11) });
+  const stranger = await call("POST", "/api/auth/sign-up", { body: { email: `stranger-${run}@test.dev`, password: "password123", privacyConsent: true, turnstileToken: "pass" }, from: ip(11) });
   assert.equal((await call("GET", `/api/tasks/${draft.id}/runs`, { cookie: stranger.cookie })).status, 404);
   assert.equal((await call("GET", `/api/projects/${state.projectId}/thread`, { cookie: stranger.cookie })).status, 404);
   assert.equal((await call("GET", `/api/projects/${state.projectId}/export`, { cookie: stranger.cookie })).status, 404);
@@ -303,7 +322,7 @@ test("P2. the project poll answers 304 while nothing changed, 200 when something
   assert.equal(changed.status, 200);
   assert.notEqual(changed.headers.get("etag"), etag);
   // Someone else's ETag guess still gets 404, not 304.
-  const stranger = await call("POST", "/api/auth/sign-up", { body: { email: `etag-${run}@test.dev`, password: "password123", turnstileToken: "pass" }, from: ip(12) });
+  const stranger = await call("POST", "/api/auth/sign-up", { body: { email: `etag-${run}@test.dev`, password: "password123", privacyConsent: true, turnstileToken: "pass" }, from: ip(12) });
   assert.equal((await call("GET", `/api/projects/${state.projectId}`, { cookie: stranger.cookie, headers: { "if-none-match": etag } })).status, 404);
   // The demo reset endpoint no longer exists.
   assert.equal((await call("POST", `/api/projects/${state.projectId}/reset`, { cookie: c })).status, 404);

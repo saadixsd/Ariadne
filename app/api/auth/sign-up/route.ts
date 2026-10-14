@@ -4,6 +4,8 @@ import { checkSignUpInput, signUp } from "@/lib/auth";
 import { errorResponse } from "@/lib/errors";
 import { clientIp, enforceRateLimit } from "@/lib/rate-limit";
 import { checkInvite, requireHuman } from "@/lib/signup-guard";
+import { TaskRunError } from "@/lib/errors";
+import { PRIVACY_POLICY_VERSION } from "@/lib/policy";
 
 export const runtime = "nodejs";
 
@@ -18,10 +20,12 @@ export async function POST(request: Request) {
       password?: unknown;
       turnstileToken?: unknown;
       inviteCode?: unknown;
+      privacyConsent?: unknown;
     } | null;
     const email = typeof body?.email === "string" ? body.email : "";
     const password = typeof body?.password === "string" ? body.password : "";
     checkSignUpInput(email, password);
+    if (body?.privacyConsent !== true) throw new TaskRunError("Please agree to the Privacy Policy to create an account.", 400);
     await requireHuman(typeof body?.turnstileToken === "string" ? body.turnstileToken : "", clientIp(request));
     const inviteCode = checkInvite(typeof body?.inviteCode === "string" ? body.inviteCode : "");
     const campaign = decodeCampaign((await cookies()).get(CAMPAIGN_COOKIE)?.value);
@@ -33,6 +37,7 @@ export async function POST(request: Request) {
       refCode: signed ? campaign?.ref : null,
       utmSource: campaign?.source ?? null,
       utmCampaign: campaign?.campaign ?? (campaign?.ref && !signed ? `unsigned:${campaign.ref}`.slice(0, 64) : null),
+      privacyPolicyVersion: PRIVACY_POLICY_VERSION,
     });
     return Response.json(result, { status: 201 });
   } catch (error) {

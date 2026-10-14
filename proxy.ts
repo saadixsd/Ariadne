@@ -29,10 +29,13 @@ function isCrossSiteWrite(request: NextRequest): boolean {
   return request.headers.get("sec-fetch-site") === "cross-site";
 }
 
-// First touch wins: an outreach link (?ref=…&utm_…) is kept for sign-up unless one is already kept.
+// First touch wins (with consent): an outreach link (?ref=…&utm_…) is kept for sign-up unless one is already kept.
 export function proxy(request: NextRequest) {
   const response = route(request);
-  if (request.method === "GET" && !request.cookies.get(CAMPAIGN_COOKIE)) {
+  // Attribution is optional: kept only after the visitor accepted non-essential cookies
+  // (public/consent.js sets ariadne_consent=all). Privacy by default otherwise.
+  const optedIn = request.cookies.get("ariadne_consent")?.value === "all";
+  if (optedIn && request.method === "GET" && !request.cookies.get(CAMPAIGN_COOKIE)) {
     const campaign = campaignFromParams(request.nextUrl.searchParams);
     if (campaign) {
       response.cookies.set(CAMPAIGN_COOKIE, encodeCampaign(campaign), {
