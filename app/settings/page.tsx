@@ -12,7 +12,7 @@ import { MAX_PROJECT_NAME_CHARS } from "@/lib/limits";
 import { newProjectHref } from "@/lib/new-project";
 import { getPrisma } from "@/lib/prisma";
 import { DAILY_MODEL_RUNS, workflowsStarted } from "@/lib/usage";
-import { WORKFLOWS_PER_DAY } from "@/lib/limits";
+import { MAX_RERUNS_PER_WORKFLOW, WORKFLOWS_PER_DAY } from "@/lib/limits";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -127,7 +127,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
             ))}
           </div>
           <p className="mt-2.5 text-[13px] leading-normal text-ink-dim">
-            {used} started today. A workflow is one Draft → Challenge → Judge → Tie Off pass on a project; reruns and revisions inside it do not count again, and approving the deliverable finishes it. A failed first run does not count. The count starts again at midnight UTC.
+            {used} started today. One project is one Draft → Challenge → Judge → Tie Off pass. Up to {MAX_RERUNS_PER_WORKFLOW} redrafts or re-checks inside it are included, and approving the deliverable finishes it. A failed first run does not count. The count resets at 00:00 UTC.
           </p>
           {trialEnds ? (
             <p className="mt-1.5 text-[13px] leading-normal text-ink-dim" data-trial>

@@ -4,12 +4,14 @@ export const DAILY_MODEL_RUNS = 10;
 // not model runs. A workflow is one Draft → Challenge → Judge → Tie Off pass on a project
 // (lib/usage.ts reserveModelRun). Each account may start WORKFLOWS_PER_DAY per UTC day.
 // Model runs inside an open workflow (reruns, Intervene, revisions) do not count, up to
-// MAX_RUNS_PER_WORKFLOW in total (a full pass is 3 runs + about 10 reruns). That cap is
+// MAX_RUNS_PER_WORKFLOW in total (a full pass is 3 runs + MAX_RERUNS_PER_WORKFLOW reruns). That cap is
 // not advertised in the UI; hitting it says to approve the deliverable or start a new project.
 // SITE_DAILY_MODEL_RUNS below still counts every model run across all accounts.
-export const WORKFLOWS_PER_DAY = 10;
+// Oct 14 2026 (Saad, cost): one workflow per account per UTC day, and at most
+// MAX_RERUNS_PER_WORKFLOW reruns (redrafts, revisions, re-checks) inside it.
+export const WORKFLOWS_PER_DAY = 1;
 export const RUNS_PER_FULL_PASS = 3;
-export const MAX_RERUNS_PER_WORKFLOW = 10;
+export const MAX_RERUNS_PER_WORKFLOW = 3;
 export const MAX_RUNS_PER_WORKFLOW = RUNS_PER_FULL_PASS + MAX_RERUNS_PER_WORKFLOW;
 // Site-wide ceiling on successful model runs per UTC day, across every account. A cost
 // backstop while sign-up is open (email verification off); the per-account cap above is
@@ -70,8 +72,9 @@ export const RESET_LINK_MS = 30 * 60 * 1000;
 // Output caps per provider call. Claude: 16,384 (thinking counts toward it on current models).
 // GPT gets the same visible budget plus headroom, because max_completion_tokens also
 // counts a reasoning model's hidden reasoning tokens. Before this, GPT calls had no cap.
-export const MAX_OUTPUT_TOKENS_ANTHROPIC = 16_384;
-export const MAX_OUTPUT_TOKENS_OPENAI = 16_384;
+// Lowered Oct 14 2026 for cost: drafts and checks measured in production stay well under it.
+export const MAX_OUTPUT_TOKENS_ANTHROPIC = 8_192;
+export const MAX_OUTPUT_TOKENS_OPENAI = 8_192;
 
 // A synchronous run takes at most ~120s (60s SDK timeout x 2 tries). A task
 // still "running" after this long lost its request (disconnect, deploy, crash).

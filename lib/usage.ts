@@ -1,7 +1,7 @@
 import "server-only";
 
 import { TaskRunError } from "@/lib/errors";
-import { DAILY_MODEL_RUNS, MAX_RUNS_PER_WORKFLOW, SITE_DAILY_MODEL_RUNS, WORKFLOWS_PER_DAY, dailyRunLimit } from "@/lib/limits";
+import { DAILY_MODEL_RUNS, MAX_RERUNS_PER_WORKFLOW, MAX_RUNS_PER_WORKFLOW, SITE_DAILY_MODEL_RUNS, WORKFLOWS_PER_DAY, dailyRunLimit } from "@/lib/limits";
 import { getPrisma } from "@/lib/prisma";
 
 export { DAILY_MODEL_RUNS, SITE_DAILY_MODEL_RUNS, dailyRunLimit };
@@ -52,8 +52,8 @@ async function reserveUserRun(userId: string, day: string, limit: number) {
   if (!(await tryReserve())) {
     throw new TaskRunError(
       limit < DAILY_MODEL_RUNS
-        ? `Your first day includes ${limit} model runs, and they are used up. From 24 hours after you signed up you get ${DAILY_MODEL_RUNS} a day. Nothing was sent to Claude or GPT.`
-        : `Daily limit of ${limit} model runs is used up. Nothing was sent to Claude or GPT.`,
+        ? `Your first day includes ${limit} model runs, and they are used up. From 24 hours after you signed up you get ${DAILY_MODEL_RUNS} a day. Nothing was sent to the models.`
+        : `Daily limit of ${limit} model runs is used up. Nothing was sent to the models.`,
       429,
       { limit },
     );
@@ -88,11 +88,24 @@ export async function reserveModelRun(userId: string, day = utcDay(), limit = DA
   if ((total._sum.runs ?? 0) > SITE_DAILY_MODEL_RUNS) {
     await releaseModelRun(userId, day, projectId);
     throw new TaskRunError(
-      `Ariadne has spun all ${SITE_DAILY_MODEL_RUNS} runs it makes in a day across every account, so nothing was sent to Claude or GPT.`,
+      `Ariadne has spun all ${SITE_DAILY_MODEL_RUNS} runs it makes in a day across every account, so nothing was sent to the models.`,
       503,
       { scope: "site", limit: SITE_DAILY_MODEL_RUNS, retryAfterSeconds: secondsUntilNextUtcDay() },
     );
   }
+}
+
+function nextUtcDay(now = Date.now()) {
+  const next = new Date(now);
+  next.setUTCHours(24, 0, 0, 0);
+  return next;
+}
+
+/** "00:00 UTC (in 5 h 20 min)": when the daily project count resets. */
+function resetLabel(now = Date.now()) {
+  const mins = Math.max(1, Math.ceil((nextUtcDay(now).getTime() - now) / 60_000));
+  const h = Math.floor(mins / 60);
+  return `00:00 UTC (in ${h ? `${h} h ` : ""}${mins % 60} min)`;
 }
 
 function secondsUntilNextUtcDay(now = Date.now()) {
@@ -134,9 +147,9 @@ async function reserveWorkflowRun(userId: string, projectId: string, day: string
   if (!open) {
     if ((await workflowsStarted(userId, day)) >= WORKFLOWS_PER_DAY) {
       throw new TaskRunError(
-        `You have started ${WORKFLOWS_PER_DAY} workflows today, the daily limit. Steps inside a workflow you already started still run. Nothing was sent to Claude or GPT.`,
+        `You have used today's ${WORKFLOWS_PER_DAY === 1 ? "project" : `${WORKFLOWS_PER_DAY} projects`}. You can start a new one from ${resetLabel()}. Steps on a project you already started still run, and nothing was sent to the models.`,
         429,
-        { limit: WORKFLOWS_PER_DAY, scope: "workflows" },
+        { limit: WORKFLOWS_PER_DAY, scope: "workflows", retryAfterSeconds: secondsUntilNextUtcDay(), resetsAt: nextUtcDay().toISOString() },
       );
     }
     open = await prisma.workflow.create({ data: { userId, projectId, day, runs: 0 } });
@@ -147,7 +160,7 @@ async function reserveWorkflowRun(userId: string, projectId: string, day: string
   });
   if (bumped.count !== 1) {
     throw new TaskRunError(
-      "This workflow has been re-run many times. Approve the deliverable, or start a new project, to continue. Nothing was sent to Claude or GPT.",
+      `This project has used its ${MAX_RERUNS_PER_WORKFLOW} reruns for this pass. Review and approve the deliverable to finish it; you can start a new project from ${resetLabel()}. Nothing was sent to the models.`,
       429,
       { scope: "workflow_runs" },
     );

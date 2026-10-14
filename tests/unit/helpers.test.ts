@@ -168,9 +168,9 @@ test("errors: failed requests show the server's error, never a dev-server hint",
 
 test("errors: the site-wide ceiling (503) never tells you your own runs are gone", async () => {
   const { runFailureNext } = await import("../../components/project-poll");
-  assert.match(runFailureNext(503), /Your own daily runs are untouched/);
-  assert.match(runFailureNext(503), /midnight UTC/);
-  assert.match(runFailureNext(429), /Your daily runs come back at midnight UTC/);
+  assert.match(runFailureNext(503), /Your own daily project is untouched/);
+  assert.match(runFailureNext(503), /00:00 UTC/);
+  assert.match(runFailureNext(429), /resets at 00:00 UTC/);
 });
 
 test("account: names are trimmed, collapsed, capped at 60, and empty clears", async () => {

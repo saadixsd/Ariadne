@@ -210,7 +210,7 @@ describe("quota: only successful runs count, increment is atomic", () => {
       await prisma.workflow.create({ data: { userId: user.id, projectId: `other-${i}`, day: usage.utcDay(), runs: 3 } });
     }
     const callsBefore = mock.state.calls;
-    await rejects(agents.runTask(p.draft.id, user.id), 429, /started 10 workflows today/);
+    await rejects(agents.runTask(p.draft.id, user.id), 429, /used today.s project.*00:00 UTC/);
     assert.equal(mock.state.calls, callsBefore);
     assert.equal((await prisma.task.findUniqueOrThrow({ where: { id: p.draft.id } })).status, "pending");
     assert.equal(await runsToday(user.id), 0);
@@ -246,11 +246,11 @@ describe("quota: only successful runs count, increment is atomic", () => {
     assert.equal(wf.runs, 4);
     await prisma.workflow.update({ where: { id: wf.id }, data: { runs: limits.MAX_RUNS_PER_WORKFLOW } });
     const callsBefore = mock.state.calls;
-    await rejects(agents.runTask(p.review.id, user.id), 429, /re-run many times/);
+    await rejects(agents.runTask(p.review.id, user.id), 429, /used its 3 reruns/);
     assert.equal(mock.state.calls, callsBefore);
     await usage.closeWorkflow(p.id);
-    await agents.runTask(p.review.id, user.id);
-    assert.equal(await usage.workflowsStarted(user.id), 2, "after approval the next run starts a new workflow");
+    await rejects(agents.runTask(p.review.id, user.id), 429, /used today.s project.*00:00 UTC/);
+    assert.equal(await usage.workflowsStarted(user.id), 1, "after approval the next run would start a new workflow, over today's limit");
   });
 
   test("trial: concurrent reservations never exceed the first-day cap", async () => {
@@ -293,7 +293,7 @@ describe("site-wide daily ceiling and output caps", () => {
       const user = await newUser("site-cap@test.dev");
       const p = await newProject(user.id);
       const callsBefore = mock.state.calls;
-      await rejects(agents.runTask(p.draft.id, user.id), 503, /spun all 200 runs .* nothing was sent to Claude or GPT/);
+      await rejects(agents.runTask(p.draft.id, user.id), 503, /spun all 200 runs .* nothing was sent to the models/);
       assert.equal(mock.state.calls, callsBefore, "provider not called");
       assert.equal((await prisma.task.findUniqueOrThrow({ where: { id: p.draft.id } })).status, "pending");
       assert.equal(await runsToday(user.id), 0, "the refused run gave its reservation back");
@@ -326,7 +326,7 @@ describe("site-wide daily ceiling and output caps", () => {
       for (let i = 0; i < limits.WORKFLOWS_PER_DAY; i++) {
         await prisma.workflow.create({ data: { userId: user.id, projectId: `both-${i}`, day: usage.utcDay(), runs: 3 } });
       }
-      await rejects(agents.runTask(p.draft.id, user.id), 429, /workflows today/);
+      await rejects(agents.runTask(p.draft.id, user.id), 429, /used today.s project/);
     } finally {
       await cleanup();
       await prisma.usageDay.deleteMany({ where: { user: { email: "both-caps@test.dev" } } });
@@ -341,8 +341,8 @@ describe("site-wide daily ceiling and output caps", () => {
     assert.equal(mock.state.lastBody.anthropic.max_tokens, limits.MAX_OUTPUT_TOKENS_ANTHROPIC);
     assert.equal(mock.state.lastBody.openai.max_output_tokens ?? mock.state.lastBody.openai.max_completion_tokens, limits.MAX_OUTPUT_TOKENS_OPENAI);
     assert.deepEqual(mock.state.lastBody.openai.tools, [{ type: "web_search" }], "Daedalus fact-checks with web search");
-    assert.equal(limits.MAX_OUTPUT_TOKENS_ANTHROPIC, 16384);
-    assert.equal(limits.MAX_OUTPUT_TOKENS_OPENAI, 16384);
+    assert.equal(limits.MAX_OUTPUT_TOKENS_ANTHROPIC, 8192);
+    assert.equal(limits.MAX_OUTPUT_TOKENS_OPENAI, 8192);
   });
 });
 

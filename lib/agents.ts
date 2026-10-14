@@ -92,10 +92,10 @@ const WRITER_RULES = (tools: "fetch" | "search" | "none") =>
         : "Web search is not available for this run; answer from the brief, the sources and what you know."
   } Use the whole brief (title, goal, need, deliverable and files) together; if anything is ambiguous, take the most reasonable reading in that context, state it in one line starting "Assumption:" at the top, then answer fully. Never ask clarifying questions instead of answering. Answer the question directly. Cite your sources inline, next to each claim, as Markdown links to the page you used. Say clearly when you are uncertain about a fact, and why. Never refuse or stop because you lack access to something: give your best sourced answer and mark what is uncertain. Do not mention which AI model or company is behind you.)`;
 
-const ANTHROPIC_SEARCH = { type: "web_search_20250305", name: "web_search", max_uses: 4 } as const;
+const ANTHROPIC_SEARCH = { type: "web_search_20250305", name: "web_search", max_uses: 2 } as const;
 // Provider-side fetch: the page is read on the provider's servers. The cap keeps the
 // response the Worker has to parse bounded (CPU), while fitting a mid-size data file.
-const ANTHROPIC_FETCH = { type: "web_fetch_20250910", name: "web_fetch", max_uses: 3, max_content_tokens: 40_000 } as const;
+const ANTHROPIC_FETCH = { type: "web_fetch_20250910", name: "web_fetch", max_uses: 2, max_content_tokens: 15_000 } as const;
 
 /** Opening lines where the writer narrates its own process ("Now I have enough. Let me draft…"). */
 const NARRATION = /^(?:now |ok(?:ay)?[,.]? |great[,.]? |perfect[,.]? )?(?:let me|i'll|i will|i have|i've|i now have|i'm going to|i need to|based on (?:my|the) (?:research|search(?:es)?))\b[^\n]{0,200}$/i;
@@ -149,7 +149,8 @@ type CallResult = { text: string; usage: CallUsage };
 
 function addAnthropicUsage(total: CallUsage, u: Anthropic.Usage | undefined) {
   if (!u) return;
-  total.inputTokens += (u.input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0);
+  // Cache writes bill at 1.25x input; count them that way so the cost estimate stays honest.
+  total.inputTokens += (u.input_tokens ?? 0) + Math.ceil((u.cache_creation_input_tokens ?? 0) * 1.25);
   total.cacheReadTokens += u.cache_read_input_tokens ?? 0;
   total.outputTokens += u.output_tokens ?? 0;
   const st = u.server_tool_use as { web_search_requests?: number; web_fetch_requests?: number } | null | undefined;
@@ -159,7 +160,10 @@ function addAnthropicUsage(total: CallUsage, u: Anthropic.Usage | undefined) {
 
 /** Wall-clock budget for one writer or checker call, all retries included (the request must finish well inside platform limits). */
 const CALL_BUDGET_MS = 170_000;
-const MAX_CONTINUATIONS = 5;
+const MAX_CONTINUATIONS = 3;
+
+/** The system prompt (playbook first) as one cached block: continuations and the next call within 5 minutes read it at a tenth of the price. */
+const cachedSystem = (system: string): Anthropic.TextBlockParam[] => [{ type: "text", text: system, cache_control: { type: "ephemeral" } }];
 const left = (deadline: number) => deadline - Date.now();
 
 function anthropicEffort(): Anthropic.OutputConfig | undefined {
@@ -172,7 +176,7 @@ async function anthropicWithTools(client: Anthropic, model: string, system: stri
   const output_config = anthropicEffort();
   const create = (withTools: boolean) =>
     client.messages.create(
-      { model, max_tokens: MAX_OUTPUT_TOKENS_ANTHROPIC, system, messages, ...(withTools ? { tools } : {}), ...(output_config ? { output_config } : {}) },
+      { model, max_tokens: MAX_OUTPUT_TOKENS_ANTHROPIC, system: cachedSystem(system), messages, ...(withTools ? { tools } : {}), ...(output_config ? { output_config } : {}) },
       { timeout: Math.max(5_000, left(deadline)) },
     );
   let response = await create(true);
@@ -234,7 +238,7 @@ async function callAnthropic(model: string, system: string, user: string): Promi
     {
       model,
       max_tokens: MAX_OUTPUT_TOKENS_ANTHROPIC,
-      system,
+      system: cachedSystem(system),
       messages: [{ role: "user", content: user + WRITER_RULES("none") }],
       ...(output_config ? { output_config } : {}),
     },
@@ -256,6 +260,7 @@ const CHECKER_RULES = (search: boolean) =>
 - Supported: Evidence must quote, in double quotes, the exact source words that contain the claimed number or name. If you cannot quote it, the verdict is unsupported.
 - Never invent arithmetic. A total or count is supported only if a source states that total verbatim. If you compute one, write "Computed: <each input quoted from the source> = <total>" in Evidence and give the verdict unsupported (or wrong if the quoted inputs clearly contradict the claim), never supported.
 - Sources disagree: when credible sources give different values, use the verdict "sources disagree" and give each value on its own line in Evidence as: "<exact quote>" — <URL>. List every URL in Source, separated by " ; ".
+- If the draft makes more than 12 factual claims, check the 12 that matter most to the user's goal in full; then list the remaining claims briefly under "Not checked in full" with no verdict.
 - Start your reply with one line "Data checked: <the single as-of date or timestamp the source shows, or today's date>" and use that same date for every claim.
 Do not mention which AI model or company is behind you.)`;
 
@@ -832,7 +837,7 @@ export async function decideTask(taskId: string, approved: boolean, note: string
   await emit(
     task.projectId,
     "note",
-    `You requested changes on "${task.title}": ${trimmed}. Run "${rootTitles}" again. Nothing was sent to Claude or GPT.`,
+    `You requested changes on "${task.title}": ${trimmed}. Run "${rootTitles}" again. Nothing was sent to the models.`,
     task.id,
     {
       fromTaskId: task.id,
