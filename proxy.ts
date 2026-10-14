@@ -49,6 +49,10 @@ export function proxy(request: NextRequest) {
 
 function route(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  // One canonical host: www.ariadneagents.si → ariadneagents.si (permanent, path and query kept).
+  if (request.headers.get("host")?.toLowerCase() === "www.ariadneagents.si") {
+    return NextResponse.redirect(`https://ariadneagents.si${pathname}${request.nextUrl.search}`, 308);
+  }
   if (pathname.startsWith("/api/") && isCrossSiteWrite(request)) {
     return NextResponse.json({ error: "This request came from another site, so Ariadne refused it." }, { status: 403 });
   }
