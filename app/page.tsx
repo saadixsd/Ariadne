@@ -84,11 +84,15 @@ export default function Landing() {
         <div className="lp-wrap">
           <Brand />
           <nav aria-label="Account">
-            <a className="lp-signin" href="/sign-in">
+            {/* life.js swaps these for "Your projects" when the ariadne_in marker cookie says you're signed in. */}
+            <a className="lp-signin" href="/sign-in" data-when="out">
               Sign in
             </a>
-            <a className="lp-btn lp-btn-thread lp-btn-sm" href="/sign-up">
+            <a className="lp-btn lp-btn-thread lp-btn-sm" href="/sign-up" data-when="out">
               Tie the Thread
+            </a>
+            <a className="lp-btn lp-btn-thread lp-btn-sm" href="/dashboard" data-when="in" hidden>
+              Your projects
             </a>
           </nav>
         </div>
@@ -129,10 +133,10 @@ export default function Landing() {
                 Ariadne makes two models check each other, claim by claim, so you only verify what&apos;s flagged.
               </p>
               <ol className="lp-flow lp-rise" aria-label="What happens" style={{ "--delay": ".3s" } as React.CSSProperties}>
-                <li>Claude answers from your sources</li>
-                <li>GPT fact-checks every claim</li>
+                <li>Odysseus answers from your sources</li>
+                <li>Daedalus fact-checks every claim</li>
                 <li>you judge only the flagged ones</li>
-                <li>Claude revises</li>
+                <li>Odysseus revises</li>
                 <li>you approve, with the checks attached</li>
               </ol>
               <div className="lp-cta lp-rise" style={{ "--delay": ".36s" } as React.CSSProperties}>
@@ -176,7 +180,7 @@ export default function Landing() {
                   <div className="lp-step-body">
                     <p className="lp-step-n">1 · Draft</p>
                     <h3>Odysseus answers</h3>
-                    <p className="lp-step-who">Claude</p>
+                    <p className="lp-step-who">Odysseus</p>
                     <p className="lp-step-text">
                       Answers your question from your brief and the sources you upload (PDF, DOCX, Markdown), stating each
                       fact as a specific claim. Not what you asked? Tell it why and it redrafts.
@@ -190,7 +194,7 @@ export default function Landing() {
                   <div className="lp-step-body">
                     <p className="lp-step-n">2 · Challenge</p>
                     <h3>Daedalus fact-checks</h3>
-                    <p className="lp-step-who">GPT</p>
+                    <p className="lp-step-who">Daedalus</p>
                     <p className="lp-step-text">
                       When the draft looks right to you, Daedalus checks it claim by claim against your sources and a
                       web search, and labels each claim Supported, Unsupported or Wrong, with the evidence and a link.
@@ -327,7 +331,7 @@ export default function Landing() {
               </h2>
             </div>
             <ul className="lp-who">
-              <li>You use ChatGPT, Claude or both for literature reviews, summaries, analysis or reports.</li>
+              <li>You use AI assistants for literature reviews, summaries, analysis or reports.</li>
               <li>Your work carries numbers, citations or claims that someone else will check.</li>
               <li>You already paste one model&apos;s answer into another to see if it holds up.</li>
             </ul>
@@ -354,7 +358,7 @@ export default function Landing() {
             <a className="lp-btn lp-btn-thread" href="/sign-up">
               Tie the Thread
             </a>
-            <p className="lp-note">Free while we test it with a small group of researchers.</p>
+            <p className="lp-note">Free to use. No card needed.</p>
           </div>
         </section>
       </main>

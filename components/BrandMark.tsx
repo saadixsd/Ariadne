@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export function ThreadGlyph({ className = "h-[26px] w-[26px]" }: { className?: string }) {
   return (
     <svg viewBox="0 0 26 26" fill="none" className={className} aria-hidden>
@@ -15,5 +17,14 @@ export function BrandMark({ className = "" }: { className?: string }) {
       </span>
       Ariadne
     </p>
+  );
+}
+
+/** The logo as a link to the landing page (every app header uses this). */
+export function HomeMark({ className = "" }: { className?: string }) {
+  return (
+    <Link href="/" prefetch={false} aria-label="Ariadne, home" className="touch-min inline-flex w-fit">
+      <BrandMark className={className} />
+    </Link>
   );
 }

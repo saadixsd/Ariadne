@@ -27,7 +27,7 @@ export type Knot = {
   id: string;
   kind: KnotKind;
   step: string;
-  actor: "Odysseus (Claude)" | "Daedalus (GPT)" | "You";
+  actor: "Odysseus" | "Daedalus" | "You";
   at: string | null;
   summary: string;
   /** Model task this knot belongs to (for diff and Rerun from here). */
@@ -70,7 +70,7 @@ export function buildKnots(data: ThreadData, steps: ThreadSteps): Knot[] {
     const base = { id: run.id, taskId: run.taskId, runId: run.id, at: time(run), lines: [] as string[], canRerun: false, version: null as number | null };
     if (!VERSIONED.has(run.outcome)) {
       if (run.outcome !== "failed") continue;
-      knots.push({ ...base, kind: "failed", step: `${r === "challenge" ? "Challenge" : r === "tieoff" ? "Tie Off" : "Draft"} did not finish`, actor: r === "challenge" ? "Daedalus (GPT)" : "Odysseus (Claude)", summary: (run.error ?? "The step failed").slice(0, 120) });
+      knots.push({ ...base, kind: "failed", step: `${r === "challenge" ? "Challenge" : r === "tieoff" ? "Tie Off" : "Draft"} did not finish`, actor: r === "challenge" ? "Daedalus" : "Odysseus", summary: (run.error ?? "The step failed").slice(0, 120) });
       continue;
     }
     if (r === "challenge") {
@@ -80,7 +80,7 @@ export function buildKnots(data: ThreadData, steps: ThreadSteps): Knot[] {
         ...base,
         kind: "challenge",
         step: "Challenge",
-        actor: "Daedalus (GPT)",
+        actor: "Daedalus",
         summary: v.checked
           ? `${plural(v.checked, "claim")} checked: ${[v.supported && `${v.supported} supported`, v.unsupported && `${v.unsupported} unsupported`, v.wrong && `${v.wrong} wrong`].filter(Boolean).join(", ")}`
           : flags.length === 0
@@ -117,7 +117,7 @@ export function buildKnots(data: ThreadData, steps: ThreadSteps): Knot[] {
       version: v,
       kind: r === "tieoff" ? "tieoff" : v === 1 ? "draft" : "revision",
       step: r === "tieoff" ? "Tie Off" : v === 1 ? "Draft" : "Revision",
-      actor: "Odysseus (Claude)",
+      actor: "Odysseus",
       summary: r === "tieoff" ? "The tied-off answer, written from the draft you judged" : v === 1 ? "First answer from your brief and sources" : "Revised with your decisions",
     });
   }

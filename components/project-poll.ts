@@ -43,7 +43,7 @@ function leaveIfGone(status: number) {
  * error (often a JSON body) stays on the frayed step, next to Copy error, not in the toast.
  */
 export function runFailureText(what: string, status: number, message: string | null): string {
-  if (status === 502) return `${what}: Claude or GPT returned an error instead of an answer.`;
+  if (status === 502) return `${what}: the AI service returned an error instead of an answer.`;
   return failureText(what, status, message);
 }
 

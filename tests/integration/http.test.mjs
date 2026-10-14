@@ -131,13 +131,14 @@ test("L1. signed out: / is the public landing page; /dashboard and other app pag
   assert.match(landing.text, /href="\/sign-up"/);
   assert.match(landing.text, /instagram\.com\/ariadne_agents/);
   assert.match(landing.text, /x\.com\/ariadne_agents/);
-  // Roles: Odysseus (Claude) answers, Daedalus (GPT) fact-checks.
+  // Roles by name only: no model or vendor names, no test-phase wording.
+  assert.doesNotMatch(landing.text.replace(/<script[\s\S]*?<\/script>/g, ""), /\b(Claude|GPT|ChatGPT|Gemini|OpenAI|Anthropic)\b|\bbeta\b|early access|\btesters?\b|\bpilot\b|small group/i);
   assert.match(landing.text, /Odysseus answers/);
   assert.match(landing.text, /Daedalus fact-checks/);
   assert.match(landing.text, /Supported, Unsupported or Wrong/);
   assert.match(landing.text, /root-servers\.org/, "the DNS example cites its source");
   assert.doesNotMatch(landing.text, /Daedalus drafts|Odysseus challenges|\bScout\b|\bMaker\b/);
-  assert.doesNotMatch(landing.text, /try to break|tries to break|prove (it|the draft) wrong|Board\b|Saad/i, "no adversarial or stale wording");
+  assert.doesNotMatch(landing.text, /try to break|tries to break|prove (it|the draft) wrong|\bBoard\b|Saad/i, "no adversarial or stale wording");
   assert.doesNotMatch(landing.text, /eliminates hallucinations|hallucination-free|guaranteed accura/i, "no reliability claims");
   for (const path of ["/dashboard", "/dashboard?project=abc", "/tree", "/settings"]) {
     const res = await call("GET", path, { from: ip(40) });
@@ -152,7 +153,7 @@ test("L1. signed out: / is the public landing page; /dashboard and other app pag
   assert.equal(to.search, "?project=abc&new=1");
   const signUp = await call("GET", "/sign-up", { from: ip(40) });
   assert.equal(signUp.status, 200);
-  assert.match(signUp.text, /GPT fact-checks each claim against your sources and the web, and you judge only what it flags/, "sign-up says what comes next");
+  assert.match(signUp.text, /Daedalus fact-checks each claim against your sources and the web, and you judge only what it flags/, "sign-up says what comes next");
 });
 
 test("T1. sign-up needs a Turnstile pass; shape errors come first; nothing is created on failure", async () => {
@@ -321,4 +322,26 @@ test("3. stuck running task is recovered on the next poll and can run again", as
   const project = (await call("GET", `/api/projects/${state.projectId}`, { cookie: c })).json;
   assert.equal(project.tasks.find((t) => t.id === research.id).status, "pending");
   assert.equal((await call("POST", `/api/tasks/${research.id}/run`, { cookie: c })).status, 200);
+});
+
+test("R1. forgot/reset pages are public; without an email sender the API says so (503) instead of pretending", async () => {
+  for (const page of ["/forgot-password", "/reset-password"]) {
+    const res = await call("GET", page);
+    assert.equal(res.status, 200, page);
+  }
+  const signIn = await call("GET", "/sign-in");
+  assert.match(signIn.text, /href="\/forgot-password"/);
+  const res = await call("POST", "/api/auth/forgot", { body: { email: "someone@test.dev" }, from: ip(77) });
+  assert.equal(res.status, 503);
+  assert.equal(res.json.code, "email_off");
+  const bad = await call("POST", "/api/auth/reset", { body: { token: "nope", password: "password123" }, from: ip(78) });
+  assert.equal(bad.status, 400);
+});
+
+test("R2. landing: a session cookie sets the readable ariadne_in marker; signed out clears it", async () => {
+  const signedIn = await call("GET", "/", { cookie: state.cookie });
+  assert.match(signedIn.headers.get("set-cookie") ?? "", /ariadne_in=1/);
+  const out = await call("GET", "/", { cookie: "ariadne_in=1" });
+  assert.match(out.headers.get("set-cookie") ?? "", /ariadne_in=;/);
+  assert.match(out.text, /data-when="in"/);
 });

@@ -65,7 +65,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   return (
     <div className="min-h-full text-ink">
       <header className="bar-safe flex min-h-14 items-center gap-4 border-b border-line bg-raised/60 pb-2 backdrop-blur-md">
-        <Link href={back} aria-label="Back to your project" className="touch-min">
+        <Link href="/" aria-label="Ariadne, home" className="touch-min">
           <BrandMark className="max-sm:text-[0px]" />
         </Link>
         <div className="flex-1" />

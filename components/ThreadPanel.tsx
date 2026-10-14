@@ -5,7 +5,7 @@ import { LocalTime } from "@/components/LocalTime";
 import { buildKnots, type Knot, type ThreadData } from "@/lib/knots";
 import type { Decision, ThreadSteps } from "@/lib/workspace";
 
-const DOT: Record<Knot["actor"], string> = { "Odysseus (Claude)": "bg-thread", "Daedalus (GPT)": "bg-ink", You: "bg-gate-ink" };
+const DOT: Record<Knot["actor"], string> = { "Odysseus": "bg-thread", "Daedalus": "bg-ink", You: "bg-gate-ink" };
 
 /**
  * The thread: one knot per step that happened. Loads once per step change (not per

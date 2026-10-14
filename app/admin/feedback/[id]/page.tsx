@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { BrandMark } from "@/components/BrandMark";
+import { HomeMark } from "@/components/BrandMark";
 import MarkdownBody from "@/components/MarkdownBody";
 import { requireAdminPage } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
@@ -34,7 +34,7 @@ export default async function AdminFeedbackProject({ params }: { params: Promise
 
   return (
     <main className="mx-auto min-h-full max-w-3xl px-4 py-8">
-      <BrandMark />
+      <HomeMark />
       <Link href="/admin/feedback" className="text-sm text-thread">
         ← All feedback
       </Link>

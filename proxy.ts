@@ -4,7 +4,7 @@ import { CAMPAIGN_COOKIE, CAMPAIGN_COOKIE_MAX_AGE, campaignFromParams, encodeCam
 
 // "/" is the public landing page (static). Everything else that is not a door page or the
 // API needs a session; signed-out visitors are sent to /sign-in.
-const PUBLIC_PATHS = ["/", "/sign-in", "/sign-up", "/verify"];
+const PUBLIC_PATHS = ["/", "/sign-in", "/sign-up", "/verify", "/forgot-password", "/reset-password"];
 // Query keys that only ever meant "open the board" when the board lived at "/".
 const LEGACY_BOARD_KEYS = ["project", "new"];
 // The door pages are static. Only a visitor who already holds a session cookie needs
@@ -67,7 +67,12 @@ function route(request: NextRequest) {
       url.pathname = "/dashboard";
       return NextResponse.redirect(url);
     }
-    return NextResponse.next();
+    const response = NextResponse.next();
+    // A readable marker for the static landing page's nav (no secret in it).
+    const marked = request.cookies.get("ariadne_in")?.value === "1";
+    if (hasSession && !marked) response.cookies.set("ariadne_in", "1", { path: "/", sameSite: "lax", secure: process.env.NODE_ENV === "production", maxAge: 30 * 24 * 60 * 60 });
+    if (!hasSession && marked) response.cookies.set("ariadne_in", "", { path: "/", maxAge: 0 });
+    return response;
   }
   if (DOOR_PATHS.includes(pathname) && hasSession) {
     const url = request.nextUrl.clone();

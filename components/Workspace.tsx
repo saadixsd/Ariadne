@@ -7,7 +7,7 @@ import { ActivityTab, StatusIcon } from "@/components/ActivityPanel";
 import { ClaimTable } from "@/components/ClaimTable";
 import { ThreadPanel } from "@/components/ThreadPanel";
 import { diffParagraphs, type DiffLine, type Knot } from "@/lib/knots";
-import { BrandMark } from "@/components/BrandMark";
+import { HomeMark } from "@/components/BrandMark";
 import { FeedbackInvite } from "@/components/FeedbackForm";
 import { IssuesPanel } from "@/components/IssuesPanel";
 import MarkdownBody from "@/components/MarkdownBody";
@@ -126,7 +126,7 @@ export function Workspace({ initial }: { initial: WorkspaceData }) {
 
   async function runSteps(ids: string[]) {
     for (const id of ids) {
-      setBusy(id === steps.challenge?.id ? "Daedalus (GPT) is fact-checking the draft…" : id === steps.tieOff?.id ? "Odysseus is writing the tied-off answer…" : "Odysseus (Claude) is drafting…");
+      setBusy(id === steps.challenge?.id ? "Daedalus is fact-checking the draft…" : id === steps.tieOff?.id ? "Odysseus is writing the tied-off answer…" : "Odysseus is drafting…");
       await post(`/api/tasks/${id}/run`);
     }
   }
@@ -187,7 +187,7 @@ export function Workspace({ initial }: { initial: WorkspaceData }) {
     if (!window.confirm(`Run “${k.step}” again? The steps after it are cleared and run again when you click. Earlier versions stay in the thread.`)) return;
     void selectKnot(null);
     const id = k.taskId;
-    void act(k.kind === "challenge" ? "Daedalus (GPT) is fact-checking the draft again…" : "Odysseus (Claude) is writing again…", () => post(`/api/tasks/${id}/rerun`).then(() => undefined));
+    void act(k.kind === "challenge" ? "Daedalus is fact-checking the draft again…" : "Odysseus is writing again…", () => post(`/api/tasks/${id}/rerun`).then(() => undefined));
   }
 
   function showInDocument(key: string) {
@@ -234,7 +234,7 @@ export function Workspace({ initial }: { initial: WorkspaceData }) {
         return (
           <div className="flex w-full flex-wrap items-center gap-2">
             <span className="text-sm text-ink-dim">Read the draft. Is it what you asked for?</span>
-            <button className={primary} onClick={() => void act("Daedalus (GPT) is fact-checking the draft…", () => runSteps([action.challenge.id]))}>
+            <button className={primary} onClick={() => void act("Daedalus is fact-checking the draft…", () => runSteps([action.challenge.id]))}>
               Draft looks right, fact-check it
             </button>
             <details className="relative">
@@ -254,7 +254,7 @@ export function Workspace({ initial }: { initial: WorkspaceData }) {
                   onClick={() => {
                     const note = redraftNote.trim();
                     setRedraftNote("");
-                    void act("Odysseus (Claude) is redrafting…", () => post(`/api/tasks/${action.task.id}/steer`, { note }).then(() => undefined));
+                    void act("Odysseus is redrafting…", () => post(`/api/tasks/${action.task.id}/steer`, { note }).then(() => undefined));
                   }}
                 >
                   Redraft with my feedback
@@ -339,7 +339,7 @@ export function Workspace({ initial }: { initial: WorkspaceData }) {
   const version = draftVersion(steps.draft);
   const docTime = (doc.from === "tieOff" ? steps.tieOff : steps.draft)?.completedAt;
   const docLabel =
-    doc.from === "tieOff" ? "Tied-off answer · Odysseus (Claude)" : doc.from === "draft" ? `${version > 1 ? "Revised draft" : "Draft"} · Odysseus (Claude)` : "Deliverable";
+    doc.from === "tieOff" ? "Tied-off answer · Odysseus" : doc.from === "draft" ? `${version > 1 ? "Revised draft" : "Draft"} · Odysseus` : "Deliverable";
   const approveReady = action.kind === "approve";
 
   const sources = (
@@ -376,7 +376,7 @@ export function Workspace({ initial }: { initial: WorkspaceData }) {
     <div className="flex min-h-dvh flex-col bg-canvas text-ink lg:h-dvh">
       <header className="border-b border-line bg-raised">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 lg:px-6">
-          <BrandMark />
+          <HomeMark />
           <div className="min-w-0 flex-1 basis-[55%] sm:basis-0">
             <h1 className="truncate font-serif text-[22px] leading-tight">{project.name}</h1>
             {goal ? <p className="truncate text-[13px] text-ink-dim" title={goal}>{goal}</p> : null}
@@ -492,7 +492,7 @@ export function Workspace({ initial }: { initial: WorkspaceData }) {
                     <h2 className="font-serif text-3xl text-ink">{project.name}</h2>
                     <p className="mt-4">Nothing drafted yet.</p>
                     <p className="mt-2">
-                      When you click <b>Draft</b>, Odysseus (Claude) answers from your brief and sources. Once the draft looks right to you, Daedalus (GPT) fact-checks it claim by claim against your sources and the web, and labels each claim Supported, Unsupported or Wrong, with evidence. You judge only the flagged claims, Odysseus revises, and you approve an answer with the checks attached. Nothing runs until you click.
+                      When you click <b>Draft</b>, Odysseus answers from your brief and sources. Once the draft looks right to you, Daedalus fact-checks it claim by claim against your sources and the web, and labels each claim Supported, Unsupported or Wrong, with evidence. You judge only the flagged claims, Odysseus revises, and you approve an answer with the checks attached. Nothing runs until you click.
                     </p>
                   </div>
                 )}

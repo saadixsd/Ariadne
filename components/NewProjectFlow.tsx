@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { BrandMark } from "@/components/BrandMark";
+import { HomeMark } from "@/components/BrandMark";
 import { ACCEPT, extractText, uploadOriginal, type Extracted } from "@/lib/ingest-client";
 import { MAX_SOURCE_FILES } from "@/lib/sources";
 
@@ -89,7 +89,7 @@ export function NewProjectFlow({ runsLeft, runsLimit }: { runsLeft: number; runs
   return (
     <main className="mx-auto min-h-full max-w-2xl px-4 py-8">
       <div className="flex items-center justify-between">
-        <BrandMark />
+        <HomeMark />
         <Link href="/dashboard" className="text-sm text-ink-dim hover:text-ink">
           My projects
         </Link>
@@ -104,7 +104,7 @@ export function NewProjectFlow({ runsLeft, runsLimit }: { runsLeft: number; runs
       {step === "describe" ? (
         <div className="mt-6 space-y-5">
           <p className="text-sm leading-normal text-ink-dim">
-            Odysseus (Claude) answers from your brief and files. When the draft looks right to you, Daedalus (GPT) checks each claim against your files and the web. You judge only what it flags.
+            Odysseus answers from your brief and files. When the draft looks right to you, Daedalus checks each claim against your files and the web. You judge only what it flags.
           </p>
           <div className="text-sm">
             <span className="text-ink-dim">Sample question: </span>

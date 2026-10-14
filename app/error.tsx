@@ -1,6 +1,6 @@
 "use client";
 
-import { BrandMark } from "@/components/BrandMark";
+import { HomeMark } from "@/components/BrandMark";
 import { useEffect } from "react";
 
 export default function Error({
@@ -16,7 +16,7 @@ export default function Error({
 
   return (
     <main className="mx-auto flex min-h-full max-w-lg flex-col justify-center px-6 py-16">
-      <BrandMark />
+      <HomeMark />
       <h1 className="mt-6 font-serif text-[44px] font-normal leading-none tracking-[-0.015em]">The workspace hit an error</h1>
       <p className="mt-3 text-sm leading-normal text-ink-dim">
         The page failed to render. Try again. This screen does not start an agent run.

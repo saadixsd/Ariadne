@@ -105,9 +105,16 @@ export function AuthForm({
   mode,
   email = "",
 }: {
-  mode: "sign-in" | "sign-up" | "verify";
+  mode: "sign-in" | "sign-up" | "verify" | "forgot" | "reset";
   email?: string;
 }) {
+  const [resetToken, setResetToken] = useState("");
+  const [done, setDone] = useState(false);
+  useEffect(() => {
+    if (mode !== "reset") return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time read of the URL after hydration
+    setResetToken(new URLSearchParams(window.location.search).get("token") ?? "");
+  }, [mode]);
   const [address, setAddress] = useState(email);
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
@@ -130,7 +137,11 @@ export function AuthForm({
 
   const copy =
     mode === "sign-up"
-      ? { eyebrow: "The door", title: "Begin a thread", lede: "Create your account. Next, you tell Ariadne what you need to know: Claude answers, GPT fact-checks each claim against your sources and the web, and you judge only what it flags." }
+      ? { eyebrow: "The door", title: "Begin a thread", lede: "Create your account. Next, ask Ariadne a question: Odysseus answers, Daedalus fact-checks each claim against your sources and the web, and you judge only what it flags." }
+      : mode === "forgot"
+        ? { eyebrow: "Forgot password", title: "Reset your password", lede: "Enter your account email. We'll send a link that works once and expires in 30 minutes." }
+      : mode === "reset"
+        ? { eyebrow: "New password", title: "Choose a new password", lede: "At least 8 characters. Every device signed in to this account will be signed out." }
       : mode === "verify"
         ? { eyebrow: "One knot", title: "Check your email", lede: "Enter the 6-digit code. It expires in 15 minutes." }
         : { eyebrow: "The door", title: "Pick up the thread", lede: "Your work is where you left it." };
@@ -139,7 +150,23 @@ export function AuthForm({
     event.preventDefault();
     setBusy(true);
     setError(null);
+    setNotice(null);
     try {
+      if (mode === "forgot" || mode === "reset") {
+        const response = await fetch(mode === "forgot" ? "/api/auth/forgot" : "/api/auth/reset", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(mode === "forgot" ? { email: address } : { token: resetToken, password }),
+        });
+        const body = (await response.json().catch(() => ({}))) as { error?: string; message?: string };
+        if (!response.ok) {
+          setError(body.error ?? "Could not continue");
+          return;
+        }
+        setNotice(body.message ?? "Done.");
+        setDone(true);
+        return;
+      }
       if (mode === "verify") {
         const response = await fetch("/api/auth/verify", {
           method: "POST",
@@ -226,6 +253,12 @@ export function AuthForm({
           </div>
           <div className="door-rise grid gap-4" style={{ "--delay": ".3s" } as React.CSSProperties}>
             <form onSubmit={(event) => void submit(event)} className="grid gap-3.5">
+              {mode === "reset" && !resetToken ? (
+                <p className="text-sm leading-normal text-danger" role="alert">
+                  This page needs the link from your reset email. <Link href="/forgot-password" className="text-thread">Ask for a new one</Link>.
+                </p>
+              ) : null}
+              {mode !== "reset" ? (
               <label className="door-label">
                 Email
                 <input
@@ -238,7 +271,8 @@ export function AuthForm({
                   className="door-input"
                 />
               </label>
-              {mode === "verify" ? (
+              ) : null}
+              {mode === "forgot" ? null : mode === "verify" ? (
                 <label className="door-label">
                   Code
                   <input
@@ -256,7 +290,7 @@ export function AuthForm({
                   Password
                   <input
                     type="password"
-                    autoComplete={mode === "sign-up" ? "new-password" : "current-password"}
+                    autoComplete={mode === "sign-in" ? "current-password" : "new-password"}
                     required
                     minLength={8}
                     value={password}
@@ -290,8 +324,8 @@ export function AuthForm({
               ) : null}
               {error ? <p className="text-sm leading-normal text-danger" role="alert">{error}</p> : null}
               {notice ? <p className="text-sm leading-normal text-ok" role="status">{notice}</p> : null}
-              <button type="submit" disabled={busy} className="rt-btn rt-btn-thread h-10 w-full text-sm">
-                {busy ? "Working" : mode === "sign-up" ? "Create account" : mode === "verify" ? "Verify" : "Sign in"}
+              <button type="submit" disabled={busy || done || (mode === "reset" && !resetToken)} className="rt-btn rt-btn-thread h-10 w-full text-sm">
+                {busy ? "Working" : mode === "sign-up" ? "Create account" : mode === "verify" ? "Verify" : mode === "forgot" ? "Send reset link" : mode === "reset" ? "Set new password" : "Sign in"}
               </button>
             </form>
             <p className="door-links text-[13px] text-ink-dim">
@@ -308,9 +342,19 @@ export function AuthForm({
                 </>
               ) : mode === "sign-in" ? (
                 <>
+                  <Link href="/forgot-password" className="touch-pad text-thread hover:text-thread-bright">
+                    Forgot password?
+                  </Link>
+                  {" · "}
                   New here?{" "}
                   <Link href="/sign-up" className="touch-pad text-thread hover:text-thread-bright">
                     Create an account
+                  </Link>
+                </>
+              ) : mode === "forgot" || mode === "reset" ? (
+                <>
+                  <Link href="/sign-in" className="touch-pad text-thread hover:text-thread-bright">
+                    Back to sign in
                   </Link>
                 </>
               ) : (

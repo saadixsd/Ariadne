@@ -69,7 +69,7 @@ export function IssuesPanel({
       ) : null}
       {!challengeDone ? (
         <p className="mt-3 rounded-xl bg-panel p-3 text-sm leading-normal text-ink-dim ring-1 ring-line">
-          Nothing flagged yet. When Daedalus (GPT) fact-checks the draft, each claim it marks Wrong or Unsupported shows here, with its evidence, for you to judge.
+          Nothing flagged yet. When Daedalus fact-checks the draft, each claim it marks Wrong or Unsupported shows here, with its evidence, for you to judge.
         </p>
       ) : issues.length === 0 ? (
         <p className="mt-3 rounded-xl bg-panel p-3 text-sm leading-normal text-ink-dim ring-1 ring-line">

@@ -4,12 +4,13 @@ import { TaskRunError } from "@/lib/errors";
 import {
   MAX_SIGNINS_PER_HOUR_PER_IP,
   MAX_SIGNUPS_PER_HOUR_PER_IP,
+  MAX_RESETS_PER_HOUR_PER_IP,
   MAX_VERIFY_ATTEMPTS_PER_HOUR_PER_IP,
   RATE_LIMIT_WINDOW_MS,
 } from "@/lib/limits";
 import { getPrisma } from "@/lib/prisma";
 
-export type RateLimitAction = "signup" | "signin" | "verify";
+export type RateLimitAction = "signup" | "signin" | "verify" | "reset";
 
 const LIMITS: Record<RateLimitAction, { max: number; message: string }> = {
   signup: {
@@ -19,6 +20,10 @@ const LIMITS: Record<RateLimitAction, { max: number; message: string }> = {
   signin: {
     max: MAX_SIGNINS_PER_HOUR_PER_IP,
     message: "Too many sign-in attempts from this network. Wait an hour, then try again.",
+  },
+  reset: {
+    max: MAX_RESETS_PER_HOUR_PER_IP,
+    message: "Too many password reset attempts from this network. Wait an hour, then try again.",
   },
   verify: {
     max: MAX_VERIFY_ATTEMPTS_PER_HOUR_PER_IP,

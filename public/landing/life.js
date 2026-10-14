@@ -1,6 +1,6 @@
 /*
   Ariadne landing page: the page's life. Vanilla JS, no libraries. Ported from the old
-  early-access site (landing/site/assets/life.js). A static file, so a page view still
+  previous standalone site (landing/site/assets/life.js). A static file, so a page view still
   costs the Worker nothing.
 
     1. The red thread. One smooth curve computed from the real layout: it enters from the
@@ -17,6 +17,14 @@
   swing, and the demo changes state without travelling. Everything here is decoration on
   top of a page that is complete without it.
 */
+
+/* Signed in? proxy.ts keeps a non-secret "ariadne_in=1" marker cookie in step with the
+   session cookie (which scripts cannot read). Swap the account links accordingly. */
+(function () {
+  if (!/(?:^|;\s*)ariadne_in=1(?:;|$)/.test(document.cookie)) return;
+  document.querySelectorAll('[data-when="out"]').forEach(function (el) { el.hidden = true; });
+  document.querySelectorAll('[data-when="in"]').forEach(function (el) { el.hidden = false; });
+})();
 (function () {
   "use strict";
 

@@ -44,7 +44,7 @@ async function applyMigrations() {
   }>;
   const { DatabaseSync } = await loadSqlite();
   const db = new DatabaseSync(dbFile);
-  for (const file of ["0001_baseline.sql", "0002_ship_blockers.sql", "0003_phase2.sql", "0004_invite_code.sql", "0005_attribution_feedback.sql", "0006_workspace.sql", "0007_r2_workflow_quota.sql", "0008_r2_budget.sql"]) {
+  for (const file of ["0001_baseline.sql", "0002_ship_blockers.sql", "0003_phase2.sql", "0004_invite_code.sql", "0005_attribution_feedback.sql", "0006_workspace.sql", "0007_r2_workflow_quota.sql", "0008_r2_budget.sql", "0009_password_reset.sql"]) {
     db.exec(readFileSync(path.join(root, "migrations", file), "utf8"));
   }
   db.close();
@@ -666,5 +666,58 @@ describe("workspace journey (Oct 14): sources → Draft → Challenge → decisi
     await prisma.project.delete({ where: { id } });
     assert.equal(await prisma.sourceFile.count({ where: { projectId: id } }), 0);
     assert.equal(await prisma.issueDecision.count({ where: { projectId: id } }), 0);
+  });
+});
+
+describe("forgot password (lib level, mock Brevo)", () => {
+  type Mail = { key: string; to: { email: string }[]; textContent: string };
+  const mail = () => ((mock.state as unknown as { mail?: Mail[] }).mail ?? []);
+  const tokenOf = (m: Mail) => m.textContent.match(/token=([0-9a-f]{64})/)![1];
+
+  test("off without config: a clear 503, nothing stored", async () => {
+    delete process.env.BREVO_API_KEY;
+    delete process.env.EMAIL_FROM;
+    const auth = await import("../../lib/auth");
+    await assert.rejects(auth.requestPasswordReset("nobody@test.dev", "http://x"), (e: { status: number }) => e.status === 503);
+  });
+
+  test("no enumeration, single use, sessions invalidated, cap per hour", async () => {
+    process.env.BREVO_API_KEY = "test-brevo";
+    process.env.BREVO_API_URL = `${mock.url}/v3/smtp/email`;
+    process.env.EMAIL_FROM = "no-reply@test.dev";
+    const auth = await import("../../lib/auth");
+    const user = await newUser(`reset-${Date.now()}@test.dev`);
+    await prisma.session.create({ data: { userId: user.id, tokenHash: `s-${Date.now()}`, expiresAt: new Date(Date.now() + 86400_000) } });
+    const before = mail().length;
+    const unknown = await auth.requestPasswordReset("nobody-here@test.dev", "http://x");
+    const known = await auth.requestPasswordReset(user.email, "http://x");
+    assert.deepEqual(unknown, known, "same answer for a real and an unknown account");
+    assert.equal(mail().length, before + 1, "only the real account gets mail");
+    const sent = mail().at(-1)!;
+    assert.equal(sent.to[0].email, user.email);
+    const token = tokenOf(sent);
+    const row = await prisma.passwordReset.findFirstOrThrow({ where: { userId: user.id } });
+    assert.notEqual(row.tokenHash, token, "only a hash is stored");
+    assert.ok(row.expiresAt.getTime() - Date.now() <= 30 * 60_000 + 1000);
+
+    await assert.rejects(auth.resetPassword(token, "short"), (e: { status: number }) => e.status === 400);
+    await auth.resetPassword(token, "new-password-123");
+    assert.equal(await prisma.session.count({ where: { userId: user.id } }), 0, "every session is signed out");
+    const after = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+    assert.notEqual(after.passwordHash, "x");
+    await assert.rejects(auth.resetPassword(token, "another-password-1"), (e: { status: number }) => e.status === 400, "the link works once");
+
+    // Expired links are refused.
+    await auth.requestPasswordReset(user.email, "http://x");
+    const t2 = tokenOf(mail().at(-1)!);
+    await prisma.passwordReset.updateMany({ where: { userId: user.id, usedAt: null }, data: { expiresAt: new Date(Date.now() - 1000) } });
+    await assert.rejects(auth.resetPassword(t2, "another-password-1"), (e: { status: number }) => e.status === 400, "expired");
+
+    // Per-account cap: at most 3 mails an hour, same answer after it.
+    const count = mail().length;
+    for (let i = 0; i < 3; i++) assert.deepEqual(await auth.requestPasswordReset(user.email, "http://x"), known);
+    assert.equal(mail().length, count + 1, "3 per hour including the two already sent");
+    delete process.env.BREVO_API_KEY;
+    delete process.env.EMAIL_FROM;
   });
 });

@@ -1,4 +1,4 @@
-import { BrandMark } from "@/components/BrandMark";
+import { HomeMark } from "@/components/BrandMark";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -28,7 +28,7 @@ export default async function FeedbackInbox({ searchParams }: { searchParams: Pr
 
   return (
     <main className="mx-auto min-h-full max-w-2xl px-4 py-8">
-      <BrandMark />
+      <HomeMark />
       <div className="mt-2 flex items-end justify-between gap-4">
         <h1 className="font-serif text-[40px] font-normal leading-none tracking-[-0.015em]">Feedback</h1>
         <Link href="/dashboard" className="text-sm text-thread hover:text-thread-bright">

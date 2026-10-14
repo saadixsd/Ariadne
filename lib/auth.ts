@@ -2,7 +2,8 @@ import "server-only";
 
 import { cookies } from "next/headers";
 import { TaskRunError } from "@/lib/errors";
-import { canSendEmail, recentCodeCount, sendVerificationCode } from "@/lib/mail";
+import { MAX_RESET_EMAILS_PER_HOUR, RESET_LINK_MS } from "@/lib/limits";
+import { canSendEmail, recentCodeCount, sendEmail, sendVerificationCode } from "@/lib/mail";
 import { hashPassword, randomToken, sha256, verificationCode, verifyPassword } from "@/lib/password";
 import { getPrisma } from "@/lib/prisma";
 
@@ -95,6 +96,7 @@ async function startSession(userId: string) {
     path: "/",
     maxAge: SESSION_MS / 1000,
   });
+  jar.set("ariadne_in", "1", { sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge: SESSION_MS / 1000 });
 }
 
 export async function signOut() {
@@ -105,6 +107,7 @@ export async function signOut() {
     await prisma.session.deleteMany({ where: { tokenHash: sha256(token) } });
   }
   jar.set(COOKIE, "", { httpOnly: true, path: "/", maxAge: 0 });
+  jar.set("ariadne_in", "", { path: "/", maxAge: 0 });
 }
 
 async function issueCode(userId: string, email: string) {
@@ -215,4 +218,79 @@ export async function resendCode(emailInput: string) {
   }
   const sent = await issueCode(user.id, email);
   if (!sent) throw new TaskRunError("We could not send the verification email. Try again in a few minutes.", 503);
+}
+
+const RESET_SENT =
+  "If an account uses that email, we've sent a link to reset its password. It works once and expires in 30 minutes.";
+
+/**
+ * Forgot password. Same answer whether or not the account exists (no enumeration).
+ * The token is random (32 bytes), only its SHA-256 is stored, single use, 30 minutes.
+ */
+export async function requestPasswordReset(emailInput: string, origin: string): Promise<{ message: string }> {
+  const email = normalizeEmail(emailInput);
+  if (!validEmail(email)) throw new TaskRunError("Enter a valid email address", 400);
+  if (!(await canSendEmail())) {
+    throw new TaskRunError("Password reset by email is not switched on yet. Please try again later.", 503, { code: "email_off" });
+  }
+  const prisma = await getPrisma();
+  const user = await prisma.user.findUnique({ where: { email }, select: { id: true } });
+  if (!user) return { message: RESET_SENT };
+  const since = new Date(Date.now() - 60 * 60 * 1000);
+  if ((await prisma.passwordReset.count({ where: { userId: user.id, createdAt: { gte: since } } })) >= MAX_RESET_EMAILS_PER_HOUR) {
+    return { message: RESET_SENT };
+  }
+  const token = randomToken();
+  const row = await prisma.passwordReset.create({
+    data: { userId: user.id, tokenHash: sha256(token), expiresAt: new Date(Date.now() + RESET_LINK_MS) },
+    select: { id: true },
+  });
+  const link = `${origin}/reset-password?token=${token}`;
+  const send = sendEmail(
+    email,
+    "Reset your Ariadne password",
+    `Someone asked to reset the password for this Ariadne account.\n\nReset it here (works once, expires in 30 minutes):\n${link}\n\nIf this wasn't you, ignore this email; your password stays the same.`,
+  ).then(async (sent) => {
+    if (!sent) await prisma.passwordReset.deleteMany({ where: { id: row.id } });
+  });
+  // Send after the response where the runtime allows it, so a real account does not
+  // answer measurably slower than an unknown one.
+  await afterResponse(send);
+  return { message: RESET_SENT };
+}
+
+/** Sets the new password, burns every reset link of the account and signs out every session. */
+export async function resetPassword(tokenInput: string, password: string) {
+  if (!/^[0-9a-f]{64}$/.test(tokenInput)) throw new TaskRunError("This reset link is invalid or has expired. Ask for a new one.", 400);
+  if (password.length < 8) throw new TaskRunError("Password must be at least 8 characters", 400);
+  if (password.length > 200) throw new TaskRunError("Password is too long", 400);
+  const prisma = await getPrisma();
+  const now = new Date();
+  // Claim the link atomically: only one request can flip usedAt from null.
+  const claimed = await prisma.passwordReset.updateMany({
+    where: { tokenHash: sha256(tokenInput), usedAt: null, expiresAt: { gt: now } },
+    data: { usedAt: now },
+  });
+  if (claimed.count !== 1) throw new TaskRunError("This reset link is invalid or has expired. Ask for a new one.", 400);
+  const row = await prisma.passwordReset.findUnique({ where: { tokenHash: sha256(tokenInput) }, select: { userId: true } });
+  if (!row) throw new TaskRunError("This reset link is invalid or has expired. Ask for a new one.", 400);
+  const { salt, hash } = await hashPassword(password);
+  // Following the link proves the inbox, so the address counts as verified.
+  await prisma.user.update({ where: { id: row.userId }, data: { passwordHash: hash, passwordSalt: salt, emailVerified: true } });
+  await prisma.passwordReset.deleteMany({ where: { userId: row.userId, usedAt: null } });
+  await prisma.session.deleteMany({ where: { userId: row.userId } });
+}
+
+async function afterResponse(work: Promise<unknown>) {
+  try {
+    const { getCloudflareContext } = await import("@opennextjs/cloudflare");
+    const { ctx } = await getCloudflareContext({ async: true });
+    if (ctx?.waitUntil) {
+      ctx.waitUntil(work.catch(() => undefined));
+      return;
+    }
+  } catch {
+    // Not on Workers (local dev): just wait for it.
+  }
+  await work.catch(() => undefined);
 }

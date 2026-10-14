@@ -61,6 +61,11 @@ export const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
 export const MAX_SIGNUPS_PER_HOUR_PER_IP = 5;
 export const MAX_SIGNINS_PER_HOUR_PER_IP = 10;
 export const MAX_VERIFY_ATTEMPTS_PER_HOUR_PER_IP = 20;
+/** Forgot-password requests and reset attempts per IP per hour. */
+export const MAX_RESETS_PER_HOUR_PER_IP = 5;
+/** Reset emails per account per hour (on top of the IP cap). */
+export const MAX_RESET_EMAILS_PER_HOUR = 3;
+export const RESET_LINK_MS = 30 * 60 * 1000;
 
 // Output caps per provider call. Claude has always been capped at 8,192 output tokens.
 // GPT gets the same visible budget plus headroom, because max_completion_tokens also

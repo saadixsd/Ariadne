@@ -122,6 +122,12 @@ export function startMockLlm(port = 0) {
       return send(200, ok ? { success: true, hostname: "localhost" } : { success: false, "error-codes": ["invalid-input-response"] });
     }
 
+    // Stand-in for Brevo's transactional email API (BREVO_API_URL in tests). Records mail.
+    if (req.url === "/v3/smtp/email") {
+      state.mail = [...(state.mail ?? []), { key: req.headers["api-key"], ...JSON.parse(body || "{}") }];
+      return send(201, { messageId: `<mock-${state.mail.length}@test>` });
+    }
+
     state.calls++;
     if (state.fail) {
       state.failures++;

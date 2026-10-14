@@ -1,5 +1,5 @@
 /*
-  The public landing page at "/". Ported from the old early-access site
+  The public landing page at "/". Ported from the old previous standalone site
   (landing/site/assets/landing.css) so the front door and the product read as one thing:
   cream paper, serif type, the red thread, and gold only where a human decides.
   Every rule is scoped under .lp, so nothing here leaks into the app after a client-side
@@ -351,3 +351,4 @@ html:has(.lp) { scroll-behavior: smooth; }
   .lp-monogram, .lp-knot-actions, .lp-btn { transition: none; }
   .lp-btn:hover { transform: none; }
 }
+[data-when][hidden] { display: none !important; }

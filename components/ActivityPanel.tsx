@@ -37,10 +37,10 @@ export function activityRows(steps: ThreadSteps, approvedAt: string | null): Row
     n, who, step, what, status: stepStatus(task), at: task?.completedAt ?? null,
   });
   return [
-    row(1, "Odysseus (Claude)", "Draft", "Drafts from your brief and sources.", steps.draft),
-    row(2, "Daedalus (GPT)", "Challenge", "Fact-checks each claim: supported, unsupported or wrong, with evidence.", steps.challenge),
+    row(1, "Odysseus", "Draft", "Drafts from your brief and sources.", steps.draft),
+    row(2, "Daedalus", "Challenge", "Fact-checks each claim: supported, unsupported or wrong, with evidence.", steps.challenge),
     row(3, "You", "Judge", "Accept, reject or edit each flagged claim, then tie off or revise.", steps.judge),
-    row(4, "Odysseus (Claude)", "Revise", "Writes the tied-off answer from the draft you judged.", steps.tieOff),
+    row(4, "Odysseus", "Revise", "Writes the tied-off answer from the draft you judged.", steps.tieOff),
     { n: 5, who: "You", step: "Approve", what: "Approve the deliverable.", status: approvedAt ? "done" : "pending", at: approvedAt },
   ];
 }
@@ -48,10 +48,10 @@ export function activityRows(steps: ThreadSteps, approvedAt: string | null): Row
 /** Centre "Activity" tab: each step's output on demand, and the event log. */
 export function ActivityTab({ project, steps }: { project: ProjectDTO; steps: ThreadSteps }) {
   const rows: { label: string; who: string; task?: TaskDTO }[] = [
-    { label: "Draft", who: "Odysseus (Claude)", task: steps.draft },
-    { label: "Challenge", who: "Daedalus (GPT)", task: steps.challenge },
+    { label: "Draft", who: "Odysseus", task: steps.draft },
+    { label: "Challenge", who: "Daedalus", task: steps.challenge },
     { label: "Judge", who: "You", task: steps.judge },
-    { label: "Tie Off", who: "Odysseus (Claude)", task: steps.tieOff },
+    { label: "Tie Off", who: "Odysseus", task: steps.tieOff },
   ];
   const provider = new Map(project.agents.map((a) => [a.id, a.provider]));
   return (
@@ -64,7 +64,7 @@ export function ActivityTab({ project, steps }: { project: ProjectDTO; steps: Th
             </span>
             <span className="text-xs text-ink-dim">
               {r.who}
-              {r.task?.model && r.task.model !== "human" ? ` · ${r.task.model}` : ""}
+              
               {r.task?.completedAt ? <> · <LocalTime iso={r.task.completedAt} /></> : null}
             </span>
           </div>

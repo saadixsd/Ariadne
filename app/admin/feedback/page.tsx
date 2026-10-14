@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BrandMark } from "@/components/BrandMark";
+import { HomeMark } from "@/components/BrandMark";
 import { TriageSelect } from "@/components/TriageSelect";
 import { anonymiseOldFeedback, requireAdminPage } from "@/lib/admin";
 import { workflowOutcomes } from "@/lib/outcomes-server";
@@ -32,7 +32,7 @@ export default async function AdminFeedback({ searchParams }: { searchParams: Pr
 
   return (
     <main className="mx-auto min-h-full max-w-5xl px-4 py-8">
-      <BrandMark />
+      <HomeMark />
       <h1 className="mt-2 font-serif text-[40px] leading-none">Feedback and outcomes (admin)</h1>
       <p className="mt-2 text-sm text-ink-dim">
         Newest 200. Emails are not shown here; a row links to the person only by campaign and ref code. Older than 12 months is anonymised on load.
