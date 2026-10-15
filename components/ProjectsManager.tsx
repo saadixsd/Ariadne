@@ -59,7 +59,7 @@ export function ProjectsManager({ projects, maxName = MAX_NAME }: { projects: Ma
 
   return (
     <>
-      <ul className="mt-3 grid gap-2.5">
+      <ul className="mt-3 grid grid-cols-[minmax(0,1fr)] gap-2.5">
         {projects.map((project) => (
           <li key={project.id} className="project-row rounded-xl border border-line bg-panel px-3.5 py-3">
             {renaming === project.id ? (

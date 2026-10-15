@@ -145,7 +145,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
             The hands
           </h2>
           <p className="mt-1 text-[13px] text-ink-dim">Every project has the same three. They hand work along the thread; you judge at each knot.</p>
-          <ul className="mt-3 grid gap-2.5">
+          <ul className="mt-3 grid grid-cols-[minmax(0,1fr)] gap-2.5">
             {HANDS.map((hand) => (
               <li key={hand.name} className="grid grid-cols-[28px_minmax(0,1fr)_auto] items-start gap-3 rounded-xl border border-line bg-panel px-3.5 py-3">
                 <Monogram tone={{ name: hand.name, initial: hand.name[0], color: HAND_COLORS[hand.provider], human: hand.provider === "human" }} size={28} />
