@@ -62,7 +62,12 @@ export function claimNumbers(claim: string): string[] {
     .replace(/\b\d{4}-\d{2}-\d{2}(?:[T ][\d:.]+Z?)?/g, " ")
     .replace(new RegExp(`\\b(?:${MONTHS})\\.?\\s+\\d{1,2}(?:st|nd|rd|th)?,?\\s+(?:19|20)\\d{2}\\b`, "gi"), " ")
     .replace(new RegExp(`\\b\\d{1,2}(?:st|nd|rd|th)?\\s+(?:of\\s+)?(?:${MONTHS})\\.?,?\\s+(?:19|20)\\d{2}\\b`, "gi"), " ")
-    .replace(new RegExp(`\\b(?:as of|in|since|by|during|until|from|through|(?:${MONTHS})\\.?)\\s+(?:19|20)\\d{2}\\b`, "gi"), " ");
+    .replace(new RegExp(`\\b(?:as of|in|since|by|during|until|from|through|(?:${MONTHS})\\.?)\\s+(?:19|20)\\d{2}\\b`, "gi"), " ")
+    // References, not quantities: ordinals (44th), bill and form codes (C-13), and
+    // numbered parts of a text (Part 2, s. 52, section 152.1, chapter 15, c. 14).
+    .replace(/\b\d+(?:st|nd|rd|th)\b/gi, " ")
+    .replace(/\b\p{L}{1,3}-\d+(?:\.\d+)*\b/gu, " ")
+    .replace(/\b(?:part|parts|section|sections|sec\.|ss?\.|art\.|article|articles|chapter|ch\.|c\.|schedule|title|rule|clause|paragraph|para\.|subsection|annex|appendix)\s*\d+(?:\.\d+)*(?:\(\w+\))*/gi, " ");
   return Array.from(text.matchAll(/\d[\d,]*(?:\.\d+)?/g), (m) => m[0].replace(/,/g, "").replace(/\.$/, ""));
 }
 

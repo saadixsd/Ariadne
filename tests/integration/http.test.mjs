@@ -157,7 +157,7 @@ test("L1. signed out: / is the public landing page; /dashboard and other app pag
   assert.equal(to.search, "?project=abc&new=1");
   const signUp = await call("GET", "/sign-up", { from: ip(40) });
   assert.equal(signUp.status, 200);
-  assert.match(signUp.text, /Daedalus fact-checks each claim against your sources and the web, and you judge only what it flags/, "sign-up says what comes next");
+  assert.match(signUp.text, /Daedalus checks the key claims against your sources and the web, and you judge only what it flags/, "sign-up says what comes next");
 });
 
 test("T1. sign-up needs a Turnstile pass; shape errors come first; nothing is created on failure", async () => {

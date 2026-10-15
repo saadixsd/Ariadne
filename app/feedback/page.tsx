@@ -1,20 +1,12 @@
 import { HomeMark } from "@/components/BrandMark";
 import Link from "next/link";
+import { LocalTime } from "@/components/LocalTime";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { FeedbackPageForm } from "@/components/FeedbackPageForm";
 
 export const dynamic = "force-dynamic";
-
-function timeLabel(value: Date) {
-  return value.toLocaleString([], {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
 
 export default async function FeedbackInbox({ searchParams }: { searchParams: Promise<{ project?: string }> }) {
   const { project } = await searchParams;
@@ -53,7 +45,7 @@ export default async function FeedbackInbox({ searchParams }: { searchParams: Pr
                   {row.kind === "rating" ? `Usefulness ${row.rating ?? "–"}/5` : row.kind}
                 </span>
                 <time className="font-mono text-xs text-ink-dim" dateTime={row.createdAt.toISOString()}>
-                  {timeLabel(row.createdAt)}
+                  <LocalTime iso={row.createdAt.toISOString()} format="short" />
                 </time>
               </div>
               {row.message ? <p className="mt-2 text-sm leading-normal whitespace-pre-wrap">{row.message}</p> : null}

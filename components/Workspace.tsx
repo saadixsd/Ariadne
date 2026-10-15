@@ -518,7 +518,7 @@ export function Workspace({ initial }: { initial: WorkspaceData }) {
         ))}
       </div>
 
-      <div className="grid min-h-0 flex-1 gap-4 p-3 lg:grid-cols-[minmax(250px,21%)_1fr_minmax(320px,27%)] lg:p-4">
+      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] gap-4 p-3 lg:grid-cols-[minmax(250px,21%)_minmax(0,1fr)_minmax(320px,27%)] lg:p-4">
         <aside className={`${tab === "context" ? "block" : "hidden"} min-h-0 overflow-y-auto lg:block`}>{sources}</aside>
 
         <main className={`${tab === "context" ? "hidden" : "flex"} min-h-0 flex-col lg:flex`}>
@@ -576,7 +576,7 @@ export function Workspace({ initial }: { initial: WorkspaceData }) {
                     <h2 className="font-serif text-3xl text-ink">{project.name}</h2>
                     <p className="mt-4">Nothing drafted yet.</p>
                     <p className="mt-2">
-                      When you click <b>Draft</b>, Odysseus answers from your brief and sources. Once the draft looks right to you, Daedalus fact-checks it claim by claim against your sources and the web, and labels each claim Supported, Unsupported or Wrong, with evidence. You judge only the flagged claims, Odysseus revises, and you approve an answer with the checks attached. Nothing runs until you click.
+                      When you click <b>Draft</b>, Odysseus answers from your brief and sources. Once the draft looks right to you, Daedalus checks its key claims against your sources and the web, and labels each one Supported, Unsupported or Wrong, with evidence. You judge only the flagged claims, Odysseus revises, and you approve an answer with the checks attached. Nothing runs until you click.
                     </p>
                   </div>
                 )}

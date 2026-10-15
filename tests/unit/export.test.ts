@@ -52,5 +52,6 @@ test("export: citations become a numbered list, decisions and verdicts carried, 
 
 test("export: slug and scrub edge cases", () => {
   assert.equal(slugify("!!!"), "project");
+  assert.equal(slugify("When did Canada's Bill C-13 get Royal Assent, and what new Act did it create?"), "when-did-canada-s-bill-c-13-get-royal-assent-and");
   assert.equal(scrubVendors("OpenAI's GPT-6 Luna checked"), "Daedalus checked");
 });

@@ -74,7 +74,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
           ← Back to the project
         </Link>
       </header>
-      <main className="gutter-safe mx-auto grid max-w-2xl gap-6 pt-8 pb-[calc(5rem+env(safe-area-inset-bottom))] sm:pt-10 lg:max-w-3xl">
+      <main className="gutter-safe mx-auto grid max-w-2xl grid-cols-[minmax(0,1fr)] gap-6 pt-8 pb-[calc(5rem+env(safe-area-inset-bottom))] sm:pt-10 lg:max-w-3xl">
         <div>
           <p className="eyebrow">Settings</p>
           <h1 className="mt-1 font-serif text-[40px] leading-none tracking-[-0.015em] break-words sm:text-[46px]">{account.firstName || account.lastName || "Your account"}</h1>

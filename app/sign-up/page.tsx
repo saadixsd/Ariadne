@@ -3,10 +3,10 @@ import { AuthForm } from "@/components/AuthForm";
 
 export const metadata: Metadata = {
   title: "Create an account",
-  description: "Create an Ariadne account. Sourced research answers, checked claim by claim.",
+  description: "Create an Ariadne account. Sourced research answers with the key claims checked.",
   alternates: { canonical: "/sign-up" },
   robots: { index: true, follow: true },
-  openGraph: { url: "/sign-up", title: "Create an account · Ariadne", description: "Create an Ariadne account. Sourced research answers, checked claim by claim." },
+  openGraph: { url: "/sign-up", title: "Create an account · Ariadne", description: "Create an Ariadne account. Sourced research answers with the key claims checked." },
 };
 
 // Static: built once at deploy, so the door costs the Worker almost no CPU. A visitor

@@ -5,6 +5,10 @@ import { verdictCounts, verdictSummary } from "../../lib/knots";
 import { issuesFrom } from "../../lib/workspace";
 
 // Placeholder figures only: no real-world count is asserted by these tests.
+test("claimNumbers ignores references: ordinals, bill codes, parts and sections", () => {
+  assert.deepEqual(claimNumbers("The 44th Parliament's Bill C-13, in Part 2 and s. 52 (chapter 15, section 152.1), covers 25 employees"), ["25"]);
+});
+
 test("claimNumbers ignores dates", () => {
   assert.deepEqual(claimNumbers("As of 2026, 17 sites in 4 cities (checked Oct 13, 2026; 2026-10-14)"), ["17", "4"]);
 });

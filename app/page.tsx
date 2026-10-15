@@ -50,7 +50,7 @@ const USES = [
 ];
 
 const GETS = [
-  { title: "Claim-level verdicts", text: "Each claim is marked Supported, Unsupported, Wrong, or Sources disagree, with the quoted evidence and a link." },
+  { title: "Claim-level verdicts", text: "Each claim checked is marked Supported, Unsupported, Wrong, or Sources disagree, with the quoted evidence and a link." },
   { title: "You decide what changes", text: "Nothing moves on until you accept, edit or reject each flagged claim. Supported claims stay out of your way." },
   { title: "The full thread", text: "Every draft, check and decision is kept in order, so you can see how the answer was reached." },
   { title: "An export you can share", text: "The approved answer, its claim table and your decisions, in one record." },
@@ -247,7 +247,7 @@ export default function Landing() {
         <div className="lp-wrap lp-foot-row">
           <div>
             <Brand />
-            <p className="lp-foot-note">Fact-checked research, claim by claim. Made by the Ariadne team.</p>
+            <p className="lp-foot-note">Sourced research, key claims checked. Made by the Ariadne team.</p>
           </div>
           <div className="lp-foot-links">
             <a href="mailto:saad@ariadneagents.si">saad@ariadneagents.si</a>

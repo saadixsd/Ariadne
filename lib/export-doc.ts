@@ -54,10 +54,10 @@ export function slugify(name: string): string {
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 50)
-    .replace(/-+$/g, "");
-  return s || "project";
+    .replace(/^-+|-+$/g, "");
+  // At most 50 characters, cut at a word boundary.
+  const cut = s.length > 50 ? s.slice(0, 51).replace(/-[^-]*$/, "") || s.slice(0, 50) : s;
+  return cut.replace(/-+$/g, "") || "project";
 }
 
 export function exportFilename(name: string, date: string, ext: string): string {

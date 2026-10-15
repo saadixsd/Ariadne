@@ -138,7 +138,7 @@ export function AuthForm({
 
   const copy =
     mode === "sign-up"
-      ? { eyebrow: "The door", title: "Begin a thread", lede: "Create your account. Next, ask Ariadne a question: Odysseus answers, Daedalus fact-checks each claim against your sources and the web, and you judge only what it flags." }
+      ? { eyebrow: "The door", title: "Begin a thread", lede: "Create your account. Next, ask Ariadne a question: Odysseus answers, Daedalus checks the key claims against your sources and the web, and you judge only what it flags." }
       : mode === "forgot"
         ? { eyebrow: "Forgot password", title: "Reset your password", lede: "Enter your account email. We'll send a link that works once and expires in 30 minutes." }
       : mode === "reset"
