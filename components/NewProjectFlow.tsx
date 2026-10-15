@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { LocalTime } from "@/components/LocalTime";
+import { HELP_MAILTO } from "@/lib/help";
 import { useState } from "react";
 import { HomeMark } from "@/components/BrandMark";
 import { ACCEPT, extractText, uploadOriginal, type Extracted } from "@/lib/ingest-client";
@@ -27,7 +29,8 @@ const SAMPLE_GOAL = "What do recent systematic reviews say about exercise therap
 const SAMPLE_DETAILS =
   "Give the current count of root server instances located in Canada, which root servers (letters) they belong to, and the cities. Use root-servers.org as the authoritative source and give the date of the data.";
 
-export function NewProjectFlow({ runsLeft, runsLimit }: { runsLeft: number; runsLimit: number }) {
+export function NewProjectFlow({ runsLeft, runsLimit, resetsAt }: { runsLeft: number; runsLimit: number; resetsAt: string }) {
+  const usedUp = runsLeft <= 0;
   const [step, setStep] = useState<"describe" | "confirm">("describe");
   const [goal, setGoal] = useState("");
   const [details, setDetails] = useState("");
@@ -90,10 +93,26 @@ export function NewProjectFlow({ runsLeft, runsLimit }: { runsLeft: number; runs
     <main className="mx-auto min-h-full max-w-2xl px-4 py-8">
       <div className="flex items-center justify-between">
         <HomeMark />
-        <Link href="/dashboard" className="text-sm text-ink-dim hover:text-ink">
-          My projects
-        </Link>
+        <div className="flex items-center gap-4">
+          <a href={HELP_MAILTO} className="text-sm text-ink-dim hover:text-ink">
+            Help
+          </a>
+          <Link href="/dashboard" className="text-sm text-ink-dim hover:text-ink">
+            My projects
+          </Link>
+        </div>
       </div>
+      {usedUp ? (
+        <div role="status" data-testid="daily-limit" className="mt-4 rounded-lg bg-tint px-4 py-3 text-sm leading-normal ring-1 ring-line">
+          <p className="font-medium">You have used today&apos;s project.</p>
+          <p className="mt-1 text-ink-dim">
+            You can start a new one from <LocalTime iso={resetsAt} format="time" /> your time (00:00 UTC). Your existing projects stay open and their steps still run.{" "}
+            <Link href="/dashboard" className="text-thread">
+              Open your projects
+            </Link>
+          </p>
+        </div>
+      ) : null}
       <h1 className="mt-4 font-serif text-[40px] leading-none tracking-[-0.015em]">{step === "describe" ? "What do you need fact-checked?" : "Check the brief"}</h1>
       <ol className="mt-3 flex gap-3 text-xs text-ink-dim">
         <li className={step === "describe" ? "text-thread" : ""}>1 Describe or upload</li>
@@ -152,7 +171,7 @@ export function NewProjectFlow({ runsLeft, runsLimit }: { runsLeft: number; runs
             </p>
           </div>
           <div className="flex justify-end">
-            <button type="button" disabled={!goal.trim() || reading} onClick={toConfirm} className="bg-thread px-4 py-2 text-sm font-medium text-raised hover:bg-thread-bright disabled:opacity-50">
+            <button type="button" disabled={usedUp || !goal.trim() || reading} title={usedUp ? "Today's project is used. You can start a new one after the daily reset." : undefined} onClick={toConfirm} className="bg-thread px-4 py-2 text-sm font-medium text-raised hover:bg-thread-bright disabled:opacity-50">
               Draft the brief
             </button>
           </div>
@@ -170,9 +189,9 @@ export function NewProjectFlow({ runsLeft, runsLimit }: { runsLeft: number; runs
             </button>
             <div className="flex items-center gap-3">
               <span className="text-xs text-ink-dim">
-                {runsLeft > 0 ? `${runsLeft} of ${runsLimit} ${runsLimit === 1 ? "project" : "projects"} left today. Creating the project runs nothing.` : "You have used today's project. You can still create this one now and run it after 00:00 UTC."}
+                {runsLeft > 0 ? `${runsLeft} of ${runsLimit} ${runsLimit === 1 ? "project" : "projects"} left today. Creating the project runs nothing.` : "You have used today's project. You can create a new one after the daily reset."}
               </span>
-              <button type="button" disabled={saving || !brief.trim()} onClick={() => void create()} className="bg-thread px-4 py-2 text-sm font-medium text-raised hover:bg-thread-bright disabled:opacity-50">
+              <button type="button" disabled={usedUp || saving || !brief.trim()} onClick={() => void create()} className="bg-thread px-4 py-2 text-sm font-medium text-raised hover:bg-thread-bright disabled:opacity-50">
                 {saving ? "Creating…" : "Confirm brief"}
               </button>
             </div>

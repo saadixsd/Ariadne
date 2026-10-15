@@ -95,20 +95,20 @@ export async function reserveModelRun(userId: string, day = utcDay(), limit = DA
   }
 }
 
-function nextUtcDay(now = Date.now()) {
+export function nextUtcDay(now = Date.now()) {
   const next = new Date(now);
   next.setUTCHours(24, 0, 0, 0);
   return next;
 }
 
 /** "00:00 UTC (in 5 h 20 min)": when the daily project count resets. */
-function resetLabel(now = Date.now()) {
+export function resetLabel(now = Date.now()) {
   const mins = Math.max(1, Math.ceil((nextUtcDay(now).getTime() - now) / 60_000));
   const h = Math.floor(mins / 60);
   return `00:00 UTC (in ${h ? `${h} h ` : ""}${mins % 60} min)`;
 }
 
-function secondsUntilNextUtcDay(now = Date.now()) {
+export function secondsUntilNextUtcDay(now = Date.now()) {
   const next = new Date(now);
   next.setUTCHours(24, 0, 0, 0);
   return Math.max(1, Math.ceil((next.getTime() - now) / 1000));
@@ -122,6 +122,15 @@ export async function releaseModelRun(userId: string, day: string, projectId?: s
     where: { userId, day, runs: { gt: 0 } },
     data: { runs: { decrement: 1 } },
   });
+}
+
+/** The friendly 429 for a used-up day, shared by project creation and the first run. */
+export function dailyProjectsUsed(tail: string) {
+  return new TaskRunError(
+    `You have used today's ${WORKFLOWS_PER_DAY === 1 ? "project" : `${WORKFLOWS_PER_DAY} projects`}. You can start a new one from ${resetLabel()}. Steps on a project you already started still run. ${tail}`,
+    429,
+    { limit: WORKFLOWS_PER_DAY, scope: "workflows", retryAfterSeconds: secondsUntilNextUtcDay(), resetsAt: nextUtcDay().toISOString() },
+  );
 }
 
 /** Workflows this account started on `day` (UTC). */
@@ -145,13 +154,7 @@ async function reserveWorkflowRun(userId: string, projectId: string, day: string
   const prisma = await getPrisma();
   let open = await prisma.workflow.findFirst({ where: { projectId, status: "open" }, orderBy: { createdAt: "asc" } });
   if (!open) {
-    if ((await workflowsStarted(userId, day)) >= WORKFLOWS_PER_DAY) {
-      throw new TaskRunError(
-        `You have used today's ${WORKFLOWS_PER_DAY === 1 ? "project" : `${WORKFLOWS_PER_DAY} projects`}. You can start a new one from ${resetLabel()}. Steps on a project you already started still run, and nothing was sent to the models.`,
-        429,
-        { limit: WORKFLOWS_PER_DAY, scope: "workflows", retryAfterSeconds: secondsUntilNextUtcDay(), resetsAt: nextUtcDay().toISOString() },
-      );
-    }
+    if ((await workflowsStarted(userId, day)) >= WORKFLOWS_PER_DAY) throw dailyProjectsUsed("Nothing was sent to the models.");
     open = await prisma.workflow.create({ data: { userId, projectId, day, runs: 0 } });
   }
   const bumped = await prisma.workflow.updateMany({

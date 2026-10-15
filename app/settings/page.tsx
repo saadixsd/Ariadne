@@ -5,6 +5,7 @@ import { NameForm } from "@/components/NameForm";
 import { ProjectsManager } from "@/components/ProjectsManager";
 import { SignOutButton } from "@/components/SignOutButton";
 import { ShowIntroAgain } from "@/components/IntroTour";
+import { HELP_EMAIL, HELP_MAILTO } from "@/lib/help";
 import { accountDisplay } from "@/lib/account";
 import { currentUser } from "@/lib/auth";
 import { HANDS } from "@/lib/hands";
@@ -165,9 +166,12 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
           <h2 id="help-title" className="font-serif text-[24px] leading-tight">
             Help
           </h2>
-          <p className="mt-1 text-[13px] text-ink-dim">The four-step intro from your first visit: question and sources, draft, check, approve.</p>
-          <p className="mt-2">
+          <p className="mt-1 text-[13px] text-ink-dim">The four-step intro from your first visit: question and sources, draft, check, approve. Stuck, or something looks wrong? Email the Ariadne team.</p>
+          <p className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2">
             <ShowIntroAgain />
+            <a href={HELP_MAILTO} className="text-sm text-thread hover:underline" data-testid="help-link">
+              Contact us: {HELP_EMAIL}
+            </a>
           </p>
         </section>
 

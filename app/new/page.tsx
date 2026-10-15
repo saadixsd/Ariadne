@@ -3,7 +3,7 @@ import { IntroTour } from "@/components/IntroTour";
 import { NewProjectFlow } from "@/components/NewProjectFlow";
 import { currentUser } from "@/lib/auth";
 import { WORKFLOWS_PER_DAY } from "@/lib/limits";
-import { workflowsLeft } from "@/lib/usage";
+import { nextUtcDay, workflowsLeft } from "@/lib/usage";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +15,7 @@ export default async function NewProjectPage() {
   const left = await workflowsLeft(user.id);
   return (
     <>
-      <NewProjectFlow runsLeft={left} runsLimit={limit} />
+      <NewProjectFlow runsLeft={left} runsLimit={limit} resetsAt={nextUtcDay().toISOString()} />
       <IntroTour show={!user.introSeenAt} />
     </>
   );

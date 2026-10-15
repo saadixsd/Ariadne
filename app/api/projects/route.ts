@@ -6,6 +6,7 @@ import { MAX_BRIEF_CHARS, MAX_PROJECT_NAME_CHARS } from "@/lib/limits";
 import { prisma } from "@/lib/prisma";
 import { getProject } from "@/lib/project";
 import { parseSources } from "@/lib/sources";
+import { dailyProjectsUsed, workflowsLeft } from "@/lib/usage";
 
 export const runtime = "nodejs";
 
@@ -49,6 +50,8 @@ export async function POST(request: Request) {
       return Response.json({ error: (error as Error).message }, { status: 400 });
     }
     const user = await requireUser();
+    // One new project a day: once today's is used, wait for the reset (existing projects still run).
+    if ((await workflowsLeft(user.id)) <= 0) throw dailyProjectsUsed("No project was created.");
     const projectId = await createUserProject(user.id, name, brief);
     const sourceIds: string[] = [];
     for (const source of sources) {

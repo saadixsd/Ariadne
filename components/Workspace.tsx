@@ -8,6 +8,7 @@ import { ClaimTable } from "@/components/ClaimTable";
 import { ThreadPanel } from "@/components/ThreadPanel";
 import { ExportPicker } from "@/components/ExportPicker";
 import { buildExportModel } from "@/lib/export-doc";
+import { HELP_MAILTO } from "@/lib/help";
 import { diffParagraphs, type DiffLine, type Knot } from "@/lib/knots";
 import { HomeMark } from "@/components/BrandMark";
 import { FeedbackInvite } from "@/components/FeedbackForm";
@@ -353,9 +354,15 @@ export function Workspace({ initial }: { initial: WorkspaceData }) {
               className={primary}
               disabled={openCount > 0}
               title={openCount > 0 ? "Accept, edit or reject every flagged claim first" : undefined}
-              onClick={() => void act("Tying off…", () => post(`/api/tasks/${action.task.id}/approve`, { approved: true }).then(() => undefined))}
+              onClick={() =>
+                void act("Tying off…", async () => {
+                  // One click: close Judge, then Odysseus writes the tied-off answer.
+                  await post(`/api/tasks/${action.task.id}/approve`, { approved: true });
+                  if (steps.tieOff) await runSteps([steps.tieOff.id]);
+                })
+              }
             >
-              {openCount > 0 ? decideFirst : "Tie off this draft"}
+              {openCount > 0 ? decideFirst : "Tie off this draft · uses 1 run"}
             </button>
             <span className="text-xs text-ink-faint">Revise clears the draft and asks Odysseus again; it does not run until you click.</span>
           </div>
@@ -503,6 +510,7 @@ export function Workspace({ initial }: { initial: WorkspaceData }) {
                 <Link className="block py-1 hover:text-thread" href="/new">New project</Link>
                 <Link className="block py-1 hover:text-thread" href={`/settings?project=${project.id}`}>Settings</Link>
                 <Link className="block py-1 hover:text-thread" href={`/feedback?project=${project.id}`}>Feedback</Link>
+                <a className="block py-1 hover:text-thread" href={HELP_MAILTO}>Help</a>
               </div>
             </details>
           </div>

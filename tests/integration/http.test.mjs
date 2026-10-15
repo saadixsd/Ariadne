@@ -213,6 +213,16 @@ test("workspace door: old board/tree URLs redirect; /new and the workspace load;
   const created = await call("POST", "/api/projects", { cookie: state.cookie, body: { name: "Coffee cart", brief: "Landing page for a coffee cart." } });
   assert.equal(created.status, 201, created.text);
   state.projectId = created.json.project?.id ?? created.json.id;
+  // Once today's project is used, a second one is refused up front (and /new says so).
+  const owner = sql(`SELECT userId FROM "Project" WHERE id = ?`, state.projectId)[0].userId;
+  const wf = `wf-limit-${run}`;
+  sql(`INSERT INTO "Workflow" (id,userId,projectId,day,runs,status,createdAt) VALUES (?,?,?,?,1,'open',?)`, wf, owner, state.projectId, new Date().toISOString().slice(0, 10), new Date().toISOString());
+  const second = await call("POST", "/api/projects", { cookie: state.cookie, body: { name: "Second", brief: "Second project today." } });
+  assert.equal(second.status, 429, second.text);
+  assert.match(second.text, /You have used today's project\. You can start a new one from 00:00 UTC/);
+  const usedUp = await call("GET", "/new", { cookie: state.cookie });
+  assert.match(usedUp.text, /data-testid="daily-limit"/);
+  sql(`DELETE FROM "Workflow" WHERE id = ?`, wf);
   const ws = await call("GET", `/p/${state.projectId}`, { cookie: state.cookie });
   assert.equal(ws.status, 200);
   assert.match(ws.text, /Coffee cart/);
