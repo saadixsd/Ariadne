@@ -4,7 +4,6 @@ import { Monogram } from "@/components/ThreadBits";
 import { NameForm } from "@/components/NameForm";
 import { ProjectsManager } from "@/components/ProjectsManager";
 import { SignOutButton } from "@/components/SignOutButton";
-import { ShowIntroAgain } from "@/components/IntroTour";
 import { HELP_EMAIL, HELP_MAILTO } from "@/lib/help";
 import { accountDisplay } from "@/lib/account";
 import { currentUser } from "@/lib/auth";
@@ -12,8 +11,8 @@ import { HANDS } from "@/lib/hands";
 import { MAX_PROJECT_NAME_CHARS } from "@/lib/limits";
 import { newProjectHref } from "@/lib/new-project";
 import { getPrisma } from "@/lib/prisma";
-import { DAILY_MODEL_RUNS, workflowsStarted } from "@/lib/usage";
-import { MAX_RERUNS_PER_WORKFLOW, WORKFLOWS_PER_DAY } from "@/lib/limits";
+import { DAILY_MODEL_RUNS, userWorkflowLimit, workflowsStarted } from "@/lib/usage";
+import { MAX_RERUNS_PER_WORKFLOW } from "@/lib/limits";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -34,7 +33,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   if (!user) redirect("/sign-in");
   if (!user.emailVerified) redirect("/verify");
   const account = accountDisplay(user);
-  const limit = WORKFLOWS_PER_DAY;
+  const limit = await userWorkflowLimit(user.id);
   const trialEnds = null as Date | null;
   const used = Math.min(limit, await workflowsStarted(user.id));
   const left = Math.max(0, limit - used);
@@ -114,7 +113,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         <section aria-labelledby="budget-title" className="rt-card px-5 py-4">
           <div className="flex items-baseline justify-between gap-3">
             <h2 id="budget-title" className="font-serif text-[24px] leading-tight">
-              Today&apos;s workflows
+              Today&apos;s runs
             </h2>
             <p className="font-serif text-[30px] leading-none tnum">
               {left}
@@ -122,13 +121,13 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
               <span className="ml-1.5 font-sans text-[13px] text-ink-dim">left</span>
             </p>
           </div>
-          <div className="mt-3 flex h-2 gap-0.5" role="img" aria-label={`${used} of ${limit} workflows started today`}>
+          <div className="mt-3 flex h-2 gap-0.5" role="img" aria-label={`${used} of ${limit} runs started today`}>
             {Array.from({ length: limit }, (_, index) => (
               <i key={index} className={`block h-full flex-1 rounded-sm ${index < used ? "bg-thread" : "bg-line"}`} />
             ))}
           </div>
           <p className="mt-2.5 text-[13px] leading-normal text-ink-dim">
-            {used} started today. One project is one Draft → Challenge → Judge → Tie Off pass. Up to {MAX_RERUNS_PER_WORKFLOW} redrafts or re-checks inside it are included, and approving the deliverable finishes it. A failed first run does not count. The count resets at 00:00 UTC.
+            {used} started today. One run is one question, from draft to fact-check to your review to the final answer. Up to {MAX_RERUNS_PER_WORKFLOW} redrafts or re-checks inside it are included, and approving the final answer finishes it. A step that fails never counts. The count resets at 00:00 UTC.
           </p>
           {trialEnds ? (
             <p className="mt-1.5 text-[13px] leading-normal text-ink-dim" data-trial>
@@ -166,9 +165,9 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
           <h2 id="help-title" className="font-serif text-[24px] leading-tight">
             Help
           </h2>
-          <p className="mt-1 text-[13px] text-ink-dim">The four-step intro from your first visit: question and sources, draft, check, approve. Stuck, or something looks wrong? Email the Ariadne team.</p>
+          <p className="mt-1 text-[13px] text-ink-dim">See a finished example in the sample report. Stuck, or something looks wrong? Email the Ariadne team.</p>
           <p className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2">
-            <ShowIntroAgain />
+            <a href="/sample" className="text-sm text-thread hover:underline">Read the sample report</a>
             <a href={HELP_MAILTO} className="text-sm text-thread hover:underline" data-testid="help-link">
               Contact us: {HELP_EMAIL}
             </a>

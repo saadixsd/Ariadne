@@ -3,6 +3,7 @@ import Link from "next/link";
 import Script from "next/script";
 import { ONE_LINER } from "@/lib/one-liner";
 import { OG_IMAGE, SITE_NAME, SITE_URL, SOCIAL } from "@/lib/site";
+import { SAMPLE } from "@/lib/sample-report";
 import "./landing.css";
 
 // The public front door at ariadneagents.si. Fully static: built once at deploy, so a visit
@@ -13,7 +14,7 @@ import "./landing.css";
 const TITLE = "Ariadne";
 const SHARE_TITLE = "Ariadne · Stop Second-Guessing Your Research";
 const DESCRIPTION =
-  "Every key claim, checked against its source. Ariadne drafts a sourced answer to your research question, checks the key claims against your sources and the web, and lets you decide on anything flagged.";
+  "AI fact-checking for researchers. One model answers, a second checks each key claim against its source, you judge only the flagged claims, and the final answer reflects your corrections, with a claims table you can defend.";
 
 export const metadata: Metadata = {
   title: { absolute: TITLE },
@@ -35,10 +36,10 @@ const JSON_LD = {
 
 
 const STEPS = [
-  { n: "1", who: "You", title: "Ask your question", text: "Write what you need to know and who it is for, and add the papers, reports or notes it should draw on." },
-  { n: "2", who: "Odysseus", title: "Get a sourced draft", text: "Odysseus writes an answer with a citation next to each claim. Not quite right? Say what to change and it redrafts." },
-  { n: "3", who: "Daedalus", title: "The key claims are checked", text: "Daedalus checks the claims that matter most in full against your sources and the web, with the evidence and a link for each verdict. Any others are listed so you can see what was not checked." },
-  { n: "4", who: "You", title: "Decide, approve, keep the record", text: "You accept, edit or reject what is flagged. Odysseus revises, you approve, and the whole thread is yours to export." },
+  { n: "1", who: "Draft", title: "Ask, or paste an answer", text: "Ask your research question and add the papers or notes it should use. One model answers with a source next to each claim. Or paste an answer from another AI to check it." },
+  { n: "2", who: "Fact-check", title: "Every key claim is checked", text: "A second model checks each claim against its source: supported, not supported, wrong, or sources disagree, with the quoted words and a link. Ariadne confirms each quote is really on the page." },
+  { n: "3", who: "Your review", title: "You judge only what is flagged", text: "Keep it as written, fix it from the source, or remove it: claim by claim, or in one click. Supported claims stay out of your way." },
+  { n: "4", who: "Final answer", title: "A corrected answer you can defend", text: "The answer is rewritten from your decisions and checked again, with a claims table. You can step in at every stage with “Change something”." },
 ];
 
 const USES = [
@@ -50,18 +51,19 @@ const USES = [
 ];
 
 const GETS = [
-  { title: "Claim-level verdicts", text: "Each claim checked is marked Supported, Unsupported, Wrong, or Sources disagree, with the quoted evidence and a link." },
-  { title: "You decide what changes", text: "Nothing moves on until you accept, edit or reject each flagged claim. Supported claims stay out of your way." },
+  { title: "Claim-level verdicts", text: "Each claim checked is marked Supported, Not supported by sources, Wrong, or Sources disagree, with the quoted evidence and its own link." },
+  { title: "You decide what changes", text: "Nothing moves on until you keep, fix or remove each flagged claim, and you can step in at any stage." },
   { title: "The full thread", text: "Every draft, check and decision is kept in order, so you can see how the answer was reached." },
   { title: "An export you can share", text: "The approved answer, its claim table and your decisions, in one record." },
 ];
 
 const FAQ = [
-  { q: "What do Odysseus and Daedalus do?", a: "Odysseus writes: it drafts the answer from your brief and sources and revises it with your decisions. Daedalus checks: it reviews the claims that matter most against your sources and the web, shows its evidence, and lists any it did not check in full. You make the calls in between." },
+  { q: "How is this different from asking one AI?", a: "Two models work together toward your goal. One writes the answer; a second checks each key claim against the source it cites, and Ariadne confirms the quoted words are on that page. You make the calls on anything flagged, and the final answer is rewritten from your decisions and checked again." },
+  { q: "Can I check an answer I already have?", a: "Yes. Choose “Check an answer” and paste text from ChatGPT or any other AI, or your own paragraph. Ariadne skips the draft and goes straight to the fact-check." },
   { q: "Does a check mean the answer is guaranteed correct?", a: "No. The check tells you which claims a source supports and which need your attention, and shows you why. You remain the judge of the final answer." },
-  { q: "What sources can I add?", a: "PDF, DOCX and Markdown files. Their text is read in your browser and used for the draft and the check. Daedalus can also search the web." },
+  { q: "What sources can I add?", a: "PDF, DOCX and Markdown files. Their text is read in your browser and used for the draft and the check. The fact-check can also search the web." },
   { q: "Who can see my projects?", a: "Only you. The Ariadne team cannot open your projects unless you choose to share one with us when you send feedback, and you can withdraw that in Settings." },
-  { q: "How much can I use it?", a: "Ariadne is free to use. Settings shows how many workflows you have left today." },
+  { q: "How much can I use it?", a: "Ariadne is free to use: one run a day (a run is one question, from draft to final answer, with up to 3 redrafts or re-checks). Invited testers get 3 runs a day. The start screen shows what you have left." },
 ];
 
 function ThreadGlyph() {
@@ -124,34 +126,38 @@ export default function Landing() {
         <section className="lp-hero" aria-labelledby="lp-title">
           <div className="lp-wrap lp-hero-grid">
             <div>
-              <p className="lp-eyebrow">Fact-checked research</p>
+              <p className="lp-eyebrow">AI fact-checking for researchers</p>
               <h1 id="lp-title" className="lp-title">
                 Stop <em>Second-Guessing</em> Your Research.
               </h1>
               <p className="lp-sublede">Every Key Claim, Checked Against Its Source.</p>
               <p className="lp-lede">
-                Ariadne drafts a sourced answer to your question, checks the key claims against your sources and the web, and
-                brings you only what needs a decision. You approve the result and keep the full record.
+                Ariadne checks every key claim in an AI answer against its sources, shows you only the ones that need your
+                judgement, and hands back a corrected answer with a claims table you can defend.
               </p>
               <div className="lp-cta">
                 <PrimaryCta />
-                <a className="lp-btn lp-btn-quiet" href="#how">
-                  See how it works
+                <a className="lp-btn lp-btn-quiet" href="/sample" data-testid="sample-link">
+                  Read a sample report
                 </a>
               </div>
               <p className="lp-note" data-when="out">
                 Free to use. Already have an account? <a href="/sign-in">Sign in</a>
               </p>
             </div>
-            <figure className="lp-shot">
-              {/* eslint-disable-next-line @next/next/no-img-element -- static asset, no optimizer on Workers */}
-              <img
-                src="/landing/workspace.jpg"
-                width={1440}
-                height={900}
-                alt="The Ariadne workspace: a draft on the left, and the checked claims on the right with their verdicts, evidence and the accept, edit or reject choices."
-                fetchPriority="high"
-              />
+            <figure className="lp-shot" data-testid="sample-preview" style={{ background: "#fff", padding: 22, borderRadius: 16 }}>
+              {/* A real report, readable without an account (fix plan O1); the full one is at /sample. */}
+              <p className="lp-eyebrow" style={{ margin: 0 }}>Sample report</p>
+              <p style={{ fontWeight: 600, marginTop: 6 }}>{SAMPLE.question}</p>
+              <p style={{ marginTop: 8, fontSize: 15 }} dangerouslySetInnerHTML={{ __html: SAMPLE.answer[0].replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>") }} />
+              <ul style={{ marginTop: 12, listStyle: "none", padding: 0, fontSize: 13 }}>
+                {SAMPLE.claims.slice(0, 3).map((c) => (
+                  <li key={c.claim} style={{ borderTop: "1px solid #e4ddd2", padding: "6px 0" }}>
+                    <strong style={{ color: c.verdict === "supported" ? "#2f6b3a" : "#8a5a00" }}>{c.verdict === "supported" ? "Supported" : "Not supported by sources"}</strong> · {c.claim}
+                  </li>
+                ))}
+              </ul>
+              <a href="/sample" style={{ display: "inline-block", marginTop: 10, fontWeight: 600 }}>Read the full sample report →</a>
             </figure>
           </div>
         </section>
@@ -159,7 +165,7 @@ export default function Landing() {
         <section className="lp-section" id="how" aria-labelledby="how-title">
           <div className="lp-wrap">
             <p className="lp-eyebrow">How it works</p>
-            <h2 id="how-title">Four steps, and you lead each one.</h2>
+            <h2 id="how-title">Four stages, and you can step in at each one.</h2>
             <ol className="lp-steps">
               {STEPS.map((s) => (
                 <li key={s.n} className="lp-step">

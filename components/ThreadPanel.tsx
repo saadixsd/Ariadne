@@ -5,7 +5,7 @@ import { LocalTime } from "@/components/LocalTime";
 import { buildKnots, type Knot, type ThreadData } from "@/lib/knots";
 import type { Decision, ThreadSteps } from "@/lib/workspace";
 
-const DOT: Record<Knot["actor"], string> = { "Odysseus": "bg-thread", "Daedalus": "bg-ink", You: "bg-gate-ink" };
+const DOT: Record<Knot["actor"], string> = { Writer: "bg-thread", "Fact-checker": "bg-ink", You: "bg-gate-ink" };
 
 /**
  * The thread: one knot per step that happened. Loads once per step change (not per
@@ -34,7 +34,7 @@ export function ThreadPanel({
 }) {
   const [data, setData] = useState<ThreadData | null>(null);
   const [failed, setFailed] = useState(false);
-  const stepKey = [steps.draft, steps.challenge, steps.judge, steps.tieOff].map((t) => `${t?.status}:${t?.completedAt}`).join("|") + approvedAt;
+  const stepKey = [steps.draft, steps.challenge, steps.judge, steps.tieOff, steps.finalCheck].map((t) => `${t?.status}:${t?.completedAt}`).join("|") + approvedAt;
 
   useEffect(() => {
     let live = true;
@@ -60,12 +60,12 @@ export function ThreadPanel({
   return (
     <section className="rounded-2xl bg-raised p-4 ring-1 ring-line" aria-labelledby="thread-h">
       <div className="flex items-center justify-between">
-        <h2 id="thread-h" className="text-[13px] font-semibold">The thread</h2>
-        {knots.length ? <span className="text-[11px] text-ink-faint">{rounds} round{rounds === 1 ? "" : "s"} · {knots.length} knots</span> : null}
+        <h2 id="thread-h" className="text-[13px] font-semibold">History</h2>
+        {knots.length ? <span className="text-[11px] text-ink-faint">{rounds} check{rounds === 1 ? "" : "s"} · {knots.length} steps</span> : null}
       </div>
-      <p className="mt-1 text-[11px] text-ink-faint">Odysseus and Daedalus work toward your goal; you decide at each turn.</p>
+      <p className="mt-1 text-[11px] text-ink-faint">The writer and the fact-checker work together toward your goal; you decide at each stage.</p>
       {failed ? <p className="mt-3 text-xs text-ink-dim">Could not load the thread. It updates after the next step.</p> : null}
-      {data && knots.length === 0 ? <p className="mt-3 text-xs text-ink-dim">Nothing has run yet. Each step adds a knot here.</p> : null}
+      {data && knots.length === 0 ? <p className="mt-3 text-xs text-ink-dim">Nothing has run yet. Each step adds an entry here.</p> : null}
       {!data && !failed ? <p className="mt-3 text-xs text-ink-faint">Loading…</p> : null}
       <ol className="relative mt-4" data-testid="thread">
         {knots.length ? <span className="absolute bottom-3 left-[7px] top-2 w-[2px] bg-thread/40" aria-hidden /> : null}
@@ -94,7 +94,7 @@ export function ThreadPanel({
                       {k.lines.map((l, i) => <li key={i}>• {l}</li>)}
                     </ul>
                   ) : null}
-                  {k.version ? <p className={`${k.lines.length ? "mt-2 " : ""}text-[12px] text-ink-dim`}>Showing this version{k.kind === "draft" ? "" : " and what changed"} in the centre.</p> : null}
+                  {k.version ? <p className={`${k.lines.length ? "mt-2 " : ""}text-[12px] text-ink-dim`}>Showing this version{k.kind === "draft" ? "" : " and what changed"} on the left.</p> : null}
                   {k.canRerun ? (
                     <button
                       type="button"

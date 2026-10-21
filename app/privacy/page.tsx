@@ -59,7 +59,7 @@ export default function Privacy() {
           <p>We share personal information only with service providers that process it on our behalf, to run the service:</p>
           <ul>
             <li><b>Cloudflare</b> (hosting, database, file storage, bot check, and cookieless page analytics if you opt in).</li>
-            <li><b>Anthropic and OpenAI</b> (the AI models behind Odysseus and Daedalus). To draft and check an answer, your brief, the text of your sources and the drafts are sent to them, and the checks may search the web.</li>
+            <li><b>Anthropic and OpenAI</b> (the AI models that write and fact-check answers). To draft and check an answer, your brief, the text of your sources and the drafts are sent to them, and the checks may search the web.</li>
             <li><b>Brevo</b> (sends account emails such as verification codes and password-reset links).</li>
           </ul>
           <p>

@@ -29,6 +29,8 @@ model User {
   feedbackPromptAt DateTime?
   /// First-run intro finished or skipped (null: show it on the next app page).
   introSeenAt      DateTime?
+  /// Invited tester: a higher daily run allowance until this date (lib/limits.ts).
+  testerUntil      DateTime?
   createdAt     DateTime           @default(now())
   sessions      Session[]
   codes         VerificationCode[]
@@ -80,6 +82,7 @@ model Project {
   agents    Agent[]
   issueDecisions IssueDecision[]
   sources        SourceFile[]
+  pages          FetchedPage[]
   tasks     Task[]
   events    ActivityEvent[]
 }
@@ -271,4 +274,21 @@ model PasswordReset {
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+/// A page cited in a draft, read once by Ariadne. The same text (or "could not read")
+/// goes to the writer, the fact-check and the final answer (lib/pages.ts).
+model FetchedPage {
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  url       String
+  /// "ok" or "failed"
+  status    String
+  note      String?
+  title     String?
+  text      String   @default("")
+  fetchedAt DateTime @default(now())
+
+  @@unique([projectId, url])
 }

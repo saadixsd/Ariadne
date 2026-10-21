@@ -110,7 +110,7 @@ export function SourcesPanel({
     <div className="space-y-3">
       <section className={card} aria-labelledby="ctx-h">
         <h2 id="ctx-h" className={heading}>Project Context</h2>
-        {sources.length === 0 ? <p className="mt-2 text-[13px] text-ink-dim">No files added. Odysseus works from the brief alone.</p> : null}
+        {sources.length === 0 ? <p className="mt-2 text-[13px] text-ink-dim">No files added. The draft uses your question and the web.</p> : null}
         <ul className="mt-2 space-y-2">
           {sources.map((s) => (
             <li key={s.id} className="flex gap-2.5 rounded-xl bg-panel p-2.5 ring-1 ring-line">

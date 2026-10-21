@@ -5,11 +5,12 @@ import { shouldPromptFeedback } from "@/lib/feedback";
 import { getFileStore, originalExpiry, originalKey, userPrefix } from "@/lib/file-store";
 import { releaseOriginal, reserveOriginal, type BudgetRefusal } from "@/lib/r2-budget";
 import { prisma } from "@/lib/prisma";
-import { closeWorkflow } from "@/lib/usage";
+import { closeWorkflow, quotaFor } from "@/lib/usage";
+import { pageStatuses } from "@/lib/pages-server";
 import { getProject } from "@/lib/project";
 import { parseSources, sourceDigest, type SourceInput } from "@/lib/sources";
 import type { ProjectDTO } from "@/lib/types";
-import { documentOf, hashText, isResolved, ISSUE_STATES, issuesFrom, threadSteps, type Decision, type IssueState } from "@/lib/workspace";
+import { documentOf, finalConflicts, hashText, isResolved, ISSUE_STATES, issuesFrom, threadSteps, type Decision, type IssueState } from "@/lib/workspace";
 
 export type SourceSummary = { id: string; name: string; bytes: number | null; words: number; opening: string; createdAt: string; originalUntil: string | null };
 
@@ -20,16 +21,22 @@ export type WorkspaceData = {
   approvedAt: string | null;
   approvedHash: string | null;
   promptFeedback: boolean;
+  /** Pages Ariadne read for this project (status only; the text stays on the server). */
+  pages: { url: string; status: "ok" | "failed"; note: string | null; title: string | null; fetchedAt: string }[];
+  /** Today's runs and this run's redrafts, shown before anything runs (O3). */
+  quota: Awaited<ReturnType<typeof quotaFor>>;
 };
 
 export async function loadWorkspace(projectId: string, userId: string): Promise<WorkspaceData | null> {
   const project = await getProject(projectId, userId);
   if (!project) return null;
-  const [meta, decisions, sources, user] = await Promise.all([
+  const [meta, decisions, sources, user, pages, quota] = await Promise.all([
     prisma.project.findUnique({ where: { id: projectId }, select: { approvedAt: true, approvedHash: true } }),
     prisma.issueDecision.findMany({ where: { projectId } }),
     prisma.sourceFile.findMany({ where: { projectId }, orderBy: { createdAt: "asc" } }),
     prisma.user.findUnique({ where: { id: userId }, select: { feedbackPromptAt: true } }),
+    pageStatuses(projectId),
+    quotaFor(userId, projectId),
   ]);
   return {
     project,
@@ -45,6 +52,8 @@ export async function loadWorkspace(projectId: string, userId: string): Promise<
     approvedAt: meta?.approvedAt?.toISOString() ?? null,
     approvedHash: meta?.approvedHash ?? null,
     promptFeedback: user ? shouldPromptFeedback(user, meta?.approvedAt ?? null) : false,
+    pages,
+    quota,
   };
 }
 
@@ -52,6 +61,14 @@ async function ownedProject(projectId: string, userId: string) {
   const project = await prisma.project.findFirst({ where: { id: projectId, userId }, select: { id: true } });
   if (!project) throw new TaskRunError("Project not found", 404);
   return project;
+}
+
+/** Several decisions in one request (bulk actions, U3). Each is validated like a single one. */
+export async function decideIssues(projectId: string, userId: string, list: unknown) {
+  if (!Array.isArray(list) || list.length === 0 || list.length > 40) throw new TaskRunError("Expected 1 to 40 decisions", 400);
+  const out = [];
+  for (const item of list) out.push(await decideIssue(projectId, userId, (item ?? {}) as Record<string, unknown>));
+  return out;
 }
 
 export async function decideIssue(
@@ -94,7 +111,7 @@ export async function assertClaimsDecided(project: ProjectDTO) {
   const undecided = issuesFrom(challenge.output, decisions.map((d) => ({ ...d, state: d.state as IssueState }))).filter((i) => !isResolved(i.state));
   const open = undecided.length;
   if (open > 0) {
-    throw new TaskRunError(`Decide ${open} flagged claim${open === 1 ? "" : "s"} first: accept, edit or reject each one.`, 409, {
+    throw new TaskRunError(`Decide ${open} flagged claim${open === 1 ? "" : "s"} first: for each one choose Keep as written, Fix it or Remove.`, 409, {
       undecided: open,
       flagKeys: undecided.map((i) => i.key),
       taskId: challenge.id,
@@ -112,6 +129,18 @@ export async function approveDeliverable(projectId: string, userId: string, hash
     throw new TaskRunError("Tie off first: approve the draft at Judge, then write the tied-off answer.", 409);
   }
   await assertClaimsDecided(project);
+  if (steps.finalCheck && steps.finalCheck.status !== "done") throw new TaskRunError("Fact-check the final answer first.", 409);
+  if (steps.finalCheck) {
+    const decisions = await prisma.issueDecision.findMany({ where: { projectId }, select: { flagKey: true, state: true, edit: true, reason: true } });
+    const pagesRead = await prisma.fetchedPage.count({ where: { projectId, status: "ok" } });
+    const conflicts = finalConflicts({
+      finalText: doc.text,
+      finalCheckOutput: steps.finalCheck.output,
+      issues: issuesFrom(steps.challenge?.output, decisions.map((d) => ({ ...d, state: d.state as IssueState }))),
+      pagesRead,
+    });
+    if (conflicts.length > 0) throw new TaskRunError(`The final answer has ${conflicts.length} problem${conflicts.length === 1 ? "" : "s"} to fix before you approve it: ${conflicts[0].text}`, 409, { conflicts: conflicts.length });
+  }
   const current = hashText(doc.text);
   if (hash !== current) throw new TaskRunError("The deliverable changed since you opened it. Reload and approve again.", 409);
   const approvedAt = new Date();

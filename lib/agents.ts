@@ -13,6 +13,8 @@ import { safeErrorMessage, TaskRunError } from "@/lib/errors";
 import { handName } from "@/lib/hands";
 import { assertMaxLength } from "@/lib/input-caps";
 import { briefWithSources } from "@/lib/sources";
+import { pagesPromptBlock } from "@/lib/pages";
+import { projectPages } from "@/lib/pages-server";
 import { MAX_NOTE_CHARS, MAX_OUTPUT_TOKENS_ANTHROPIC, MAX_OUTPUT_TOKENS_OPENAI } from "@/lib/limits";
 import { prisma } from "@/lib/prisma";
 import { isStuck, reclaimStuckTasks } from "@/lib/reclaim";
@@ -90,7 +92,7 @@ const WRITER_RULES = (tools: "fetch" | "search" | "none") =>
       : tools === "search"
         ? "Web search is available: use it to look up current facts before you answer."
         : "Web search is not available for this run; answer from the brief, the sources and what you know."
-  } Use the whole brief (title, goal, need, deliverable and files) together; if anything is ambiguous, take the most reasonable reading in that context, state it in one line starting "Assumption:" at the top, then answer fully. Never ask clarifying questions instead of answering. Answer the question directly. Cite your sources inline, next to each claim, as Markdown links to the page you used. Say clearly when you are uncertain about a fact, and why. Never refuse or stop because you lack access to something: give your best sourced answer and mark what is uncertain. Do not mention which AI model or company is behind you.)`;
+  } Use the whole brief (title, goal, need, deliverable and files) together; if anything is ambiguous, take the most reasonable reading in that context, state it in one line starting "Assumption:" at the top, then answer fully. Never ask clarifying questions instead of answering. Answer the question directly. Cite your sources inline, next to each claim, as Markdown links to the page you used. Say clearly when you are uncertain about a fact, and why. Never refuse or stop because you lack access to something: give your best sourced answer and mark what is uncertain. When a source gives the number or name asked for, state it with its as-of date and the source ("As of <date>, <source> lists <N> …"); when credible sources disagree, give each value with its source. Write that something cannot be determined only when no source could be read, and then say plainly which pages could not be read. If the shared context lists "Pages Ariadne read", use that text: never say you could not open a page marked READ, and do not quote a page marked COULD NOT READ. If the shared context has "The user's latest instruction", follow it exactly. Do not mention which AI model or company is behind you.)`;
 
 const ANTHROPIC_SEARCH = { type: "web_search_20250305", name: "web_search", max_uses: 2 } as const;
 // Provider-side fetch: the page is read on the provider's servers. The cap keeps the
@@ -260,7 +262,9 @@ const CHECKER_RULES = (search: boolean) =>
 - Supported: Evidence must quote, in double quotes, the exact source words that contain the claimed number or name. If you cannot quote it, the verdict is unsupported.
 - Never invent arithmetic. A total or count is supported only if a source states that total verbatim. If you compute one, write "Computed: <each input quoted from the source> = <total>" in Evidence and give the verdict unsupported (or wrong if the quoted inputs clearly contradict the claim), never supported.
 - Sources disagree: when credible sources give different values, use the verdict "sources disagree" and give each value on its own line in Evidence as: "<exact quote>" — <URL>. List every URL in Source, separated by " ; ".
-- If the draft makes more than 12 factual claims, check the 12 that matter most to the user's goal in full; then list the remaining claims briefly under "Not checked in full" with no verdict.
+- Source: exactly one link per claim where possible: the page where your quoted words appear (several only for "sources disagree"). Never reuse a link for a claim its quote does not support, and never fill in a default link. If you found no source, write "Source: none" and the verdict is unsupported.
+- If the shared context lists "Pages Ariadne read", those are the exact pages the writer saw. Quote from that text when it covers the claim; never quote a page marked COULD NOT READ. Ariadne checks every supported quote against the page it read.
+- If the text makes more than 15 factual claims, check the 15 that matter most to the user's goal in full; then list the remaining claims briefly under "Not checked in full" with no verdict.
 - Start your reply with one line "Data checked: <the single as-of date or timestamp the source shows, or today's date>" and use that same date for every claim.
 Do not mention which AI model or company is behind you.)`;
 
@@ -541,8 +545,14 @@ export async function runTask(taskId: string, userId: string, dailyLimit?: numbe
     orderBy: { createdAt: "asc" },
     select: { name: true, text: true },
   });
+  // Pages cited in this project, read once by Ariadne: every step sees the same text and status (B1).
+  const pages = await projectPages(task.projectId);
+  const note = latestChangeNote(task.instructions);
+  const shared = [briefWithSources(task.project.brief, sources), pagesPromptBlock(pages)].filter(Boolean).join("\n\n");
   const user = composeUserPrompt({
-    brief: briefWithSources(task.project.brief, sources),
+    brief: note
+      ? `${shared}\n\n## The user's latest instruction (a hard requirement: follow it exactly; where it conflicts with the brief or an earlier step, it wins)\n${note}`
+      : shared,
     instructions: task.instructions,
     handoffs,
   });

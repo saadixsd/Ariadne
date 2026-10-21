@@ -1,5 +1,5 @@
 import { requireUser } from "@/lib/auth";
-import { createUserProject } from "@/lib/starter-thread";
+import { createUserProject, MAX_PASTED_CHARS, seedPastedDraft } from "@/lib/starter-thread";
 import { errorResponse } from "@/lib/errors";
 import { assertMaxLength } from "@/lib/input-caps";
 import { MAX_BRIEF_CHARS, MAX_PROJECT_NAME_CHARS } from "@/lib/limits";
@@ -35,6 +35,7 @@ export async function POST(request: Request) {
       name?: unknown;
       brief?: unknown;
       sources?: unknown;
+      pasted?: unknown;
     } | null;
     const name = typeof body?.name === "string" ? body.name.trim() : "";
     const brief = typeof body?.brief === "string" ? body.brief.trim() : "";
@@ -52,7 +53,11 @@ export async function POST(request: Request) {
     const user = await requireUser();
     // One new project a day: once today's is used, wait for the reset (existing projects still run).
     if ((await workflowsLeft(user.id)) <= 0) throw dailyProjectsUsed("No project was created.");
+    const pasted = typeof body?.pasted === "string" ? body.pasted.trim() : "";
+    assertMaxLength("Pasted answer", pasted, MAX_PASTED_CHARS);
     const projectId = await createUserProject(user.id, name, brief);
+    // "Check an answer": the pasted text is the draft; the thread starts at the fact-check.
+    if (pasted) await seedPastedDraft(projectId, pasted);
     const sourceIds: string[] = [];
     for (const source of sources) {
       sourceIds.push((await prisma.sourceFile.create({ data: { projectId, ...source }, select: { id: true } })).id);

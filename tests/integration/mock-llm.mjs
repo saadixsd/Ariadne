@@ -96,6 +96,16 @@ const MOCK_GPT = `1. Claim: The intervention is widely considered best practice 
    Confidence: medium
    Fix: Say the ranges are rough and need a power calculation.`;
 
+// The final check (B6) of a corrected answer: no conflicts, nothing wrong left.
+const MOCK_FINALCHECK = `Data checked: 2026-10-21.
+Consistency: ok
+
+1. Claim: "The sample size depends on the expected effect and variance."
+   Verdict: supported
+   Evidence: "The sample size depends on the expected effect and variance"
+   Source: https://example.org/methods
+   Severity: low`;
+
 function mockClaude(body) {
   return body.includes("tied-off answer") ? MOCK_TIED_OFF : MOCK_DRAFT;
 }
@@ -194,7 +204,7 @@ export function startMockLlm(port = 0) {
         created_at: Math.floor(Date.now() / 1000),
         status: "completed",
         model: request.model,
-        output: [{ id: `msg_${n}`, type: "message", role: "assistant", status: "completed", content: [{ type: "output_text", text: `${MOCK_FACTCHECK}\n<!-- mock #${n} -->`, annotations: [] }] }],
+        output: [{ id: `msg_${n}`, type: "message", role: "assistant", status: "completed", content: [{ type: "output_text", text: `${JSON.stringify(request).includes("Fact-check the FINAL answer") ? MOCK_FINALCHECK : MOCK_FACTCHECK}\n<!-- mock #${n} -->`, annotations: [] }] }],
         usage: { input_tokens: 10, output_tokens: 10, total_tokens: 20 },
       });
     }

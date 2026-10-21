@@ -1,5 +1,6 @@
 import { DAEDALUS, ODYSSEUS } from "@/lib/hands";
 import { prisma } from "@/lib/prisma";
+import { recordRun } from "@/lib/run-history";
 
 type TaskSpec = {
   key: string;
@@ -19,6 +20,10 @@ type TaskSpec = {
 // Draft → Challenge → Judge → Tie Off — so new projects use four steps (research
 // is folded into Draft; the final writeup is the Tie Off artifact). Existing
 // projects keep whatever steps they already have; this list only seeds new ones.
+/** The last pass (fix plan B2, B6): the claims table is built from the FINAL text, plus a consistency check. */
+export const FINAL_CHECK_INSTRUCTIONS =
+  "Fact-check the FINAL answer above, claim by claim, toward the same goal as the brief. This is the text the user will keep, so the claims table is built from this check. Do not write your own answer.\n\nFirst line: Data checked: <the as-of date the sources show, or today's date>.\nSecond line: Consistency: ok   or   Consistency: conflict — <each place where the final answer contradicts itself, contradicts a quoted source, or says a value cannot be determined although a page it cites gives that value>.\n\nThen every factual claim of the final answer in exactly this shape (one blank line between claims), quoting each claim word for word from the final answer:\n\n1. Claim: \"<the claim, quoted from the final answer>\"\n   Verdict: supported | unsupported | wrong | sources disagree\n   Evidence: <the exact words from the source, in double quotes>\n   Source: <the one URL where those words appear, or the shared file name; none if you found nothing>\n   Severity: high | medium | low\n   Fix: <the corrected claim, for wrong or unsupported claims>\n\nThe same rules as the first fact-check apply: a supported verdict needs the source's exact words; never count a total you computed as supported; sources disagree lists each value with its own quote and link.";
+
 const OWN_TASKS: TaskSpec[] = [
   {
     key: "draft",
@@ -52,8 +57,16 @@ const OWN_TASKS: TaskSpec[] = [
     agent: "Odysseus",
     title: "Write the tied-off answer",
     instructions:
-      "Write the tied-off answer from the draft the human approved, applying the human's decisions on the fact-checked claims. Do not add new claims.\n\nUse these headings, in this order:\n\n## Answer\nLead with the answer.\n\n## Sources\nThe sources behind each key claim, with links where the fact-check gave them.\n\n## Open points\nClaims that stayed unsupported or that the human left undecided. Write \"None.\" if there are none.",
+      "Write the final answer from the draft, applying the human's decisions on the fact-checked claims exactly: a claim marked \"Fix it\" uses the fact-check's suggested fix (or the human's own correction), a claim marked \"Remove\" does not appear at all, and a claim marked \"Keep as written\" stays. Do not add new claims.\n\nThe answer must be usable: when a source gives the number or name the question asks for, state it directly with its as-of date and source (\"As of <date>, <source> lists <N> …\"). When sources disagree, give each value with its source. Say a fact cannot be determined only when no source could be read, and say which. The answer must not contradict itself or the fact-check.\n\nUse these headings, in this order:\n\n## Answer\nLead with the direct answer.\n\n## Sources\nOne line per key claim: the claim, then the one link (and quoted words) that supports it, from the fact-check. Write \"no source found\" when there is none; never reuse a link for a claim it does not support.\n\n## Open points\nClaims that stayed unsupported or that the human left undecided. Write \"None.\" if there are none.",
     dependsOn: ["approve"],
+    requiresApproval: false,
+  },
+  {
+    key: "finalcheck",
+    agent: "Daedalus",
+    title: "Fact-check the final answer",
+    instructions: FINAL_CHECK_INSTRUCTIONS,
+    dependsOn: ["build"],
     requiresApproval: false,
   },
 ];
@@ -189,4 +202,20 @@ export async function startFirstProject(userId: string, name: string, brief: str
     });
   }
   return projectId;
+}
+
+/** Characters of a pasted answer ("Check an answer"); the brief holds it too, so a redraft keeps it. */
+export const MAX_PASTED_CHARS = 4_000;
+
+/**
+ * "Check an answer" (paste mode): the pasted text becomes the finished draft, so the thread
+ * starts at the fact-check. No model writes it; it does not use a run until the check runs.
+ */
+export async function seedPastedDraft(projectId: string, text: string) {
+  const draft = await prisma.task.findFirst({ where: { projectId, dependsOn: "[]" }, orderBy: { createdAt: "asc" } });
+  if (!draft) return;
+  const now = new Date();
+  await prisma.task.update({ where: { id: draft.id }, data: { output: text, status: "done", model: "pasted", startedAt: now, completedAt: now } });
+  await recordRun({ taskId: draft.id, projectId, outcome: "succeeded", provider: "human", model: "pasted", output: text, latencyMs: 0, startedAt: now, completedAt: now });
+  await prisma.activityEvent.create({ data: { projectId, type: "completed", message: "You pasted the answer to check", taskId: draft.id, payload: JSON.stringify({ kind: "pasted_answer" }) } });
 }

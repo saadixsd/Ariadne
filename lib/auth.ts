@@ -2,7 +2,7 @@ import "server-only";
 
 import { cookies } from "next/headers";
 import { TaskRunError } from "@/lib/errors";
-import { MAX_RESET_EMAILS_PER_HOUR, RESET_LINK_MS } from "@/lib/limits";
+import { MAX_RESET_EMAILS_PER_HOUR, RESET_LINK_MS, TESTER_PERIOD_DAYS } from "@/lib/limits";
 import { canSendEmail, recentCodeCount, sendEmail, sendVerificationCode } from "@/lib/mail";
 import { hashPassword, randomToken, sha256, verificationCode, verifyPassword } from "@/lib/password";
 import { getPrisma } from "@/lib/prisma";
@@ -163,6 +163,7 @@ export async function signUp(emailInput: string, password: string, options: { in
       passwordHash: hash,
       emailVerified: !mailReady,
       inviteCode: options.inviteCode ?? null,
+      testerUntil: isTesterCode(options.inviteCode) ? new Date(Date.now() + TESTER_PERIOD_DAYS * 86_400_000) : null,
       refCode: options.refCode ?? null,
       utmSource: options.utmSource ?? null,
       utmCampaign: options.utmCampaign ?? null,
@@ -298,4 +299,11 @@ async function afterResponse(work: Promise<unknown>) {
     // Not on Workers (local dev): just wait for it.
   }
   await work.catch(() => undefined);
+}
+
+/** Invite codes that make an account a tester (TESTER_INVITE_CODES, comma-separated; fix plan O2). */
+export function isTesterCode(code: string | null | undefined): boolean {
+  if (!code) return false;
+  const list = (process.env.TESTER_INVITE_CODES ?? "").split(",").map((c) => c.trim().toLowerCase()).filter(Boolean);
+  return list.includes(code.trim().toLowerCase());
 }

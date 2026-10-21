@@ -37,7 +37,7 @@ test("knots follow the real runs, decisions and approval", () => {
   );
   assert.deepEqual(knots.map((k) => k.kind), ["draft", "challenge", "decisions", "revision", "failed", "tieoff", "approve"]);
   assert.equal(knots[1].summary, "2 issues raised, 1 high");
-  assert.equal(knots[2].summary, "1 accepted");
+  assert.equal(knots[2].summary, "1 fixed");
   assert.equal(knots[3].version, 2);
   assert.equal(knots.at(-1)?.waiting, true);
   assert.deepEqual(knots.filter((k) => k.canRerun).map((k) => k.id), ["r3", "r4", "r5"]);
@@ -76,7 +76,7 @@ test("fact-check claims parse with verdicts; supported claims are not issues", a
   assert.equal(issuesFrom(FC, []).length, 2);
   const steps: ThreadSteps = { draft: task("d"), challenge: task("c"), judge: task("j", "awaiting_approval"), tieOff: task("t", "pending") };
   const k = buildKnots({ runs: [run("r1", "d", 1, "2026-10-13T10:00:00Z"), run("r2", "c", 1, "2026-10-13T10:01:00Z", "succeeded", FC)], decisions: [], approvedAt: null }, steps);
-  assert.equal(k[1].summary, "3 claims checked: 1 supported, 1 unsupported, 1 wrong");
+  assert.equal(k[1].summary, "3 claims checked: 1 supported, 1 not supported, 1 wrong");
 });
 
 test("decisions knot counts every accepted claim, in the round that raised it", () => {
@@ -91,7 +91,7 @@ test("decisions knot counts every accepted claim, in the round that raised it", 
     steps,
   );
   assert.deepEqual(knots.map((k) => k.kind), ["draft", "challenge", "challenge", "decisions"]);
-  assert.equal(knots[3].summary, "2 accepted");
+  assert.equal(knots[3].summary, "2 fixed");
 });
 
 test("web-search citations: vendor utm tags and inline citation links are dropped", async () => {

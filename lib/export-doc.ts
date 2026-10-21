@@ -35,16 +35,16 @@ export const EXPORT_FORMATS = [
 export type ExportFormat = (typeof EXPORT_FORMATS)[number]["id"];
 
 const VERDICT: Record<string, string> = { supported: "Supported", unsupported: "Unsupported", wrong: "Wrong", disputed: "Sources disagree" };
-const DECISION: Record<string, string> = { accepted: "Accepted the fix", rejected: "Kept as written", edited: "Corrected", investigating: "Investigating", open: "Not decided" };
+const DECISION: Record<string, string> = { accepted: "Fixed (used the source)", rejected: "Kept as written", edited: "Corrected", removed: "Removed", investigating: "Not decided", open: "Not decided" };
 
 /** Only the agent names Odysseus and Daedalus; never a vendor or model name. */
 export function scrubVendors(text: string): string {
   return text
-    .replace(/\b(?:Anthropic(?:'s)?\s+)?Claude(?:\s+(?:Sonnet|Opus|Haiku))?(?:\s*[\d.]+)?\b/g, "Odysseus")
-    .replace(/\b(?:Sonnet|Opus|Haiku)(?:\s*[\d.]+)?\b/g, "Odysseus")
-    .replace(/\bAnthropic\b/g, "Odysseus")
-    .replace(/\b(?:OpenAI(?:'s)?\s+)?(?:Chat)?GPT[-\w.]*(?:\s+Luna)?\b/gi, "Daedalus")
-    .replace(/\bOpenAI\b/g, "Daedalus")
+    .replace(/\b(?:Anthropic(?:'s)?\s+)?Claude(?:\s+(?:Sonnet|Opus|Haiku))?(?:\s*[\d.]+)?\b/g, "the writer")
+    .replace(/\b(?:Sonnet|Opus|Haiku)(?:\s*[\d.]+)?\b/g, "the writer")
+    .replace(/\bAnthropic\b/g, "the writer")
+    .replace(/\b(?:OpenAI(?:'s)?\s+)?(?:Chat)?GPT[-\w.]*(?:\s+Luna)?\b/gi, "the fact-checker")
+    .replace(/\bOpenAI\b/g, "the fact-checker")
     .replace(/\bGemini\b/g, "a model");
 }
 
@@ -232,12 +232,12 @@ export function flaggedClaims(m: ExportModel) {
 export function factCheckLine(m: ExportModel) {
   const flagged = flaggedClaims(m).length;
   return m.claims.length
-    ? `Daedalus checked ${m.claims.length} key claim${m.claims.length === 1 ? "" : "s"} against the sources; ${flagged} ${flagged === 1 ? "was" : "were"} flagged for your decision.`
+    ? `The fact-check covered ${m.claims.length} key claim${m.claims.length === 1 ? "" : "s"} against the sources; ${flagged} ${flagged === 1 ? "was" : "were"} flagged for your decision.`
     : "No fact-check results are attached to this answer.";
 }
 
 export function byline(m: ExportModel) {
-  return `${m.status} · ${m.dateLabel} · Written by Odysseus, checked by Daedalus${/^approved/i.test(m.status) ? ", approved by you" : ""} on Ariadne`;
+  return `${m.status} · ${m.dateLabel} · Written by one model, fact-checked claim by claim by a second${/^approved/i.test(m.status) ? ", approved by you" : ""} on Ariadne`;
 }
 
 export const DISCLAIMER = "Approval is your sign-off. Ariadne's fact-check is a second review of the key claims, not a guarantee.";

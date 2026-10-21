@@ -38,8 +38,8 @@ test("revise note carries accepted, edited and rejected decisions, capped", () =
   issues[1].state = "rejected";
   issues[1].reason = "the draft is right";
   const note = reviseNote(issues);
-  assert.match(note, /Fix "Published in 2021"/);
-  assert.match(note, /Keep "The effect is large"; I rejected the challenge: the draft is right/);
+  assert.match(note, /Fix it \(use the source\) "Published in 2021"/);
+  assert.match(note, /Keep as written "The effect is large": the draft is right/);
   assert.equal(reviseNote(issuesFrom(CHALLENGE, [])), "");
   assert.ok(reviseNote(Array.from({ length: 200 }, () => issues[0])).length <= 2000);
 });
