@@ -1,22 +1,15 @@
 import { redirect } from "next/navigation";
-import { IntroTour } from "@/components/IntroTour";
 import { NewProjectFlow } from "@/components/NewProjectFlow";
 import { currentUser } from "@/lib/auth";
-import { WORKFLOWS_PER_DAY } from "@/lib/limits";
-import { nextUtcDay, workflowsLeft } from "@/lib/usage";
+import { quotaFor } from "@/lib/usage";
 
 export const dynamic = "force-dynamic";
 
+// No onboarding popup here any more (fix plan U9): the limits and a short explanation are inline.
 export default async function NewProjectPage() {
   const user = await currentUser();
   if (!user) redirect("/sign-in");
   if (!user.emailVerified) redirect("/verify");
-  const limit = WORKFLOWS_PER_DAY;
-  const left = await workflowsLeft(user.id);
-  return (
-    <>
-      <NewProjectFlow runsLeft={left} runsLimit={limit} resetsAt={nextUtcDay().toISOString()} />
-      <IntroTour show={!user.introSeenAt} />
-    </>
-  );
+  const q = await quotaFor(user.id);
+  return <NewProjectFlow quota={{ runsLeft: q.runsLeft, runsPerDay: q.runsPerDay, resetsAt: q.resetsAt, rerunsPerRun: q.rerunsPerRun }} />;
 }

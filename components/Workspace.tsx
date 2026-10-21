@@ -309,10 +309,12 @@ export function Workspace({ initial, autoStart = false }: { initial: WorkspaceDa
 
   // Started from /new: write the draft right away (you clicked "Start" there).
   useEffect(() => {
-    if (!autoStart || started.current || action.kind !== "run" || action.task.id !== steps.draft?.id) return;
+    if (!autoStart || started.current) return;
     started.current = true;
     window.history.replaceState(null, "", `/p/${project.id}`);
-    void act("Writing the draft…", () => runTask(action.task.id).then(() => undefined));
+    if (action.kind === "run" && action.task.id === steps.draft?.id) void act("Writing the draft…", () => runTask(action.task.id).then(() => undefined));
+    // "Check an answer": the pasted text is the draft, so the fact-check starts right away.
+    else if (action.kind === "review_draft") void act("Fact-checking…", () => check(action.challenge.id, steps.draft?.output, "Fact-checking your answer, claim by claim…"));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoStart]);
 
@@ -648,7 +650,8 @@ export function Workspace({ initial, autoStart = false }: { initial: WorkspaceDa
   const STEP_TEXT = { pending: "Not started", running: "In progress", done: "Done", failed: "Did not finish", waiting: "Waiting on you" } as const;
   const version = draftVersion(steps.draft);
   const docTime = (doc.from === "tieOff" ? steps.tieOff : steps.draft)?.completedAt;
-  const docLabel = doc.from === "tieOff" ? STAGE.final : doc.from === "draft" ? (version > 1 ? `Revised draft` : STAGE.draft) : "Answer";
+  const pastedDraft = steps.draft?.model === "pasted";
+  const docLabel = doc.from === "tieOff" ? STAGE.final : doc.from === "draft" ? (pastedDraft ? "The answer you pasted" : version > 1 ? "Revised draft" : STAGE.draft) : "Answer";
   const question = goalLine(project.brief, "") ?? project.name;
 
   const sources = (

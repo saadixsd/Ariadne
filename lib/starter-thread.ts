@@ -1,5 +1,6 @@
 import { DAEDALUS, ODYSSEUS } from "@/lib/hands";
 import { prisma } from "@/lib/prisma";
+import { recordRun } from "@/lib/run-history";
 
 type TaskSpec = {
   key: string;
@@ -201,4 +202,20 @@ export async function startFirstProject(userId: string, name: string, brief: str
     });
   }
   return projectId;
+}
+
+/** Characters of a pasted answer ("Check an answer"); the brief holds it too, so a redraft keeps it. */
+export const MAX_PASTED_CHARS = 4_000;
+
+/**
+ * "Check an answer" (paste mode): the pasted text becomes the finished draft, so the thread
+ * starts at the fact-check. No model writes it; it does not use a run until the check runs.
+ */
+export async function seedPastedDraft(projectId: string, text: string) {
+  const draft = await prisma.task.findFirst({ where: { projectId, dependsOn: "[]" }, orderBy: { createdAt: "asc" } });
+  if (!draft) return;
+  const now = new Date();
+  await prisma.task.update({ where: { id: draft.id }, data: { output: text, status: "done", model: "pasted", startedAt: now, completedAt: now } });
+  await recordRun({ taskId: draft.id, projectId, outcome: "succeeded", provider: "human", model: "pasted", output: text, latencyMs: 0, startedAt: now, completedAt: now });
+  await prisma.activityEvent.create({ data: { projectId, type: "completed", message: "You pasted the answer to check", taskId: draft.id, payload: JSON.stringify({ kind: "pasted_answer" }) } });
 }
