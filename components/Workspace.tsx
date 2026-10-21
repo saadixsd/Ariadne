@@ -292,7 +292,7 @@ export function Workspace({ initial, autoStart = false }: { initial: WorkspaceDa
 
   /** Fact-check one text: read its sources, check claim by claim, then check each quote against the page (B4). */
   async function check(checkId: string, text: string | null | undefined, label: string) {
-    let known = await readPages(text, data.pages);
+    const known = await readPages(text, data.pages);
     setBusy(label);
     const done = await runTask(checkId);
     await readPages(done?.output, known);
@@ -310,11 +310,16 @@ export function Workspace({ initial, autoStart = false }: { initial: WorkspaceDa
   // Started from /new: write the draft right away (you clicked "Start" there).
   useEffect(() => {
     if (!autoStart || started.current) return;
-    started.current = true;
-    window.history.replaceState(null, "", `/p/${project.id}`);
-    if (action.kind === "run" && action.task.id === steps.draft?.id) void act("Writing the draft…", () => runTask(action.task.id).then(() => undefined));
-    // "Check an answer": the pasted text is the draft, so the fact-check starts right away.
-    else if (action.kind === "review_draft") void act("Fact-checking…", () => check(action.challenge.id, steps.draft?.output, "Fact-checking your answer, claim by claim…"));
+    // Deferred one tick so the effect itself sets no state (and React's dev double-run is harmless).
+    const timer = setTimeout(() => {
+      if (started.current) return;
+      started.current = true;
+      window.history.replaceState(null, "", `/p/${project.id}`);
+      if (action.kind === "run" && action.task.id === steps.draft?.id) void act("Writing the draft…", () => runTask(action.task.id).then(() => undefined));
+      // "Check an answer": the pasted text is the draft, so the fact-check starts right away.
+      else if (action.kind === "review_draft") void act("Fact-checking…", () => check(action.challenge.id, steps.draft?.output, "Fact-checking your answer, claim by claim…"));
+    }, 0);
+    return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoStart]);
 
