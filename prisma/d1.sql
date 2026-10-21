@@ -19,6 +19,7 @@ CREATE TABLE "User" (
     "privacyPolicyVersion" TEXT,
     "feedbackPromptAt" DATETIME,
     "introSeenAt" DATETIME,
+    "testerUntil" DATETIME,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -221,6 +222,19 @@ CREATE TABLE "PasswordReset" (
     CONSTRAINT "PasswordReset_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
+-- CreateTable
+CREATE TABLE "FetchedPage" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "projectId" TEXT NOT NULL,
+    "url" TEXT NOT NULL,
+    "status" TEXT NOT NULL,
+    "note" TEXT,
+    "title" TEXT,
+    "text" TEXT NOT NULL DEFAULT '',
+    "fetchedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "FetchedPage_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
 
@@ -262,4 +276,7 @@ CREATE UNIQUE INDEX "PasswordReset_tokenHash_key" ON "PasswordReset"("tokenHash"
 
 -- CreateIndex
 CREATE INDEX "PasswordReset_userId_idx" ON "PasswordReset"("userId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "FetchedPage_projectId_url_key" ON "FetchedPage"("projectId", "url");
 

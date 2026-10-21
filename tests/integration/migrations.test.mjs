@@ -12,7 +12,7 @@ import { DatabaseSync } from "node:sqlite";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const dir = mkdtempSync(path.join(tmpdir(), "ariadne-mig-"));
 const sql = (file) => readFileSync(path.join(root, file), "utf8");
-const MIGRATIONS = ["migrations/0001_baseline.sql", "migrations/0002_ship_blockers.sql", "migrations/0003_phase2.sql", "migrations/0004_invite_code.sql", "migrations/0005_attribution_feedback.sql", "migrations/0006_workspace.sql", "migrations/0007_r2_workflow_quota.sql", "migrations/0008_r2_budget.sql", "migrations/0009_password_reset.sql", "migrations/0010_run_usage.sql", "migrations/0011_intro.sql", "migrations/0012_privacy_consent.sql"];
+const MIGRATIONS = ["migrations/0001_baseline.sql", "migrations/0002_ship_blockers.sql", "migrations/0003_phase2.sql", "migrations/0004_invite_code.sql", "migrations/0005_attribution_feedback.sql", "migrations/0006_workspace.sql", "migrations/0007_r2_workflow_quota.sql", "migrations/0008_r2_budget.sql", "migrations/0009_password_reset.sql", "migrations/0010_run_usage.sql", "migrations/0011_intro.sql", "migrations/0012_privacy_consent.sql", "migrations/0013_tester_ready.sql"];
 
 function schemaDiff(dbFile) {
   const result = spawnSync(
