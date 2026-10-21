@@ -10,7 +10,27 @@ export const DAILY_MODEL_RUNS = 10;
 // Oct 14 2026 (Saad, cost): one workflow per account per UTC day, and at most
 // MAX_RERUNS_PER_WORKFLOW reruns (redrafts, revisions, re-checks) inside it.
 export const WORKFLOWS_PER_DAY = 1;
-export const RUNS_PER_FULL_PASS = 3;
+// A full pass is 4 model calls since Oct 21 2026: draft, fact-check, final answer, and the
+// fact-check of the final answer (fix plan B2). Inside one run they are all included.
+export const RUNS_PER_FULL_PASS = 4;
+// Invited testers (fix plan O2): TESTER_RUNS_PER_DAY runs a day for TESTER_PERIOD_DAYS days
+// after sign-up with a code listed in TESTER_INVITE_CODES (User.testerUntil, migration 0013).
+// In the UI a "run" is one workflow: question → draft → fact-check → your review → final answer.
+export const TESTER_RUNS_PER_DAY = 3;
+export const TESTER_PERIOD_DAYS = 14;
+
+export type QuotaAccount = { testerUntil?: Date | string | null };
+
+export function isActiveTester(account: QuotaAccount | null | undefined, now = Date.now()): boolean {
+  if (!account?.testerUntil) return false;
+  const until = new Date(account.testerUntil).getTime();
+  return Number.isFinite(until) && until > now;
+}
+
+/** Runs (workflows) this account may start per day. */
+export function workflowsPerDay(account: QuotaAccount | null | undefined, now = Date.now()): number {
+  return isActiveTester(account, now) ? TESTER_RUNS_PER_DAY : WORKFLOWS_PER_DAY;
+}
 export const MAX_RERUNS_PER_WORKFLOW = 3;
 export const MAX_RUNS_PER_WORKFLOW = RUNS_PER_FULL_PASS + MAX_RERUNS_PER_WORKFLOW;
 // Site-wide ceiling on successful model runs per UTC day, across every account. A cost

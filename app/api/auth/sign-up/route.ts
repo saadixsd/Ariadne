@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { CAMPAIGN_COOKIE, decodeCampaign, isSignedRef } from "@/lib/campaign";
-import { checkSignUpInput, signUp } from "@/lib/auth";
+import { checkSignUpInput, signUp, isTesterCode } from "@/lib/auth";
 import { errorResponse } from "@/lib/errors";
 import { clientIp, enforceRateLimit } from "@/lib/rate-limit";
 import { checkInvite, requireHuman } from "@/lib/signup-guard";
@@ -27,7 +27,9 @@ export async function POST(request: Request) {
     checkSignUpInput(email, password);
     if (body?.privacyConsent !== true) throw new TaskRunError("Please agree to the Privacy Policy to create an account.", 400);
     await requireHuman(typeof body?.turnstileToken === "string" ? body.turnstileToken : "", clientIp(request));
-    const inviteCode = checkInvite(typeof body?.inviteCode === "string" ? body.inviteCode : "");
+    const rawInvite = typeof body?.inviteCode === "string" ? body.inviteCode : "";
+    // While sign-up is open checkInvite keeps no code; a tester code (TESTER_INVITE_CODES) is still kept.
+    const inviteCode = checkInvite(rawInvite) ?? (isTesterCode(rawInvite) ? rawInvite.trim().toLowerCase().slice(0, 64) : null);
     const campaign = decodeCampaign((await cookies()).get(CAMPAIGN_COOKIE)?.value);
     // Only a signed outreach code is kept as refCode (it lifts the trial cap); an unsigned
     // one is still attributed through utm_* but is not trusted for anything.

@@ -1,7 +1,7 @@
 import "server-only";
 
 import { TaskRunError } from "@/lib/errors";
-import { DAILY_MODEL_RUNS, MAX_RERUNS_PER_WORKFLOW, MAX_RUNS_PER_WORKFLOW, SITE_DAILY_MODEL_RUNS, WORKFLOWS_PER_DAY, dailyRunLimit } from "@/lib/limits";
+import { DAILY_MODEL_RUNS, MAX_RERUNS_PER_WORKFLOW, MAX_RUNS_PER_WORKFLOW, RUNS_PER_FULL_PASS, SITE_DAILY_MODEL_RUNS, dailyRunLimit, workflowsPerDay } from "@/lib/limits";
 import { getPrisma } from "@/lib/prisma";
 
 export { DAILY_MODEL_RUNS, SITE_DAILY_MODEL_RUNS, dailyRunLimit };
@@ -125,13 +125,38 @@ export async function releaseModelRun(userId: string, day: string, projectId?: s
 }
 
 /** The friendly 429 for a used-up day, shared by project creation and the first run. */
-export function dailyProjectsUsed(tail: string) {
+export function dailyProjectsUsed(tail: string, limit = 1) {
   return new TaskRunError(
-    `You have used today's ${WORKFLOWS_PER_DAY === 1 ? "project" : `${WORKFLOWS_PER_DAY} projects`}. You can start a new one from ${resetLabel()}. Steps on a project you already started still run. ${tail}`,
+    `You have used ${limit === 1 ? "today's run" : `all ${limit} of today's runs`}. You can start a new one from ${resetLabel()}. Steps on a project you already started still run. ${tail}`,
     429,
-    { limit: WORKFLOWS_PER_DAY, scope: "workflows", retryAfterSeconds: secondsUntilNextUtcDay(), resetsAt: nextUtcDay().toISOString() },
+    { limit, scope: "workflows", retryAfterSeconds: secondsUntilNextUtcDay(), resetsAt: nextUtcDay().toISOString() },
   );
 }
+
+/** Runs (workflows) per day for this account: more for an invited tester (lib/limits.ts). */
+export async function userWorkflowLimit(userId: string) {
+  const prisma = await getPrisma();
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { testerUntil: true } });
+  return workflowsPerDay(user);
+}
+
+/** Today's quota for the UI: runs left, the daily limit, and redrafts left on this project's open run. */
+export async function quotaFor(userId: string, projectId?: string) {
+  const prisma = await getPrisma();
+  const limit = await userWorkflowLimit(userId);
+  const started = await workflowsStarted(userId);
+  const open = projectId ? await prisma.workflow.findFirst({ where: { projectId, status: "open" }, orderBy: { createdAt: "asc" }, select: { runs: true } }) : null;
+  return {
+    runsLeft: Math.max(0, limit - started),
+    runsPerDay: limit,
+    resetsAt: nextUtcDay().toISOString(),
+    runOpen: Boolean(open),
+    // Estimate: steps of the full pass not used yet are reserved before redrafts.
+    rerunsLeft: open ? Math.max(0, Math.min(MAX_RERUNS_PER_WORKFLOW, MAX_RUNS_PER_WORKFLOW - Math.max(open.runs, RUNS_PER_FULL_PASS))) : MAX_RERUNS_PER_WORKFLOW,
+    rerunsPerRun: MAX_RERUNS_PER_WORKFLOW,
+  };
+}
+
 
 /** Workflows this account started on `day` (UTC). */
 export async function workflowsStarted(userId: string, day = utcDay()) {
@@ -140,7 +165,7 @@ export async function workflowsStarted(userId: string, day = utcDay()) {
 }
 
 export async function workflowsLeft(userId: string, day = utcDay()) {
-  return Math.max(0, WORKFLOWS_PER_DAY - (await workflowsStarted(userId, day)));
+  return Math.max(0, (await userWorkflowLimit(userId)) - (await workflowsStarted(userId, day)));
 }
 
 /**
@@ -154,7 +179,8 @@ async function reserveWorkflowRun(userId: string, projectId: string, day: string
   const prisma = await getPrisma();
   let open = await prisma.workflow.findFirst({ where: { projectId, status: "open" }, orderBy: { createdAt: "asc" } });
   if (!open) {
-    if ((await workflowsStarted(userId, day)) >= WORKFLOWS_PER_DAY) throw dailyProjectsUsed("Nothing was sent to the models.");
+    const limit = await userWorkflowLimit(userId);
+    if ((await workflowsStarted(userId, day)) >= limit) throw dailyProjectsUsed("Nothing was sent to the models.", limit);
     open = await prisma.workflow.create({ data: { userId, projectId, day, runs: 0 } });
   }
   const bumped = await prisma.workflow.updateMany({
@@ -163,7 +189,7 @@ async function reserveWorkflowRun(userId: string, projectId: string, day: string
   });
   if (bumped.count !== 1) {
     throw new TaskRunError(
-      `This project has used its ${MAX_RERUNS_PER_WORKFLOW} reruns for this pass. Review and approve the deliverable to finish it; you can start a new project from ${resetLabel()}. Nothing was sent to the models.`,
+      `This run has used its ${MAX_RERUNS_PER_WORKFLOW} redrafts and re-checks. Approve the final answer to finish it, or start a new run from ${resetLabel()}. Nothing was sent to the models.`,
       429,
       { scope: "workflow_runs" },
     );
