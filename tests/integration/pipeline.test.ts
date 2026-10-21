@@ -44,7 +44,7 @@ async function applyMigrations() {
   }>;
   const { DatabaseSync } = await loadSqlite();
   const db = new DatabaseSync(dbFile);
-  for (const file of ["0001_baseline.sql", "0002_ship_blockers.sql", "0003_phase2.sql", "0004_invite_code.sql", "0005_attribution_feedback.sql", "0006_workspace.sql", "0007_r2_workflow_quota.sql", "0008_r2_budget.sql", "0009_password_reset.sql", "0010_run_usage.sql", "0011_intro.sql", "0012_privacy_consent.sql"]) {
+  for (const file of ["0001_baseline.sql", "0002_ship_blockers.sql", "0003_phase2.sql", "0004_invite_code.sql", "0005_attribution_feedback.sql", "0006_workspace.sql", "0007_r2_workflow_quota.sql", "0008_r2_budget.sql", "0009_password_reset.sql", "0010_run_usage.sql", "0011_intro.sql", "0012_privacy_consent.sql", "0013_tester_ready.sql"]) {
     db.exec(readFileSync(path.join(root, "migrations", file), "utf8"));
   }
   db.close();
@@ -70,9 +70,9 @@ async function decideAll(projectId: string, userId: string) {
 async function newProject(userId: string) {
   const id = await starter.createUserProject(userId, "Test project", "Build a landing page for a coffee cart.");
   const tasks = await prisma.task.findMany({ where: { projectId: id }, orderBy: { createdAt: "asc" } });
-  assert.equal(tasks.length, 4, "starter is Draft → Challenge → Judge → Tie Off writeup");
-  const [draft, review, gate, build] = tasks;
-  return { id, draft, review, gate, build };
+  assert.equal(tasks.length, 5, "starter is Draft → Challenge → Judge → Tie Off → Final check");
+  const [draft, review, gate, build, finalCheck] = tasks;
+  return { id, draft, review, gate, build, finalCheck };
 }
 
 async function runsFor(taskId: string) {
@@ -210,7 +210,7 @@ describe("quota: only successful runs count, increment is atomic", () => {
       await prisma.workflow.create({ data: { userId: user.id, projectId: `other-${i}`, day: usage.utcDay(), runs: 3 } });
     }
     const callsBefore = mock.state.calls;
-    await rejects(agents.runTask(p.draft.id, user.id), 429, /used today.s project.*00:00 UTC/);
+    await rejects(agents.runTask(p.draft.id, user.id), 429, /used today.s run.*00:00 UTC/);
     assert.equal(mock.state.calls, callsBefore);
     assert.equal((await prisma.task.findUniqueOrThrow({ where: { id: p.draft.id } })).status, "pending");
     assert.equal(await runsToday(user.id), 0);
@@ -246,10 +246,10 @@ describe("quota: only successful runs count, increment is atomic", () => {
     assert.equal(wf.runs, 4);
     await prisma.workflow.update({ where: { id: wf.id }, data: { runs: limits.MAX_RUNS_PER_WORKFLOW } });
     const callsBefore = mock.state.calls;
-    await rejects(agents.runTask(p.review.id, user.id), 429, /used its 3 reruns/);
+    await rejects(agents.runTask(p.review.id, user.id), 429, /used its 3 redrafts and re-checks/);
     assert.equal(mock.state.calls, callsBefore);
     await usage.closeWorkflow(p.id);
-    await rejects(agents.runTask(p.review.id, user.id), 429, /used today.s project.*00:00 UTC/);
+    await rejects(agents.runTask(p.review.id, user.id), 429, /used today.s run.*00:00 UTC/);
     assert.equal(await usage.workflowsStarted(user.id), 1, "after approval the next run would start a new workflow, over today's limit");
   });
 
@@ -326,7 +326,7 @@ describe("site-wide daily ceiling and output caps", () => {
       for (let i = 0; i < limits.WORKFLOWS_PER_DAY; i++) {
         await prisma.workflow.create({ data: { userId: user.id, projectId: `both-${i}`, day: usage.utcDay(), runs: 3 } });
       }
-      await rejects(agents.runTask(p.draft.id, user.id), 429, /used today.s project/);
+      await rejects(agents.runTask(p.draft.id, user.id), 429, /used today.s run/);
     } finally {
       await cleanup();
       await prisma.usageDay.deleteMany({ where: { user: { email: "both-caps@test.dev" } } });
@@ -553,8 +553,8 @@ describe("existing board + tree flow", () => {
     const built = await agents.runTask(p.build.id, user.id);
     assert.equal(built.status, "done");
     const dto = (await project.getProject(p.id, user.id))!;
-    assert.deepEqual(dto.tasks.map((t) => t.status), ["done", "done", "done", "done"]);
-    assert.ok(dto.agents.every((a) => a.status === "done"));
+    assert.deepEqual(dto.tasks.map((t) => t.status), ["done", "done", "done", "done", "pending"], "the final check runs after Tie Off");
+    assert.ok(dto.agents.every((a) => a.status !== "running" && a.status !== "failed"), "no agent left running or failed");
     assert.equal(await runsToday(user.id), 3, "3 model runs, gate is free");
     const types = dto.events.map((e) => e.type);
     for (const type of ["started", "handoff", "completed", "approval_requested", "approved"]) assert.ok(types.includes(type), type);
@@ -672,6 +672,10 @@ describe("workspace journey (Oct 14): sources → Draft → Challenge → decisi
     await decideAll(id, user.id);
     await agents.decideTask(gate.id, true, undefined, user.id);
     await agents.runTask(build.id, user.id);
+    // B6: the final answer is fact-checked before it can be approved.
+    await rejects(ws.approveDeliverable(id, user.id, "x"), 409, /Fact-check the final answer first/);
+    const finalCheck = pure.threadSteps((await ws.loadWorkspace(id, user.id))!.project).finalCheck!;
+    await agents.runTask(finalCheck.id, user.id);
 
     data = (await ws.loadWorkspace(id, user.id))!;
     steps = pure.threadSteps(data.project);

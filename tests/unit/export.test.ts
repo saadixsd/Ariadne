@@ -46,12 +46,12 @@ test("export: citations become a numbered list, decisions and verdicts carried, 
   assert.match(md, /Norton \[1\]/);
   assert.match(md, /1\. Norton: <https:\/\/example.org\/a>/);
   assert.doesNotMatch(md, /Claude|Sonnet|GPT|OpenAI|Anthropic|Luna/);
-  assert.match(md, /Odysseus/);
+  assert.match(md, /fact-checked claim by claim/);
   assert.equal(exportFilename(m.title, m.date, "pdf"), "ariadne-loi-96-quebec-2026-10-14.pdf");
 });
 
 test("export: slug and scrub edge cases", () => {
   assert.equal(slugify("!!!"), "project");
   assert.equal(slugify("When did Canada's Bill C-13 get Royal Assent, and what new Act did it create?"), "when-did-canada-s-bill-c-13-get-royal-assent-and");
-  assert.equal(scrubVendors("OpenAI's GPT-6 Luna checked"), "Daedalus checked");
+  assert.equal(scrubVendors("OpenAI's GPT-6 Luna checked"), "the fact-checker checked");
 });
