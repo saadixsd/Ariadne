@@ -137,7 +137,7 @@ export function buildKnots(data: ThreadData, steps: ThreadSteps): Knot[] {
   return knots;
 }
 
-export const VERDICT_LABEL: Record<ClaimVerdict, string> = { supported: "Supported", unsupported: "Unsupported", wrong: "Wrong", disputed: "Sources disagree" };
+export const VERDICT_LABEL: Record<ClaimVerdict, string> = { supported: "Supported", unsupported: "Not supported by sources", wrong: "Wrong", disputed: "Sources disagree" };
 
 export function verdictCounts(flags: Pick<CritiqueFlag, "verdict">[]) {
   const supported = flags.filter((f) => f.verdict === "supported").length;
@@ -149,7 +149,7 @@ export function verdictCounts(flags: Pick<CritiqueFlag, "verdict">[]) {
 
 /** "12 supported, 2 unsupported, 1 wrong, 1 where sources disagree" */
 export function verdictSummary(v: ReturnType<typeof verdictCounts>) {
-  return `${v.supported} supported, ${v.unsupported} unsupported, ${v.wrong} wrong${v.disputed ? `, ${v.disputed} where sources disagree` : ""}`;
+  return [`${v.supported} supported`, `${v.unsupported} not supported`, `${v.wrong} wrong`, v.disputed ? `${v.disputed} sources disagree` : ""].filter(Boolean).join(" · ");
 }
 
 export type DiffLine = { t: "same" | "add" | "del"; s: string };

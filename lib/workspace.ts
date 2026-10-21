@@ -8,7 +8,10 @@ import { CHANGE_MARKER } from "@/lib/change-notes";
 import { parseCritique, type CritiqueFlag } from "@/lib/critique";
 import type { ProjectDTO, TaskDTO } from "@/lib/types";
 
-export type ThreadSteps = { draft?: TaskDTO; challenge?: TaskDTO; judge?: TaskDTO; tieOff?: TaskDTO };
+export type ThreadSteps = { draft?: TaskDTO; challenge?: TaskDTO; judge?: TaskDTO; tieOff?: TaskDTO; finalCheck?: TaskDTO };
+
+/** Plain labels for the four stages (fix plan U1). The myth names stay on the About page only. */
+export const STAGE = { draft: "Draft", check: "Fact-check", review: "Your review", final: "Final answer", finalCheck: "Final check" } as const;
 
 /** Finds the four steps of a starter thread. Custom threads may not have all four. */
 export function threadSteps(project: Pick<ProjectDTO, "tasks" | "agents">): ThreadSteps {
@@ -18,7 +21,9 @@ export function threadSteps(project: Pick<ProjectDTO, "tasks" | "agents">): Thre
   const challenge = draft && tasks.find((t) => provider.get(t.agentId) === "openai" && t.dependsOn.includes(draft.id));
   const judge = challenge && tasks.find((t) => provider.get(t.agentId) === "human" && t.dependsOn.includes(challenge.id));
   const tieOff = judge && tasks.find((t) => provider.get(t.agentId) !== "human" && t.dependsOn.includes(judge.id));
-  return { draft, challenge, judge, tieOff };
+  // Projects made since Oct 21 2026 fact-check the final answer too (B2); older ones have no such step.
+  const finalCheck = tieOff && tasks.find((t) => provider.get(t.agentId) === "openai" && t.dependsOn.includes(tieOff.id));
+  return { draft, challenge, judge, tieOff, finalCheck };
 }
 
 export function isStarterShape(steps: ThreadSteps): boolean {
@@ -41,7 +46,9 @@ export function issueKey(flag: Pick<CritiqueFlag, "claim" | "issue">): string {
   return `i${hashText(`${norm(flag.claim)}\u0001${norm(flag.issue)}`)}`;
 }
 
-export const ISSUE_STATES = ["accepted", "rejected", "edited", "investigating", "open"] as const;
+// accepted = "Fix it (use the source)", rejected = "Keep as written", removed = "Remove",
+// edited = your own correction. "investigating" is kept only for decisions saved before Oct 21.
+export const ISSUE_STATES = ["accepted", "rejected", "edited", "removed", "investigating", "open"] as const;
 export type IssueState = (typeof ISSUE_STATES)[number];
 export type Decision = { flagKey: string; state: IssueState; edit: string | null; reason: string | null };
 export type Issue = { key: string; flag: CritiqueFlag; state: IssueState; edit: string | null; reason: string | null; rank: number };
@@ -65,8 +72,18 @@ export function issuesFrom(challengeOutput: string | null | undefined, decisions
 }
 
 export function isResolved(state: IssueState) {
-  return state === "accepted" || state === "rejected" || state === "edited";
+  return state === "accepted" || state === "rejected" || state === "edited" || state === "removed";
 }
+
+/** What each decision means, in the words on its button (U2). */
+export const DECISION_LABEL: Record<IssueState, string> = {
+  open: "Not decided",
+  accepted: "Fix it (use the source)",
+  rejected: "Keep as written",
+  edited: "My own correction",
+  removed: "Remove",
+  investigating: "Not decided",
+};
 
 /** The note sent with "Revise with accepted issues" (Ask for changes at the Judge step). */
 export function reviseNote(issues: Issue[], max = 2_000): string {
@@ -74,11 +91,13 @@ export function reviseNote(issues: Issue[], max = 2_000): string {
   for (const issue of issues) {
     const what = issue.flag.claim ? `"${issue.flag.claim}"` : issue.flag.section ?? "the draft";
     if (issue.state === "accepted") {
-      lines.push(`- Fix ${what}: ${issue.flag.issue}${issue.flag.fix ? ` Suggested: ${issue.flag.fix}` : ""}`);
+      lines.push(`- Fix it (use the source) ${what}: ${issue.flag.issue}${issue.flag.fix ? ` Suggested: ${issue.flag.fix}` : ""}`);
     } else if (issue.state === "edited" && issue.edit) {
       lines.push(`- For ${what}, use my correction: ${issue.edit}`);
+    } else if (issue.state === "removed") {
+      lines.push(`- Remove ${what} completely; do not restate it in other words.`);
     } else if (issue.state === "rejected") {
-      lines.push(`- Keep ${what}; I rejected the challenge${issue.reason ? `: ${issue.reason}` : ""}.`);
+      lines.push(`- Keep as written ${what}${issue.reason ? `: ${issue.reason}` : ""}.`);
     }
   }
   if (lines.length === 0) return "";
@@ -110,9 +129,9 @@ export function docState(steps: ThreadSteps, approvedHash: string | null): DocSt
 export const DOC_STATE_LABEL: Record<DocState, string> = {
   empty: "Not started",
   draft: "Draft",
-  challenged: "Challenged",
+  challenged: "Fact-checked",
   revised: "Revised draft",
-  tied_off: "Tied off · not approved",
+  tied_off: "Final answer · not approved",
   approved: "Approved",
 };
 
@@ -142,7 +161,13 @@ export function nextAction(steps: ThreadSteps, approved: boolean): NextAction {
   if (challenge.status === "pending") return { kind: "review_draft", task: draft, challenge };
   if (judge.status === "pending") return { kind: "open_judge", task: judge };
   if (judge.status === "awaiting_approval") return { kind: "judge", task: judge };
-  if (tieOff.status === "pending") return { kind: "run", task: tieOff, label: "Write the tied-off answer", runs: 1 };
+  if (tieOff.status === "pending") return { kind: "run", task: tieOff, label: "Write the final answer", runs: 1, then: steps.finalCheck };
+  if (steps.finalCheck) {
+    const fc = steps.finalCheck;
+    if (fc.status === "running") return { kind: "busy", task: fc };
+    if (fc.status === "failed") return { kind: "failed", task: fc };
+    if (fc.status === "pending") return { kind: "run", task: fc, label: "Fact-check the final answer", runs: 1 };
+  }
   return approved ? { kind: "done" } : { kind: "approve" };
 }
 
@@ -185,4 +210,68 @@ export function goalLine(brief: string, name: string): string | null {
     return line;
   }
   return null;
+}
+
+/* ---------- final answer checks (fix plan B2, B6) ---------- */
+
+const norm = (s: string) =>
+  s
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/[*_`#>]/g, "")
+    .replace(/[“”„«»]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}%.'-]+/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+/** True when the claim reads in the text: whole, or its first 8 words, or 80% of its words in one sentence. */
+export function claimInText(claim: string | null | undefined, text: string | null | undefined): boolean {
+  const c = norm(stripQuotes(claim ?? "")).replace(/[.]+$/, "");
+  const t = norm(text ?? "");
+  if (!c || !t) return false;
+  if (t.includes(c)) return true;
+  const words = c.split(" ");
+  if (words.length >= 8 && t.includes(words.slice(0, 8).join(" "))) return true;
+  const want = new Set(words.filter((w) => w.length > 2));
+  if (want.size < 3) return false;
+  return (text ?? "").split(/(?<=[.!?])\s+|\n+/).some((sentence) => {
+    const have = new Set(norm(sentence).split(" "));
+    let hit = 0;
+    for (const w of want) if (have.has(w)) hit++;
+    return hit / want.size >= 0.8;
+  });
+}
+
+const NOT_ESTABLISHED = /\b(?:not (?:been )?established|cannot be (?:determined|established|confirmed)|could not (?:be )?(?:determined|determine|established|establish)|unable to (?:determine|establish|confirm)|can(?:no|')t (?:determine|say))\b/i;
+
+export type FinalConflict = { kind: "self" | "wrong" | "removed" | "no_answer"; text: string };
+
+/**
+ * Reasons the final answer must not be shown as finished (B6): the final check says it
+ * contradicts itself or a source, a claim it states is Wrong, a claim you removed is back,
+ * or it says the value cannot be determined although Ariadne read source pages.
+ */
+export function finalConflicts(args: { finalText: string | null | undefined; finalCheckOutput: string | null | undefined; issues: Issue[]; pagesRead: number }): FinalConflict[] {
+  const out: FinalConflict[] = [];
+  const text = args.finalText ?? "";
+  if (!text) return out;
+  const check = parseCritique(args.finalCheckOutput ?? "");
+  if (check.consistency && !check.consistency.ok) out.push({ kind: "self", text: `The final check found a contradiction: ${check.consistency.text}` });
+  for (const f of check.flags) {
+    if (f.verdict === "wrong") out.push({ kind: "wrong", text: `“${stripQuotes(f.claim ?? f.issue)}” is contradicted by its source${f.fix ? `. Suggested: ${f.fix}` : "."}` });
+  }
+  for (const i of args.issues) {
+    if (i.state === "removed" && i.flag.claim && claimInText(i.flag.claim, text)) out.push({ kind: "removed", text: `You removed “${stripQuotes(i.flag.claim)}”, but it is still in the final answer.` });
+  }
+  const answer = text.split(/^##\s+(?:sources|open points)\b/im)[0];
+  if (args.pagesRead > 0 && NOT_ESTABLISHED.test(answer)) {
+    out.push({ kind: "no_answer", text: `The answer says the value can't be determined, but Ariadne read ${args.pagesRead} source page${args.pagesRead === 1 ? "" : "s"}. Ask for the value the sources give, with its date.` });
+  }
+  return out;
+}
+
+/** The note sent when you ask for the final answer to be rewritten because of conflicts. */
+export function conflictNote(conflicts: FinalConflict[]): string {
+  return ["Rewrite the final answer to fix these problems. Keep everything else.", ...conflicts.map((c) => `- ${c.text}`)].join("\n").slice(0, 2_000);
 }

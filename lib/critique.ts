@@ -43,6 +43,8 @@ export type Critique = {
   prose: string;
   /** The single as-of date the fact-check used ("Data checked: ..."), when it gave one. */
   dataDate?: string | null;
+  /** The final-answer check's "Consistency: ok | conflict — …" line (fix plan B6), when given. */
+  consistency?: { ok: boolean; text: string } | null;
 };
 
 /** A supported verdict must carry the source's exact words in quotes; otherwise it is unsupported. */
@@ -427,7 +429,10 @@ export function parseCritique(text: string | null | undefined): Critique {
   }
   const dated = loose.find((line) => /^(?:[*_]{1,2})?data checked(?:[*_]{1,2})?\s*:/i.test(line.text));
   const dataDate = dated ? tidy(dated.text.replace(/^(?:[*_]{1,2})?data checked(?:[*_]{1,2})?\s*:\s*/i, "")).slice(0, 80) || null : null;
-  return { verdict, flags, prose: source.trim(), dataDate };
+  const consistent = loose.find((line) => /^(?:[*_]{1,2})?consistency(?:[*_]{1,2})?\s*:/i.test(line.text));
+  const cText = consistent ? tidy(consistent.text.replace(/^(?:[*_]{1,2})?consistency(?:[*_]{1,2})?\s*:\s*/i, "")).slice(0, 600) : "";
+  const consistency = consistent ? { ok: !/\bconflict/i.test(cText), text: cText.replace(/^conflict\s*[—–:-]?\s*/i, "") } : null;
+  return { verdict, flags, prose: source.trim(), dataDate, consistency };
 }
 
 const critiqueCache = new Map<string, Critique>();
