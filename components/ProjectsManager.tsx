@@ -1,5 +1,6 @@
 "use client";
 
+import { isDeleteConfirmation } from "@/lib/simplify";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -152,7 +153,7 @@ function DeleteDialog({ project, onClose, onDeleted }: { project: ManagedProject
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const matches = typed.trim() === project.name.trim();
+  const matches = isDeleteConfirmation(typed);
 
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
@@ -203,7 +204,7 @@ function DeleteDialog({ project, onClose, onDeleted }: { project: ManagedProject
           }}
         >
           <label htmlFor="delete-confirm" className="text-[12.5px] text-ink-dim">
-            Type <b className="font-semibold text-ink">{project.name}</b> to confirm
+            Type <b className="font-semibold text-ink">delete</b> to confirm
           </label>
           <input
             id="delete-confirm"
@@ -212,6 +213,8 @@ function DeleteDialog({ project, onClose, onDeleted }: { project: ManagedProject
             onChange={(event) => setTyped(event.target.value)}
             autoComplete="off"
             spellCheck={false}
+            placeholder="delete"
+            aria-describedby="delete-body"
             className="h-10 w-full border border-line-strong bg-canvas px-3 text-[14px] outline-none focus:border-danger"
           />
           {error ? <p role="alert" className="text-[12.5px] text-danger">{error}</p> : null}
