@@ -186,6 +186,8 @@ export function Workspace({ initial, autoStart = false }: { initial: WorkspaceDa
   const [briefText, setBriefText] = useState(initial.project.brief);
   const docRef = useRef<HTMLDivElement>(null);
   const started = useRef(false);
+  // Choices still being saved: the run waits for them before it moves on (no stale read).
+  const [saving] = useState(() => new Set<Promise<void>>());
 
   const { project, quota } = data;
   const steps = useMemo(() => threadSteps(project), [project]);
@@ -275,6 +277,7 @@ export function Workspace({ initial, autoStart = false }: { initial: WorkspaceDa
    * its own request (Worker limits) and you can step in between any two.
    */
   async function advance() {
+    await Promise.all([...saving]);
     let d = (await refresh()) ?? data;
     for (let i = 0; i < 8; i++) {
       const s = threadSteps(d.project);
@@ -288,7 +291,11 @@ export function Workspace({ initial, autoStart = false }: { initial: WorkspaceDa
         setBusy("Sorting what needs you");
         await runTask(a.task.id);
       } else if (a.kind === "judge") {
-        if (needsOf(d) > 0) return;
+        const left = needsOf(d);
+        if (left > 0) {
+          setNotice(`Choose for the ${left} claim${left === 1 ? "" : "s"} under Needs you, then write the final answer.`);
+          return;
+        }
         setBusy("Writing the final answer");
         await post(`/api/tasks/${a.task.id}/approve`, { approved: true });
       } else if (a.kind === "run" && a.task.id === s.tieOff?.id) {
@@ -322,7 +329,7 @@ export function Workspace({ initial, autoStart = false }: { initial: WorkspaceDa
       ...d,
       decisions: [...d.decisions.filter((x) => x.flagKey !== issue.key), ...(next === "open" ? [] : [{ flagKey: issue.key, state: next, edit: extra?.edit ?? null, reason: null }])],
     }));
-    void fetch(`/api/projects/${project.id}/issues`, {
+    const job: Promise<void> = fetch(`/api/projects/${project.id}/issues`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ flagKey: issue.key, taskId: steps.challenge?.id, state: next, ...extra }),
@@ -333,7 +340,11 @@ export function Workspace({ initial, autoStart = false }: { initial: WorkspaceDa
       .catch((e: Error) => {
         setData((d) => ({ ...d, decisions: before }));
         setError(`${e.message}. Your choice was undone; try again.`);
+      })
+      .finally(() => {
+        saving.delete(job);
       });
+    saving.add(job);
   }
 
   type VersionRun = { id: string; output: string | null; completedAt: string | null; createdAt: string };
