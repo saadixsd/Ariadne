@@ -8,6 +8,9 @@ import { HELP_EMAIL, HELP_MAILTO } from "@/lib/help";
 import { accountDisplay } from "@/lib/account";
 import { currentUser } from "@/lib/auth";
 import { HANDS } from "@/lib/hands";
+
+/** Plain labels in the UI: Writer / Fact-checker / You. */
+const HAND_LABEL: Record<string, string> = { anthropic: "Writer", openai: "Fact-checker", human: "You" };
 import { MAX_PROJECT_NAME_CHARS } from "@/lib/limits";
 import { newProjectHref } from "@/lib/new-project";
 import { getPrisma } from "@/lib/prisma";
@@ -148,9 +151,9 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
           <ul className="mt-3 grid grid-cols-[minmax(0,1fr)] gap-2.5">
             {HANDS.map((hand) => (
               <li key={hand.name} className="grid grid-cols-[28px_minmax(0,1fr)_auto] items-start gap-3 rounded-xl border border-line bg-panel px-3.5 py-3">
-                <Monogram tone={{ name: hand.name, initial: hand.name[0], color: HAND_COLORS[hand.provider], human: hand.provider === "human" }} size={28} />
+                <Monogram tone={{ name: hand.name, initial: HAND_LABEL[hand.provider][0], color: HAND_COLORS[hand.provider], human: hand.provider === "human" }} size={28} />
                 <div className="min-w-0">
-                  <p className="font-serif text-[20px] leading-tight">{hand.name}</p>
+                  <p className="font-serif text-[20px] leading-tight">{HAND_LABEL[hand.provider]}</p>
                   <p className="mt-0.5 text-[13px] leading-snug text-ink-dim">{hand.does}</p>
                 </div>
                 <span className={`rounded-md px-1.5 py-0.5 font-mono text-[11px] ${hand.provider === "human" ? "bg-gate-bg text-gate-ink" : "bg-canvas text-ink-dim ring-1 ring-line"}`}>

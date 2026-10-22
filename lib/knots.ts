@@ -152,7 +152,7 @@ export function verdictCounts(flags: Pick<CritiqueFlag, "verdict">[]) {
 
 /** "12 supported, 2 unsupported, 1 wrong, 1 where sources disagree" */
 export function verdictSummary(v: ReturnType<typeof verdictCounts>) {
-  return [`${v.supported} supported`, `${v.unsupported} not supported`, `${v.wrong} wrong`, v.disputed ? `${v.disputed} sources disagree` : ""].filter(Boolean).join(" · ");
+  return [`${v.supported} match the source`, `${v.unsupported} no source found`, `${v.wrong} source says otherwise`, v.disputed ? `${v.disputed} sources give different values` : ""].filter(Boolean).join(" · ");
 }
 
 export type DiffLine = { t: "same" | "add" | "del"; s: string };

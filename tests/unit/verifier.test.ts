@@ -48,6 +48,6 @@ test("sources disagree keeps each value with its quote and link", () => {
   assert.deepEqual(sourceLinks(f.source), ["https://a.example/x", "https://b.example/y.js"]);
   const v = verdictCounts(c.flags);
   assert.equal(v.disputed, 1);
-  assert.match(verdictSummary(v), /1 sources disagree/);
+  assert.match(verdictSummary(v), /1 sources give different values/);
   assert.equal(issuesFrom(c.prose, [])[0].flag.verdict, "disputed");
 });
