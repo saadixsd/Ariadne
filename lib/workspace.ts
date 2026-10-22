@@ -233,10 +233,11 @@ export function claimInText(claim: string | null | undefined, text: string | nul
   if (t.includes(c)) return true;
   const words = c.split(" ");
   if (words.length >= 8 && t.includes(words.slice(0, 8).join(" "))) return true;
-  const want = new Set(words.filter((w) => w.length > 2));
+  const bare = (w: string) => w.replace(/^[.'-]+|[.'-]+$/g, "");
+  const want = new Set(words.map(bare).filter((w) => w.length > 2));
   if (want.size < 3) return false;
   return (text ?? "").split(/(?<=[.!?])\s+|\n+/).some((sentence) => {
-    const have = new Set(norm(sentence).split(" "));
+    const have = new Set(norm(sentence).split(" ").map(bare));
     let hit = 0;
     for (const w of want) if (have.has(w)) hit++;
     return hit / want.size >= 0.8;

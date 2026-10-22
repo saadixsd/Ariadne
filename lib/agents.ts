@@ -14,6 +14,8 @@ import { handName } from "@/lib/hands";
 import { assertMaxLength } from "@/lib/input-caps";
 import { briefWithSources } from "@/lib/sources";
 import { pagesPromptBlock } from "@/lib/pages";
+import { decisionsBlock, enforceRemovals, evidenceBlock, removedClaims, triage } from "@/lib/simplify";
+import { issuesFrom, type IssueState } from "@/lib/workspace";
 import { projectPages } from "@/lib/pages-server";
 import { MAX_NOTE_CHARS, MAX_OUTPUT_TOKENS_ANTHROPIC, MAX_OUTPUT_TOKENS_OPENAI } from "@/lib/limits";
 import { prisma } from "@/lib/prisma";
@@ -92,7 +94,7 @@ const WRITER_RULES = (tools: "fetch" | "search" | "none") =>
       : tools === "search"
         ? "Web search is available: use it to look up current facts before you answer."
         : "Web search is not available for this run; answer from the brief, the sources and what you know."
-  } Use the whole brief (title, goal, need, deliverable and files) together; if anything is ambiguous, take the most reasonable reading in that context, state it in one line starting "Assumption:" at the top, then answer fully. Never ask clarifying questions instead of answering. Answer the question directly. Cite your sources inline, next to each claim, as Markdown links to the page you used. Say clearly when you are uncertain about a fact, and why. Never refuse or stop because you lack access to something: give your best sourced answer and mark what is uncertain. When a source gives the number or name asked for, state it with its as-of date and the source ("As of <date>, <source> lists <N> …"); when credible sources disagree, give each value with its source. Write that something cannot be determined only when no source could be read, and then say plainly which pages could not be read. If the shared context lists "Pages Ariadne read", use that text: never say you could not open a page marked READ, and do not quote a page marked COULD NOT READ. If the shared context has "The user's latest instruction", follow it exactly. Do not mention which AI model or company is behind you.)`;
+  } Use the whole brief (title, goal, need, deliverable and files) together; if anything is ambiguous, take the most reasonable reading in that context, state it in one line starting "Assumption:" at the top, then answer fully. Never ask clarifying questions instead of answering. Answer the question directly. Cite your sources inline, next to each claim, as Markdown links to the page you used. Say clearly when you are uncertain about a fact, and why. Never refuse or stop because you lack access to something: give your best sourced answer and mark what is uncertain. When a source gives the number or name asked for, state it with its as-of date and the source ("As of <date>, <source> lists <N> …"); when credible sources disagree, give each value with its source. Write that something cannot be determined only when no source could be read, and then say plainly which pages could not be read. If the shared context lists "Pages Ariadne read", use that text: never say you could not open a page marked READ, and do not quote a page marked COULD NOT READ. Commit to the best-supported answer: state one value (number or name) with its source and as-of date, then at most one short caveat; do not refuse, do not hedge with "it is unclear", and never call the pages "fragments" or "truncated" when they give the value. If the shared context has "What the fact-checker found", use those quotes: they are real page text. If it has "Decisions on the fact-checked claims", follow them exactly; a REMOVED claim must not appear anywhere, not even reworded. Use plain words; explain any technical term in a few words the first time (for example, say what a "site" or an "instance" means). If the shared context has "The user's latest instruction", follow it exactly. Do not mention which AI model or company is behind you.)`;
 
 const ANTHROPIC_SEARCH = { type: "web_search_20250305", name: "web_search", max_uses: 2 } as const;
 // Provider-side fetch: the page is read on the provider's servers. The cap keeps the
@@ -548,7 +550,37 @@ export async function runTask(taskId: string, userId: string, dailyLimit?: numbe
   // Pages cited in this project, read once by Ariadne: every step sees the same text and status (B1).
   const pages = await projectPages(task.projectId);
   const note = latestChangeNote(task.instructions);
-  const shared = [briefWithSources(task.project.brief, sources), pagesPromptBlock(pages)].filter(Boolean).join("\n\n");
+  // Writers see what the fact-checker found (B1, Oct 22): the latest finished check's quotes and
+  // links, and for the final answer the user's decisions as hard rules (removed claims included).
+  const writer = task.agent.provider === "anthropic";
+  const directDeps = directDependencies(task.dependsOn, byId);
+  const finalWriter = writer && directDeps.some((d) => d.agent.provider === "human");
+  let checkOutput: string | null = null;
+  let decisionRules = "";
+  let removed: string[] = [];
+  if (writer) {
+    const gate = directDeps.find((d) => d.agent.provider === "human");
+    const check = gate ? directDependencies(gate.dependsOn, byId).find((d) => d.agent.provider === "openai") : undefined;
+    checkOutput = check?.output ?? null;
+    if (!checkOutput) {
+      const lastRun = await prisma.taskRun.findFirst({
+        where: { projectId: task.projectId, provider: "openai", outcome: "succeeded", output: { not: null } },
+        orderBy: { startedAt: "desc" },
+        select: { output: true },
+      });
+      checkOutput = lastRun?.output ?? null;
+    }
+    if (finalWriter && check?.output) {
+      const rows = await prisma.issueDecision.findMany({ where: { projectId: task.projectId }, select: { flagKey: true, state: true, edit: true, reason: true } });
+      const triaged = triage(issuesFrom(check.output, rows.map((r) => ({ ...r, state: r.state as IssueState }))));
+      decisionRules = decisionsBlock(triaged);
+      removed = removedClaims(triaged);
+    }
+  }
+  const focus = [task.project.brief.slice(0, 2_000), checkOutput?.slice(0, 4_000) ?? ""].join("\n");
+  const shared = [briefWithSources(task.project.brief, sources), pagesPromptBlock(pages, focus), writer ? evidenceBlock(checkOutput) : "", decisionRules]
+    .filter(Boolean)
+    .join("\n\n");
   const user = composeUserPrompt({
     brief: note
       ? `${shared}\n\n## The user's latest instruction (a hard requirement: follow it exactly; where it conflicts with the brief or an earlier step, it wins)\n${note}`
@@ -575,6 +607,12 @@ export async function runTask(taskId: string, userId: string, dailyLimit?: numbe
     assertConfigured(task.agent.provider, model);
     const result = await withOneRetry(() => callProvider(task.agent.provider, model, system, user));
     output = result.text;
+    // Removed claims never come back (validated after generation, not only asked for).
+    if (removed.length) {
+      const cleaned = enforceRemovals(output, removed);
+      if (cleaned.cut.length) console.log("[ariadne] removed claims cut from the final answer", cleaned.cut.length);
+      output = cleaned.text;
+    }
     tries = result.tries;
     usage = result.usage;
   } catch (thrown) {

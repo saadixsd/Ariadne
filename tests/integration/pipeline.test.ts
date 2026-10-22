@@ -765,15 +765,40 @@ describe("forgot password (lib level, mock Brevo)", () => {
 });
 
 describe("Tie Off and Approve wait for every flagged claim", () => {
-  test("409 'Decide N flagged claims first' until each is accepted, edited or rejected", async () => {
+  test("409 'Decide N flagged claims first' until each Needs-you claim is decided", async () => {
     const user = await newUser(`gate-${Date.now()}@test.dev`);
     const p = await newProject(user.id);
     await agents.runTask(p.draft.id, user.id);
     await agents.runTask(p.review.id, user.id);
-    await rejects(agents.decideTask(p.gate.id, true, undefined, user.id), 409, /Decide 2 flagged claims first/);
+    await rejects(agents.decideTask(p.gate.id, true, undefined, user.id), 409, /Decide 1 flagged claim first/); // only the Wrong claim needs you; the unsupported one is handled automatically
     await decideAll(p.id, user.id);
     await agents.decideTask(p.gate.id, true, undefined, user.id);
     const gate = await prisma.task.findUniqueOrThrow({ where: { id: p.gate.id } });
     assert.equal(gate.status, "done");
+  });
+});
+
+describe("Removed claims never come back (Oct 22)", () => {
+  test("the final writer gets the decisions as hard rules and a removed claim is cut after generation", async () => {
+    const user = await newUser(`removed-${Date.now()}@test.dev`);
+    const p = await newProject(user.id);
+    await agents.runTask(p.draft.id, user.id);
+    await agents.runTask(p.review.id, user.id);
+    const ws = await import("../../lib/workspace-server");
+    const pure = await import("../../lib/workspace");
+    const data = (await ws.loadWorkspace(p.id, user.id))!;
+    const steps = pure.threadSteps(data.project);
+    for (const issue of pure.issuesFrom(steps.challenge?.output, data.decisions)) {
+      const state = /2027/.test(issue.flag.claim ?? "") ? "removed" : "rejected";
+      await ws.decideIssue(p.id, user.id, { flagKey: issue.key, taskId: steps.challenge!.id, state });
+    }
+    await agents.decideTask(p.gate.id, true, undefined, user.id);
+    await agents.runTask(p.build.id, user.id);
+    const build = await prisma.task.findUniqueOrThrow({ where: { id: p.build.id } });
+    assert.doesNotMatch(build.output ?? "", /2027/, "the removed claim is not in the final answer");
+    assert.match(build.output ?? "", /18%/, "the rest of the answer stays");
+    const run = (await runsFor(p.build.id)).at(-1)!;
+    assert.match(run.prompt ?? "", /REMOVED: these claims must not appear/);
+    assert.match(run.prompt ?? "", /What the fact-checker found/);
   });
 });
