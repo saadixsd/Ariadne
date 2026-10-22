@@ -32,7 +32,9 @@ export function workflowsPerDay(account: QuotaAccount | null | undefined, now = 
   return isActiveTester(account, now) ? TESTER_RUNS_PER_DAY : WORKFLOWS_PER_DAY;
 }
 export const MAX_RERUNS_PER_WORKFLOW = 3;
-export const MAX_RUNS_PER_WORKFLOW = RUNS_PER_FULL_PASS + MAX_RERUNS_PER_WORKFLOW;
+/** One free rewrite of the final answer (plus its re-check) from the final screen, on top of the redrafts (Oct 22). */
+export const FINAL_FIX_RUNS = 2;
+export const MAX_RUNS_PER_WORKFLOW = RUNS_PER_FULL_PASS + MAX_RERUNS_PER_WORKFLOW + FINAL_FIX_RUNS;
 // Site-wide ceiling on successful model runs per UTC day, across every account. A cost
 // backstop while sign-up is open (email verification off); the per-account cap above is
 // unchanged and is checked first.

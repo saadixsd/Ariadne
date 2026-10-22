@@ -10,6 +10,7 @@ import { pageStatuses } from "@/lib/pages-server";
 import { getProject } from "@/lib/project";
 import { parseSources, sourceDigest, type SourceInput } from "@/lib/sources";
 import type { ProjectDTO } from "@/lib/types";
+import { openNeedsYou, triage } from "@/lib/simplify";
 import { documentOf, finalConflicts, hashText, isResolved, ISSUE_STATES, issuesFrom, threadSteps, type Decision, type IssueState } from "@/lib/workspace";
 
 export type SourceSummary = { id: string; name: string; bytes: number | null; words: number; opening: string; createdAt: string; originalUntil: string | null };
@@ -108,10 +109,12 @@ export async function assertClaimsDecided(project: ProjectDTO) {
   const challenge = threadSteps(project).challenge;
   if (!challenge || challenge.status !== "done" || !challenge.output) return;
   const decisions = await prisma.issueDecision.findMany({ where: { projectId: project.id }, select: { flagKey: true, state: true, edit: true, reason: true } });
-  const undecided = issuesFrom(challenge.output, decisions.map((d) => ({ ...d, state: d.state as IssueState }))).filter((i) => !isResolved(i.state));
+  // Only "Needs you" claims (Wrong / Contradicted and material, at most 5) wait for the user;
+  // the rest are handled automatically (lib/simplify.ts triage).
+  const undecided = openNeedsYou(triage(issuesFrom(challenge.output, decisions.map((d) => ({ ...d, state: d.state as IssueState })))));
   const open = undecided.length;
   if (open > 0) {
-    throw new TaskRunError(`Decide ${open} flagged claim${open === 1 ? "" : "s"} first: for each one choose Keep as written, Fix it or Remove.`, 409, {
+    throw new TaskRunError(`Decide ${open} flagged claim${open === 1 ? "" : "s"} first: for each one choose Keep it, Use the source's version, Remove it or Write my own.`, 409, {
       undecided: open,
       flagKeys: undecided.map((i) => i.key),
       taskId: challenge.id,
@@ -120,7 +123,11 @@ export async function assertClaimsDecided(project: ProjectDTO) {
 }
 
 /** Explicit final approval of the tied-off answer exactly as shown (hash must match). */
-export async function approveDeliverable(projectId: string, userId: string, hash: unknown) {
+/**
+ * `force` = "Approve anyway": the final check found problems (or did not finish) and the user
+ * approves regardless. The problems stay listed on the page and in the activity log.
+ */
+export async function approveDeliverable(projectId: string, userId: string, hash: unknown, force = false) {
   const project = await getProject(projectId, userId);
   if (!project) throw new TaskRunError("Project not found", 404);
   const steps = threadSteps(project);
@@ -129,8 +136,10 @@ export async function approveDeliverable(projectId: string, userId: string, hash
     throw new TaskRunError("Tie off first: approve the draft at Judge, then write the tied-off answer.", 409);
   }
   await assertClaimsDecided(project);
-  if (steps.finalCheck && steps.finalCheck.status !== "done") throw new TaskRunError("Fact-check the final answer first.", 409);
-  if (steps.finalCheck) {
+  if (steps.finalCheck?.status === "running") throw new TaskRunError("The final check is still running. Wait for it, then approve.", 409);
+  if (steps.finalCheck && steps.finalCheck.status !== "done" && !force) throw new TaskRunError("Fact-check the final answer first, or choose Approve anyway.", 409);
+  let problems = 0;
+  if (steps.finalCheck?.status === "done") {
     const decisions = await prisma.issueDecision.findMany({ where: { projectId }, select: { flagKey: true, state: true, edit: true, reason: true } });
     const pagesRead = await prisma.fetchedPage.count({ where: { projectId, status: "ok" } });
     const conflicts = finalConflicts({
@@ -139,7 +148,8 @@ export async function approveDeliverable(projectId: string, userId: string, hash
       issues: issuesFrom(steps.challenge?.output, decisions.map((d) => ({ ...d, state: d.state as IssueState }))),
       pagesRead,
     });
-    if (conflicts.length > 0) throw new TaskRunError(`The final answer has ${conflicts.length} problem${conflicts.length === 1 ? "" : "s"} to fix before you approve it: ${conflicts[0].text}`, 409, { conflicts: conflicts.length });
+    problems = conflicts.length;
+    if (conflicts.length > 0 && !force) throw new TaskRunError(`The final answer has ${conflicts.length} problem${conflicts.length === 1 ? "" : "s"} to fix before you approve it: ${conflicts[0].text}`, 409, { conflicts: conflicts.length });
   }
   const current = hashText(doc.text);
   if (hash !== current) throw new TaskRunError("The deliverable changed since you opened it. Reload and approve again.", 409);
@@ -147,7 +157,7 @@ export async function approveDeliverable(projectId: string, userId: string, hash
   await prisma.project.update({ where: { id: projectId }, data: { approvedAt, approvedHash: current } });
   await closeWorkflow(projectId);
   await prisma.activityEvent.create({
-    data: { projectId, type: "approved", message: "You approved the deliverable", taskId: steps.tieOff?.id ?? null, payload: JSON.stringify({ kind: "deliverable_approved", hash: current }) },
+    data: { projectId, type: "approved", message: force ? `You approved the answer anyway${problems ? ` (${problems} problem${problems === 1 ? "" : "s"} noted)` : ""}` : "You approved the deliverable", taskId: steps.tieOff?.id ?? null, payload: JSON.stringify({ kind: "deliverable_approved", hash: current, ...(force ? { anyway: true, problems } : {}) }) },
   });
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { feedbackPromptAt: true } });
   return { approvedAt: approvedAt.toISOString(), approvedHash: current, promptFeedback: user ? shouldPromptFeedback(user, approvedAt) : false };
