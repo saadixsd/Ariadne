@@ -32,7 +32,7 @@ export default function SampleReport() {
           <p className="lp-eyebrow">Sample report · data read on root-servers.org on Oct 21, 2026</p>
           <h1 style={{ fontSize: "2.2rem", lineHeight: 1.15 }}>{SAMPLE.question}</h1>
           <p className="lp-sub" style={{ marginTop: 8 }}>
-            An example prepared by the Ariadne team in the format every Ariadne report uses. One model answers, a second checks each claim against its source, you judge the flagged ones, and the final answer reflects your corrections.
+            A hand-built example from the Ariadne team, showing what a report contains. It isn&apos;t a live run, so a real report may look different.
           </p>
 
           <section style={{ marginTop: 28 }}>
@@ -82,7 +82,7 @@ export default function SampleReport() {
                 <li key={f.stage} style={{ marginTop: 6 }}><strong>{f.stage}.</strong> {f.text}</li>
               ))}
             </ol>
-            <p style={{ marginTop: 10 }}>You can step in at every stage with “Change something”: edit the question, redraft, re-check a claim, or rewrite the final answer.</p>
+            <p style={{ marginTop: 10 }}>Use “Change something” at any point: edit the question, redraft, re-check a claim, or rewrite the final answer.</p>
           </section>
 
           <div className="lp-cta" style={{ marginTop: 32 }}>

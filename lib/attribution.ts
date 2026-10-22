@@ -104,15 +104,15 @@ export function attributionFor(task: TaskDTO, project: Pick<ProjectDTO, "tasks" 
   };
 }
 
-/** "Made by Claude · Odysseus — Challenged by GPT · Daedalus" (plain text, for labels and tests). */
+/** "Made by Claude · Odysseus — Fact-checked by GPT · Daedalus" (plain text, for labels and tests). */
 export function attributionLine(attribution: Attribution): string | null {
   const { madeBy } = attribution;
   if (!madeBy) return null;
   if (madeBy.human) return "Judged by You";
   const parts = [`Made by ${handText(madeBy)}`];
-  if (attribution.reviews) parts.push(`Challenging ${handText(attribution.reviews)}`);
-  else if (attribution.reviewedBy) parts.push(`Challenged by ${handText(attribution.reviewedBy)}`);
-  else if (attribution.reviewPending) parts.push(`Challenge by ${handText(attribution.reviewPending)} not spun yet`);
+  if (attribution.reviews) parts.push(`Fact-checking ${handText(attribution.reviews)}`);
+  else if (attribution.reviewedBy) parts.push(`Fact-checked by ${handText(attribution.reviewedBy)}`);
+  else if (attribution.reviewPending) parts.push(`Fact-check by ${handText(attribution.reviewPending)} not done yet`);
   let line = parts.join(" — ");
   if (attribution.tiedOff) line += " · tied off by You";
   return line;
@@ -128,11 +128,11 @@ export function attributionLine(attribution: Attribution): string | null {
  */
 export type StepPhase = "draft" | "challenge" | "judge";
 
-export const PHASE_LABEL: Record<StepPhase, string> = { draft: "Draft", challenge: "Challenge", judge: "Judge" };
+export const PHASE_LABEL: Record<StepPhase, string> = { draft: "Draft", challenge: "Fact-check", judge: "Your review" };
 
 /** What a model step's run button says: "Draft", "Challenge", or plain "Run" for the rest. */
 export function runVerb(phase: StepPhase | null): string {
-  return phase === "draft" ? "Draft" : phase === "challenge" ? "Challenge" : "Run";
+  return phase === "draft" ? "Draft" : phase === "challenge" ? "Fact-check" : "Run";
 }
 
 export function stepPhase(task: TaskDTO, project: Pick<ProjectDTO, "tasks" | "agents">): StepPhase | null {

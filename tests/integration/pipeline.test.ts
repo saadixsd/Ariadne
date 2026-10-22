@@ -517,14 +517,14 @@ describe("per-step Intervene (steer)", () => {
     const p = await newProject(user.id);
     await agents.runTask(p.draft.id, user.id);
     const before = (await prisma.task.findUniqueOrThrow({ where: { id: p.draft.id } })).instructions;
-    const steered = await agents.steerTask(p.draft.id, "Challenge I raise: Fund X — unsupported", user.id);
+    const steered = await agents.steerTask(p.draft.id, "Claim I question: Fund X — unsupported", user.id);
     assert.equal(steered.status, "done");
     const draft = await prisma.task.findUniqueOrThrow({ where: { id: p.draft.id } });
-    assert.match(draft.instructions, /Human requested changes: Challenge I raise: Fund X — unsupported/);
+    assert.match(draft.instructions, /Human requested changes: Claim I question: Fund X — unsupported/);
     assert.ok(draft.instructions.startsWith(before) || draft.instructions.includes(before.slice(0, 40)));
     const rows = await runsFor(p.draft.id);
     assert.ok(rows.length >= 2, "original run + steer re-run");
-    assert.match(rows.at(-1)!.prompt ?? "", /Challenge I raise: Fund X/);
+    assert.match(rows.at(-1)!.prompt ?? "", /Claim I question: Fund X/);
     // Downstream challenge was cleared then left pending (only the steered step re-ran).
     assert.equal((await prisma.task.findUniqueOrThrow({ where: { id: p.review.id } })).status, "pending");
   });

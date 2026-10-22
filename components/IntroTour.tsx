@@ -16,7 +16,7 @@ const STEPS = [
     body: "The claims that matter most are checked against your sources and the web, with the evidence and a link; any others are listed as not checked in full. You decide only the few claims a source contradicts: keep it, use the source's version, remove it, or write your own.",
   },
   {
-    title: "Tie off, approve, keep the record",
+    title: "Approve and keep the record",
     body: "The writer works your decisions into the final answer. You approve the final answer, and the full thread and claim table are yours to export.",
   },
 ];

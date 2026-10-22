@@ -5,5 +5,5 @@
 export const ONE_LINER =
   "Ariadne drafts a sourced answer to your research question, checks the key claims against your sources and the web, and brings you only what needs a decision.";
 
-/** The wedge, in order. "Tie off" is the knot. */
-export const WEDGE_STEPS = ["Draft", "Challenge", "Judge", "Tie Off"] as const;
+/** The steps of a check, in order. */
+export const WEDGE_STEPS = ["Ask", "Check", "Needs you", "Final answer"] as const;

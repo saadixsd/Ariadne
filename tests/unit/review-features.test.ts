@@ -202,16 +202,16 @@ function project(statuses: Record<string, string>): ProjectDTO {
 test("attribution: made by, reviewed by only once the review is spun, tied off by You", () => {
   const before = project({ research: "done", draft: "done" });
   const draft = (p: ProjectDTO) => p.tasks.find((item) => item.id === "draft") as TaskDTO;
-  assert.equal(attributionLine(attributionFor(draft(before), before)), "Made by GPT · Daedalus — Challenge by Claude · Odysseus not spun yet");
+  assert.equal(attributionLine(attributionFor(draft(before), before)), "Made by GPT · Daedalus — Fact-check by Claude · Odysseus not done yet");
   assert.equal(attributionFor(draft(before), before).reviewedBy, null, "never claims a review that has not happened");
 
   const reviewed = project({ research: "done", draft: "done", review: "done" });
-  assert.equal(attributionLine(attributionFor(draft(reviewed), reviewed)), "Made by GPT · Daedalus — Challenged by Claude · Odysseus");
+  assert.equal(attributionLine(attributionFor(draft(reviewed), reviewed)), "Made by GPT · Daedalus — Fact-checked by Claude · Odysseus");
 
   const judged = project({ research: "done", draft: "done", review: "done", approve: "done", build: "done" });
-  assert.equal(attributionLine(attributionFor(draft(judged), judged)), "Made by GPT · Daedalus — Challenged by Claude · Odysseus · tied off by You");
+  assert.equal(attributionLine(attributionFor(draft(judged), judged)), "Made by GPT · Daedalus — Fact-checked by Claude · Odysseus · tied off by You");
   const byId = (id: string) => judged.tasks.find((item) => item.id === id) as TaskDTO;
-  assert.equal(attributionLine(attributionFor(byId("review"), judged)), "Made by Claude · Odysseus — Challenging GPT · Daedalus · tied off by You");
+  assert.equal(attributionLine(attributionFor(byId("review"), judged)), "Made by Claude · Odysseus — Fact-checking GPT · Daedalus · tied off by You");
   // Research has no review step of its own; the final step has neither a review nor a knot after it.
   assert.equal(attributionFor(byId("research"), judged).reviewedBy, null);
   assert.equal(attributionLine(attributionFor(byId("build"), judged)), "Made by GPT · Daedalus");
@@ -236,7 +236,7 @@ test("attribution on the Oct 6 thread: Odysseus (Claude) drafts, Daedalus (GPT) 
   assert.equal(attributionFor(byId("draft"), current).reviewedBy?.name, "Daedalus");
   assert.equal(attributionFor(byId("review"), current).reviews?.name, "Odysseus");
   assert.equal(attributionFor(byId("draft"), current).tiedOff, true);
-  assert.equal(attributionLine(attributionFor(byId("draft"), current)), "Made by Claude · Odysseus — Challenged by GPT · Daedalus · tied off by You");
+  assert.equal(attributionLine(attributionFor(byId("draft"), current)), "Made by Claude · Odysseus — Fact-checked by GPT · Daedalus · tied off by You");
   // Where each step sits in the loop: labelled only when the graph says so.
   assert.deepEqual(current.tasks.map((item) => stepPhase(item, current)), ["draft", "challenge", "judge", null]);
   assert.deepEqual(loopHands(current), { drafter: "Odysseus", challenger: "Daedalus" });

@@ -57,6 +57,8 @@ export function NewProjectFlow({ quota }: { quota: StartQuota }) {
   const [brief, setBrief] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Validation (red ring, "why disabled") shows only after the user has typed or tried to start.
+  const [touched, setTouched] = useState(false);
   const mode: "ask" | "check" = override ?? (looksLikeAnswer(input) ? "check" : "ask");
   const reading = files.some((f) => f.state === "reading");
   const ready = files.filter((f) => f.state === "read" && f.out);
@@ -129,11 +131,11 @@ export function NewProjectFlow({ quota }: { quota: StartQuota }) {
           <textarea
             rows={mode === "check" ? 9 : 3}
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={(e) => { setInput(e.target.value); setTouched(true); }}
             maxLength={4000}
             autoFocus
             placeholder="e.g. How many DNS root server instances are located in Canada?  — or paste an answer here"
-            className={field}
+            className={touched ? field : `${field.replace("focus:ring-thread", "focus:ring-line-strong")} focus-visible:outline-none`}
             data-testid="ask-box"
           />
         </label>
@@ -208,7 +210,7 @@ export function NewProjectFlow({ quota }: { quota: StartQuota }) {
             {saving ? "Starting…" : "Check"}
           </button>
         </div>
-        {!canStart && !saving ? <p className="text-right text-xs text-gate-ink" data-testid="why-disabled">{why}</p> : null}
+        {!canStart && !saving && (touched || usedUp) ? <p className="text-right text-xs text-gate-ink" data-testid="why-disabled">{why}</p> : null}
       </div>
     </main>
   );

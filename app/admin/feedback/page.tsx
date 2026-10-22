@@ -40,7 +40,7 @@ export default async function AdminFeedback({ searchParams }: { searchParams: Pr
       <section aria-labelledby="out-h" className="mt-6">
         <h2 id="out-h" className="font-serif text-[26px]">Workflow outcomes by account</h2>
         <p className="mt-1 text-xs text-ink-dim">
-          Started = workflows opened. Challenged = projects where Daedalus finished a Challenge. Approved = deliverables approved.
+          Started = workflows opened. Fact-checked = projects whose fact-check finished. Approved = deliverables approved.
           Abandoned = workflows still open 48 h after they started, project not approved. Failures = failed model runs by error type.
           Accounts by last activity, newest 200; no emails.
         </p>
@@ -51,7 +51,7 @@ export default async function AdminFeedback({ searchParams }: { searchParams: Pr
                 <th className="py-2 pr-3">Account</th>
                 <th className="pr-3">Projects</th>
                 <th className="pr-3">Started</th>
-                <th className="pr-3">Challenged</th>
+                <th className="pr-3">Fact-checked</th>
                 <th className="pr-3">Approved</th>
                 <th className="pr-3">Abandoned</th>
                 <th className="pr-3">Run failures</th>

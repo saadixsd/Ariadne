@@ -14,7 +14,7 @@ const HAND_LABEL: Record<string, string> = { anthropic: "Writer", openai: "Fact-
 import { MAX_PROJECT_NAME_CHARS } from "@/lib/limits";
 import { newProjectHref } from "@/lib/new-project";
 import { getPrisma } from "@/lib/prisma";
-import { DAILY_MODEL_RUNS, userWorkflowLimit, workflowsStarted } from "@/lib/usage";
+import { userWorkflowLimit, workflowsStarted } from "@/lib/usage";
 import { MAX_RERUNS_PER_WORKFLOW } from "@/lib/limits";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -134,11 +134,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
           </p>
           {trialEnds ? (
             <p className="mt-1.5 text-[13px] leading-normal text-ink-dim" data-trial>
-              Your first day includes {limit} runs. From{" "}
-              <time dateTime={trialEnds.toISOString()}>
-                {trialEnds.toLocaleString("en", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" })} UTC
-              </time>{" "}
-              you get {DAILY_MODEL_RUNS} a day.
+              Your first day has a smaller allowance.
             </p>
           ) : null}
         </section>

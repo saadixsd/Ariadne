@@ -14,7 +14,7 @@ import "./landing.css";
 const TITLE = "Ariadne";
 const SHARE_TITLE = "Ariadne · Stop Second-Guessing Your Research";
 const DESCRIPTION =
-  "AI fact-checking for researchers. One model answers, a second checks each key claim against its source, you judge only the flagged claims, and the final answer reflects your corrections, with a claims table you can defend.";
+  "AI fact-checking for researchers. Ariadne checks the key claims in an AI answer against their sources, asks you only about the ones a source contradicts, and gives you a corrected answer with a claims table.";
 
 export const metadata: Metadata = {
   title: { absolute: TITLE },
@@ -36,34 +36,34 @@ const JSON_LD = {
 
 
 const STEPS = [
-  { n: "1", who: "Draft", title: "Ask, or paste an answer", text: "Ask your research question and add the papers or notes it should use. One model answers with a source next to each claim. Or paste an answer from another AI to check it." },
-  { n: "2", who: "Fact-check", title: "Every key claim is checked", text: "A second model checks each claim against its source: supported, not supported, wrong, or sources disagree, with the quoted words and a link. Ariadne confirms each quote is really on the page." },
-  { n: "3", who: "Your review", title: "You judge only what is flagged", text: "Keep it as written, fix it from the source, or remove it: claim by claim, or in one click. Supported claims stay out of your way." },
-  { n: "4", who: "Final answer", title: "A corrected answer you can defend", text: "The answer is rewritten from your decisions and checked again, with a claims table. You can step in at every stage with “Change something”." },
+  { n: "1", who: "Ask or paste", title: "One box, one Check button", text: "Type a question, or paste an answer from any AI. One box, one Check button." },
+  { n: "2", who: "Write and check", title: "Every key claim is checked", text: "A writer drafts the answer. A fact-checker checks each claim against the web pages it cites (Supported, Not supported, or Wrong) and sends what it found back to the writer." },
+  { n: "3", who: "Only what needs you", title: "You decide only what matters", text: "Claims a source contradicts, and that matter, wait under Needs you (at most 5): Keep it, Use the source's version, Remove it, or Write my own. Everything else is handled under Checked automatically. Claims with no source are kept and marked not confirmed." },
+  { n: "4", who: "Final answer", title: "Final answer, checked again", text: "Approve it, copy it, or export it as PDF, Word, PowerPoint or Markdown. Use Change something at any point." },
 ];
 
 const USES = [
   { title: "Literature reviews", text: "Summaries of the papers you collected, with each statement traced to the paper it came from." },
   { title: "Policy briefs", text: "Background on rules, programmes and dates, checked against the official texts." },
-  { title: "Grant background", text: "Context sections whose figures and citations hold up when a reviewer looks." },
+  { title: "Grant background", text: "Context sections with each figure linked to its source, so they're easier to check before a reviewer does." },
   { title: "Health evidence summaries", text: "Trial results, indications and guidance, each claim linked to its source." },
   { title: "Legal and regulatory research", text: "What a law or regulation requires and from when, quoted from the text itself." },
 ];
 
 const GETS = [
   { title: "Claim-level verdicts", text: "Each claim checked is marked Supported, Not supported by sources, Wrong, or Sources disagree, with the quoted evidence and its own link." },
-  { title: "You decide what changes", text: "Nothing moves on until you keep, fix or remove each flagged claim, and you can step in at any stage." },
+  { title: "You decide only what matters", text: "You decide only what matters: the few claims a source contradicts. The rest is handled for you and listed so you can check it." },
   { title: "The full thread", text: "Every draft, check and decision is kept in order, so you can see how the answer was reached." },
-  { title: "An export you can share", text: "The approved answer, its claim table and your decisions, in one record." },
+  { title: "Export in four formats", text: "Export to PDF, Word, PowerPoint or Markdown: the answer, its sources, the fact-check and your decisions." },
 ];
 
 const FAQ = [
   { q: "How is this different from asking one AI?", a: "Two models work together toward your goal. One writes the answer; a second checks each key claim against the source it cites, and Ariadne confirms the quoted words are on that page. You make the calls on anything flagged, and the final answer is rewritten from your decisions and checked again." },
-  { q: "Can I check an answer I already have?", a: "Yes. Choose “Check an answer” and paste text from ChatGPT or any other AI, or your own paragraph. Ariadne skips the draft and goes straight to the fact-check." },
+  { q: "Can I check an answer I already have?", a: "Yes. Paste it into the box and press Check. Ariadne sees it's an answer and skips straight to the fact-check. If it guesses wrong, switch it with one click." },
   { q: "Does a check mean the answer is guaranteed correct?", a: "No. The check tells you which claims a source supports and which need your attention, and shows you why. You remain the judge of the final answer." },
-  { q: "What sources can I add?", a: "PDF, DOCX and Markdown files. Their text is read in your browser and used for the draft and the check. The fact-check can also search the web." },
+  { q: "What sources can I add?", a: "PDF, DOCX and Markdown files. Their text is read in your browser and used for the draft and the check. The fact-check can also search the web. Ariadne reads ordinary web pages. Pages that load their content with JavaScript may not be readable, and Ariadne tells you when that happens." },
   { q: "Who can see my projects?", a: "Only you. The Ariadne team cannot open your projects unless you choose to share one with us when you send feedback, and you can withdraw that in Settings." },
-  { q: "How much can I use it?", a: "Ariadne is free to use: one run a day (a run is one question, from draft to final answer, with up to 3 redrafts or re-checks). Invited testers get 3 runs a day. The start screen shows what you have left." },
+  { q: "How much can I use it?", a: "Free: one run a day. A run is one question taken all the way to a final answer, with up to 3 redrafts or re-checks plus one free rewrite of the final answer. Runs reset at 00:00 UTC (8 PM Toronto). The start screen shows what you have left." },
 ];
 
 function ThreadGlyph() {
@@ -132,8 +132,8 @@ export default function Landing() {
               </h1>
               <p className="lp-sublede">Every Key Claim, Checked Against Its Source.</p>
               <p className="lp-lede">
-                Ariadne checks every key claim in an AI answer against its sources, shows you only the ones that need your
-                judgement, and hands back a corrected answer with a claims table you can defend.
+                Ariadne checks the key claims in an AI answer against their sources, asks you only about the ones a source
+                contradicts, and gives you a corrected answer with a claims table.
               </p>
               <div className="lp-cta">
                 <PrimaryCta />
@@ -165,7 +165,7 @@ export default function Landing() {
         <section className="lp-section" id="how" aria-labelledby="how-title">
           <div className="lp-wrap">
             <p className="lp-eyebrow">How it works</p>
-            <h2 id="how-title">Four stages, and you can step in at each one.</h2>
+            <h2 id="how-title">How a check works</h2>
             <ol className="lp-steps">
               {STEPS.map((s) => (
                 <li key={s.n} className="lp-step">
