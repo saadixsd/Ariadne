@@ -39,7 +39,7 @@ test("export: citations become a numbered list, decisions and verdicts carried, 
   assert.deepEqual(m.sources.map((s) => s.url), ["https://example.org/a", "https://oqlf.example/x", "https://extra.example/"]);
   assert.equal(m.claims.length, 2);
   assert.equal(m.claims[0].verdict, "Matches the source");
-  assert.equal(m.claims[1].verdict, "Wrong");
+  assert.equal(m.claims[1].verdict, "Source says otherwise");
   assert.equal(m.claims[1].decision, "Corrected");
   assert.ok(m.findings.some((f) => f.includes("Francization")));
   const md = toMarkdown(m);

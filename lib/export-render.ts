@@ -67,7 +67,7 @@ async function renderDocx(m: ExportModel): Promise<Blob> {
         columnWidths: [5600, 1800, 1900],
         rows: [
           new TableRow({ tableHeader: true, children: [cell("Claim", { header: true }), cell("Verdict", { header: true }), cell("Your decision", { header: true })] }),
-          ...m.claims.map((c) => new TableRow({ children: [cell(c.claim, { note: c.note }), cell(c.verdict, { bold: c.verdict !== "Supported" }), cell(c.decision)] })),
+          ...m.claims.map((c) => new TableRow({ children: [cell(c.claim, { note: c.note }), cell(c.verdict, { bold: c.verdict !== "Matches the source" }), cell(c.decision)] })),
         ],
       }),
     );
@@ -288,7 +288,7 @@ async function renderPdf(m: ExportModel): Promise<Blob> {
   heading("Fact-check summary", 15);
   write([{ text: factCheckLine(m), font: reg }], 10.5, { gap: 6 });
   for (const c of m.claims) {
-    write([{ text: `${c.verdict} · ${c.decision}`, font: bold, color: c.verdict === "Supported" ? dim : thread }], 9.5, { lead: 13 });
+    write([{ text: `${c.verdict} · ${c.decision}`, font: bold, color: c.verdict === "Matches the source" ? dim : thread }], 9.5, { lead: 13 });
     write([{ text: c.claim, font: reg }], 10, { indent: 10 });
     if (c.note) write([{ text: c.note, font: ital, color: dim }], 9.5, { indent: 10 });
     y -= 6;

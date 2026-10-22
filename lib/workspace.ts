@@ -78,10 +78,10 @@ export function isResolved(state: IssueState) {
 /** What each decision means, in the words on its button (U2). */
 export const DECISION_LABEL: Record<IssueState, string> = {
   open: "Not decided",
-  accepted: "Fix it (use the source)",
-  rejected: "Keep as written",
-  edited: "My own correction",
-  removed: "Remove",
+  accepted: "Use the source's version",
+  rejected: "Keep it",
+  edited: "Write my own",
+  removed: "Remove it",
   investigating: "Not decided",
 };
 
