@@ -19,7 +19,7 @@ export const INTERVENE_ACTIONS: {
   },
   {
     kind: "challenge",
-    label: "Challenge a claim",
+    label: "Question a claim",
     hint: "Raise a problem with the draft — your dispute, not a chat.",
   },
   {
@@ -81,7 +81,7 @@ export function formatNoteLine(
 ): string {
   if (kind === "challenge") {
     const { claim, issue } = fields as ChallengeFields;
-    return `Challenge I raise: ${clean(claim)} — ${clean(issue)}`;
+    return `Claim I question: ${clean(claim)} — ${clean(issue)}`;
   }
   const { was, shouldBe } = fields as CorrectFields;
   return `Correction: ${clean(was)} → ${clean(shouldBe)}`;

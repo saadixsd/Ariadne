@@ -285,7 +285,7 @@ export function parseAtomicDispute(raw: string, fallbackSection: string | null =
       const label = bold ? bold[1] : plain(line);
       return !looksLikeSection(label.replace(/[:\s]+$/, ""));
     });
-    issue = leftover ? tidy(leftover) : "Challenged without a stated objection.";
+    issue = leftover ? tidy(leftover) : "Flagged without a stated reason.";
   }
   if (!issue) {
     const legacy = parseFlagText(raw, fallbackSection);

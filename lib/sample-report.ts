@@ -17,10 +17,10 @@ export const SAMPLE = {
     "The Canadian figures are Ariadne's count of root-servers.org's own per-site list (map-data.js, the file the site's map loads); the site does not print a Canada total. The list changes as operators add or retire instances, so the count is only valid for the date above.",
   ],
   flow: [
-    { stage: "Draft", text: "One model answers the question and cites a source next to each claim." },
-    { stage: "Fact-check", text: "A second model checks each claim against the page it cites: supported, not supported or wrong, with the quoted words. Ariadne then checks every quote is really on that page." },
-    { stage: "Your review", text: "You decide only the flagged claims (keep as written, fix it from the source, or remove), one by one or in one click." },
-    { stage: "Final answer", text: "The answer is rewritten from your decisions and fact-checked again; the claims table below comes from that last check." },
+    { stage: "Ask or paste", text: "Type a question, or paste an answer from any AI. One box, one Check button." },
+    { stage: "Write and check", text: "A writer drafts the answer. A fact-checker checks each claim against the web pages it cites (Supported, Not supported, or Wrong) and sends what it found back to the writer." },
+    { stage: "Only what needs you", text: "Claims a source contradicts, and that matter, wait under Needs you (at most 5): Keep it, Use the source's version, Remove it, or Write my own. Everything else is handled under Checked automatically. Claims with no source are kept and marked not confirmed." },
+    { stage: "Final answer, checked again", text: "Approve it, copy it, or export it as PDF, Word, PowerPoint or Markdown. Use Change something at any point." },
   ],
   claims: [
     {

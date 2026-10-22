@@ -194,7 +194,7 @@ function DeleteDialog({ project, onClose, onDeleted }: { project: ManagedProject
           Delete “{project.name}”?
         </h2>
         <p id="delete-body" className="mt-2 text-[13.5px] leading-normal text-ink-dim">
-          Its {project.total} {project.total === 1 ? "step" : "steps"}, every output, run and ledger entry go with it. This cannot be undone. Today&apos;s run count does not change.
+          Its {project.total} {project.total === 1 ? "step" : "steps"}, every output, run and its history go with it. This cannot be undone. Today&apos;s run count does not change.
         </p>
         <form
           className="mt-4 grid gap-2"

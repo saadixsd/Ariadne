@@ -44,7 +44,7 @@ test("brief lines use stable headings and markers", () => {
 test("note lines are structured, not free chat", () => {
   assert.equal(
     formatNoteLine("challenge", { claim: "TAM is $40B", issue: "outdated" }),
-    "Challenge I raise: TAM is $40B — outdated",
+    "Claim I question: TAM is $40B — outdated",
   );
   assert.equal(formatNoteLine("correct", { was: "Montreal", shouldBe: "Québec City" }), "Correction: Montreal → Québec City");
 });
@@ -72,10 +72,10 @@ test("appendInterventionToBrief refuses when over the cap", () => {
 });
 
 test("appendInterventionToNote appends lines within the cap", () => {
-  const first = appendInterventionToNote("", "Challenge I raise: A — B");
-  assert.deepEqual(first, { ok: true, note: "Challenge I raise: A — B" });
+  const first = appendInterventionToNote("", "Claim I question: A — B");
+  assert.deepEqual(first, { ok: true, note: "Claim I question: A — B" });
   const second = appendInterventionToNote(first.ok ? first.note : "", "Correction: 1 → 2");
-  assert.deepEqual(second, { ok: true, note: "Challenge I raise: A — B\nCorrection: 1 → 2" });
+  assert.deepEqual(second, { ok: true, note: "Claim I question: A — B\nCorrection: 1 → 2" });
   const over = appendInterventionToNote("x".repeat(90), "yyyyyyyyyy", 100);
   assert.equal(over.ok, false);
 });
