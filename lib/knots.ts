@@ -139,7 +139,8 @@ export function buildKnots(data: ThreadData, steps: ThreadSteps): Knot[] {
   return knots;
 }
 
-export const VERDICT_LABEL: Record<ClaimVerdict, string> = { supported: "Supported", unsupported: "Not supported by sources", wrong: "Wrong", disputed: "Sources disagree" };
+/** Plain words (Oct 22): no "unsupported" / "disputed" jargon in the UI. */
+export const VERDICT_LABEL: Record<ClaimVerdict, string> = { supported: "Matches the source", unsupported: "No source found", wrong: "Source says otherwise", disputed: "Sources give different values" };
 
 export function verdictCounts(flags: Pick<CritiqueFlag, "verdict">[]) {
   const supported = flags.filter((f) => f.verdict === "supported").length;

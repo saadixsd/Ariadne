@@ -11,7 +11,7 @@ import { getProject } from "@/lib/project";
 import { parseSources, sourceDigest, type SourceInput } from "@/lib/sources";
 import type { ProjectDTO } from "@/lib/types";
 import { openNeedsYou, triage } from "@/lib/simplify";
-import { documentOf, finalConflicts, hashText, isResolved, ISSUE_STATES, issuesFrom, threadSteps, type Decision, type IssueState } from "@/lib/workspace";
+import { documentOf, finalConflicts, hashText, ISSUE_STATES, issuesFrom, threadSteps, type Decision, type IssueState } from "@/lib/workspace";
 
 export type SourceSummary = { id: string; name: string; bytes: number | null; words: number; opening: string; createdAt: string; originalUntil: string | null };
 
