@@ -7,6 +7,7 @@ import { useState } from "react";
 import { HomeMark } from "@/components/BrandMark";
 import { ACCEPT, extractText, uploadOriginal, type Extracted } from "@/lib/ingest-client";
 import { MAX_SOURCE_FILES } from "@/lib/sources";
+import { looksLikeAnswer } from "@/lib/simplify";
 
 export type StartQuota = { runsLeft: number; runsPerDay: number; resetsAt: string; rerunsPerRun: number };
 
@@ -43,24 +44,25 @@ const SAMPLE_DETAILS =
   "Give the current count of root server instances located in Canada, which root servers (letters) they belong to, and the cities. Use root-servers.org as the authoritative source and give the date of the data.";
 
 /**
- * The start screen (U7, O3): ask a question or paste an answer to check, see today's
- * limits next to Start, and go straight to the draft. The brief stays editable (here under
- * "Edit the brief", and at the top of the workspace) but is never a separate gate.
+ * The ask screen (Oct 22): one box. Type a question, or paste an answer to check; Ariadne
+ * tells which it is (you can switch), and one "Check" button starts the whole run.
  */
 export function NewProjectFlow({ quota }: { quota: StartQuota }) {
   const usedUp = quota.runsLeft <= 0;
-  const [mode, setMode] = useState<"ask" | "check">("ask");
-  const [goal, setGoal] = useState("");
+  const [input, setInput] = useState("");
+  const [override, setOverride] = useState<"ask" | "check" | null>(null);
+  const [question, setQuestion] = useState("");
   const [details, setDetails] = useState("");
-  const [pasted, setPasted] = useState("");
   const [files, setFiles] = useState<FileRow[]>([]);
   const [brief, setBrief] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const mode: "ask" | "check" = override ?? (looksLikeAnswer(input) ? "check" : "ask");
   const reading = files.some((f) => f.state === "reading");
   const ready = files.filter((f) => f.state === "read" && f.out);
-  const autoBrief = mode === "check" ? pastedBrief(goal, pasted) : draftBrief(goal, details, ready.map((f) => ({ name: f.name, words: f.out!.text.split(/\s+/).length })));
-  const canStart = !usedUp && !reading && !saving && (mode === "ask" ? Boolean(goal.trim()) : pasted.trim().length >= 40);
+  const goal = mode === "ask" ? input.trim() : question.trim();
+  const autoBrief = mode === "check" ? pastedBrief(goal, input) : draftBrief(goal, details, ready.map((f) => ({ name: f.name, words: f.out!.text.split(/\s+/).length })));
+  const canStart = !usedUp && !reading && !saving && (mode === "ask" ? input.trim().length >= 3 : input.trim().length >= 40);
 
   async function addFiles(list: FileList | null) {
     if (!list) return;
@@ -84,14 +86,14 @@ export function NewProjectFlow({ quota }: { quota: StartQuota }) {
     setSaving(true);
     setError(null);
     try {
-      const first = (goal.trim() || pasted.trim().split(/\n/)[0] || "Answer to check").slice(0, 110);
+      const first = (goal || input.trim().split(/\n/)[0] || "Answer to check").slice(0, 110);
       const res = await fetch("/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: mode === "check" && !goal.trim() ? `Check: ${first}` : first,
+          name: mode === "check" && !goal ? `Check: ${first}` : first,
           brief: (brief ?? autoBrief).trim(),
-          pasted: mode === "check" ? pasted.trim() : undefined,
+          pasted: mode === "check" ? input.trim() : undefined,
           sources: ready.map((f) => ({ name: f.out!.name, mime: f.out!.mime, bytes: f.out!.bytes, text: f.out!.text })),
         }),
       });
@@ -107,8 +109,7 @@ export function NewProjectFlow({ quota }: { quota: StartQuota }) {
   }
 
   const field = "mt-1 w-full bg-raised px-3 py-2 text-[15px] leading-normal ring-1 ring-line focus:ring-thread";
-  const tabCls = (on: boolean) => `px-3 py-1.5 text-sm ${on ? "bg-ink text-raised" : "bg-raised text-ink-dim ring-1 ring-line hover:text-ink"}`;
-  const why = usedUp ? "Today's runs are used. A new one is available at the reset." : reading ? "Wait until your files are read." : mode === "ask" ? "Write your question first." : "Paste the answer to check first (at least a sentence or two).";
+  const why = usedUp ? "Today's runs are used. A new one is available at the reset." : reading ? "Wait until your files are read." : mode === "ask" ? "Type your question first." : "Paste at least a sentence or two to check.";
   return (
     <main className="mx-auto min-h-full max-w-2xl px-4 py-8">
       <div className="flex items-center justify-between">
@@ -118,99 +119,93 @@ export function NewProjectFlow({ quota }: { quota: StartQuota }) {
           <Link href="/dashboard" className="text-sm text-ink-dim hover:text-ink">My projects</Link>
         </div>
       </div>
-      <div role="status" data-testid="daily-limit" className={`mt-4 rounded-lg px-4 py-3 text-sm leading-normal ring-1 ring-line ${usedUp ? "bg-tint" : "bg-panel"}`}>
-        {usedUp ? (
-          <p>
-            <span className="font-medium">You have used today&apos;s {quota.runsPerDay === 1 ? "run" : `${quota.runsPerDay} runs`}.</span>{" "}
-            <span className="text-ink-dim">
-              A new one is available at <LocalTime iso={quota.resetsAt} format="time" /> your time. Your projects stay open and their steps still run. <Link href="/dashboard" className="text-thread">Open your projects</Link>
-            </span>
-          </p>
-        ) : (
-          <p>
-            <span className="font-medium">
-              {quota.runsLeft} of {quota.runsPerDay} run{quota.runsPerDay === 1 ? "" : "s"} left today
-            </span>
-            <span className="text-ink-dim">
-              {" "}· resets at <LocalTime iso={quota.resetsAt} format="time" /> your time. One run is one question, from draft to final answer. Up to {quota.rerunsPerRun} redrafts or re-checks inside a run are included, and a step that fails never counts.
-            </span>
-          </p>
-        )}
-      </div>
-      <h1 className="mt-5 font-serif text-[40px] leading-none tracking-[-0.015em]">{mode === "ask" ? "What do you need answered and fact-checked?" : "Paste an answer to fact-check"}</h1>
-      <div className="mt-4 inline-flex gap-1" role="tablist" aria-label="Start with">
-        <button type="button" role="tab" aria-selected={mode === "ask"} className={tabCls(mode === "ask")} onClick={() => setMode("ask")}>
-          Ask a question
-        </button>
-        <button type="button" role="tab" aria-selected={mode === "check"} className={tabCls(mode === "check")} onClick={() => setMode("check")} data-testid="mode-check">
-          Check an answer
-        </button>
-      </div>
-
-      <div className="mt-5 space-y-5">
-        <p className="text-sm leading-normal text-ink-dim">
-          {mode === "ask"
-            ? "One model answers with a source for each claim. A second model checks every key claim against its source. You decide only the claims it flags, and the final answer is rewritten from your decisions and checked again."
-            : "Paste an answer from ChatGPT or another AI, or your own paragraph. Ariadne checks every key claim against its sources, you decide the flagged ones, and you get a corrected answer with a claims table."}
-        </p>
-        {mode === "ask" ? (
-          <div className="text-sm">
-            <span className="text-ink-dim">Try: </span>
-            <button type="button" className="text-thread underline-offset-2 hover:underline" onClick={() => { setGoal(SAMPLE_GOAL); setDetails(SAMPLE_DETAILS); }}>
-              {SAMPLE_GOAL}
-            </button>
-          </div>
-        ) : null}
+      <h1 className="mt-6 font-serif text-[40px] leading-none tracking-[-0.015em]">What should we check?</h1>
+      <p className="mt-3 text-sm leading-normal text-ink-dim">
+        Type a question, or paste an answer from ChatGPT or anywhere else. The writer answers with sources, the fact-checker checks every key claim, and you only choose where a source says otherwise.
+      </p>
+      <div className="mt-5 space-y-4">
         <label className="block text-sm">
-          {mode === "ask" ? "Your question, in one line" : "The question it answers (optional)"}
-          <input value={goal} onChange={(e) => setGoal(e.target.value)} maxLength={120} placeholder="e.g. What sample size did Smith et al. (2024) use, and was there a control group?" className={field} />
+          <span className="sr-only">Your question or the answer to check</span>
+          <textarea
+            rows={mode === "check" ? 9 : 3}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            maxLength={4000}
+            autoFocus
+            placeholder="e.g. How many DNS root server instances are located in Canada?  — or paste an answer here"
+            className={field}
+            data-testid="ask-box"
+          />
         </label>
+        <div className="flex flex-wrap items-center gap-2 text-sm" data-testid="mode-line">
+          {input.trim() ? (
+            <>
+              <span className="text-ink-dim">Ariadne will</span>
+              <span className="font-medium">{mode === "ask" ? "answer this question and fact-check the answer" : "fact-check this answer"}</span>
+              <button type="button" className="text-thread underline-offset-2 hover:underline" data-testid="mode-switch" onClick={() => setOverride(mode === "ask" ? "check" : "ask")}>
+                {mode === "ask" ? "No, it's an answer to check" : "No, it's a question"}
+              </button>
+            </>
+          ) : (
+            <>
+              <span className="text-ink-dim">Try:</span>
+              <button type="button" className="text-thread underline-offset-2 hover:underline" onClick={() => { setInput(SAMPLE_GOAL); setDetails(SAMPLE_DETAILS); setOverride(null); }}>
+                {SAMPLE_GOAL}
+              </button>
+            </>
+          )}
+        </div>
         {mode === "check" ? (
           <label className="block text-sm">
-            The answer to check
-            <textarea rows={9} value={pasted} onChange={(e) => setPasted(e.target.value)} maxLength={4000} placeholder="Paste the AI answer or your text here (up to 4,000 characters)." className={field} data-testid="pasted" />
-            <span className="mt-1 block text-xs text-ink-faint">{pasted.length.toLocaleString("en-US")} / 4,000 characters</span>
+            The question it answers (optional)
+            <input value={question} onChange={(e) => setQuestion(e.target.value)} maxLength={120} className={field} />
           </label>
-        ) : (
-          <details className="text-sm">
-            <summary className="cursor-pointer text-ink-dim">Add details (optional)</summary>
-            <textarea rows={4} value={details} onChange={(e) => setDetails(e.target.value)} maxLength={3500} placeholder="What the answer must cover, which sources count, what you already know." className={field} />
-          </details>
-        )}
-        <div>
-          <p className="text-sm">Your own files (optional): PDF, DOCX or Markdown, up to {MAX_SOURCE_FILES}</p>
-          <label className="mt-2 inline-block cursor-pointer bg-raised px-3 py-2 text-sm ring-1 ring-line hover:ring-thread">
-            Choose files
-            <input type="file" multiple accept={ACCEPT} className="sr-only" onChange={(e) => void addFiles(e.target.files)} />
-          </label>
-          <ul className="mt-2 space-y-1 text-sm">
-            {files.map((f) => (
-              <li key={f.key} className="flex flex-wrap items-baseline gap-2">
-                <span className="font-medium">{f.name}</span>
-                <span className={f.state === "failed" ? "text-danger" : f.state === "read" ? "text-ok" : "text-ink-dim"}>
-                  {f.state === "reading" ? "Reading…" : f.state === "read" ? `Text read · ${f.out!.text.split(/\s+/).length.toLocaleString("en-US")} words` : "Could not read"}
-                </span>
-                {f.note ? <span className="text-xs text-ink-dim">{f.note}</span> : null}
-                <button type="button" className="text-xs text-ink-faint hover:text-danger" onClick={() => setFiles((p) => p.filter((r) => r.key !== f.key))}>
-                  Remove
-                </button>
-              </li>
-            ))}
-          </ul>
-          <p className="mt-2 text-xs leading-normal text-ink-faint">Text is read in your browser. The original file is kept for 3 days, then deleted; the text stays with the project.</p>
-        </div>
+        ) : null}
         <details className="text-sm">
-          <summary className="cursor-pointer text-ink-dim">Edit the brief the models get (optional)</summary>
-          <textarea rows={8} value={brief ?? autoBrief} onChange={(e) => setBrief(e.target.value)} maxLength={5000} className={field} aria-label="Brief" />
-          {brief !== null ? <button type="button" className="mt-1 text-xs text-thread" onClick={() => setBrief(null)}>Reset to the automatic brief</button> : null}
+          <summary className="cursor-pointer text-ink-dim">More options: details, your own files, the brief</summary>
+          <div className="mt-3 space-y-4">
+            {mode === "ask" ? (
+              <label className="block">
+                Details (optional)
+                <textarea rows={3} value={details} onChange={(e) => setDetails(e.target.value)} maxLength={3500} placeholder="What the answer must cover, which sources count." className={field} />
+              </label>
+            ) : null}
+            <div>
+              <p>Your own files: PDF, DOCX or Markdown, up to {MAX_SOURCE_FILES}</p>
+              <label className="mt-2 inline-block cursor-pointer bg-raised px-3 py-2 ring-1 ring-line hover:ring-thread">
+                Choose files
+                <input type="file" multiple accept={ACCEPT} className="sr-only" onChange={(e) => void addFiles(e.target.files)} />
+              </label>
+              <ul className="mt-2 space-y-1">
+                {files.map((f) => (
+                  <li key={f.key} className="flex flex-wrap items-baseline gap-2">
+                    <span className="font-medium">{f.name}</span>
+                    <span className={f.state === "failed" ? "text-danger" : f.state === "read" ? "text-ok" : "text-ink-dim"}>{f.state === "reading" ? "Reading…" : f.state === "read" ? "Text read" : "Could not read"}</span>
+                    {f.note ? <span className="text-xs text-ink-dim">{f.note}</span> : null}
+                    <button type="button" className="text-xs text-ink-faint hover:text-danger" onClick={() => setFiles((p) => p.filter((r) => r.key !== f.key))}>Remove</button>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2 text-xs leading-normal text-ink-faint">Text is read in your browser. The original file is kept for 3 days, then deleted.</p>
+            </div>
+            <div>
+              <p>The brief the writer and fact-checker get</p>
+              <textarea rows={6} value={brief ?? autoBrief} onChange={(e) => setBrief(e.target.value)} maxLength={5000} className={field} aria-label="Brief" />
+              {brief !== null ? <button type="button" className="mt-1 text-xs text-thread" onClick={() => setBrief(null)}>Reset to the automatic brief</button> : null}
+            </div>
+          </div>
         </details>
         {error ? <p role="alert" className="text-sm text-danger">{error}</p> : null}
         <div className="flex flex-wrap items-center justify-end gap-3">
           <span className="text-xs text-ink-dim" data-testid="start-cost">
-            {usedUp ? "No runs left today." : `Uses 1 of your ${quota.runsPerDay} run${quota.runsPerDay === 1 ? "" : "s"} today (${quota.runsLeft} left).`}
+            {usedUp ? (
+              <>No runs left today · resets at <LocalTime iso={quota.resetsAt} format="time" /></>
+            ) : (
+              `Uses 1 of your ${quota.runsPerDay} run${quota.runsPerDay === 1 ? "" : "s"} today (${quota.runsLeft} left). Rewrites inside it are included.`
+            )}
           </span>
-          <button type="button" disabled={!canStart} onClick={() => void create()} className="bg-thread px-4 py-2 text-sm font-medium text-raised hover:bg-thread-bright disabled:opacity-50" data-testid="start">
-            {saving ? "Starting…" : mode === "ask" ? "Start: write the draft" : "Start: fact-check it"}
+          <button type="button" disabled={!canStart} onClick={() => void create()} className="bg-thread px-5 py-2 text-sm font-medium text-raised hover:bg-thread-bright disabled:opacity-50" data-testid="start">
+            {saving ? "Starting…" : "Check"}
           </button>
         </div>
         {!canStart && !saving ? <p className="text-right text-xs text-gate-ink" data-testid="why-disabled">{why}</p> : null}

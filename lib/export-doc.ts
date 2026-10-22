@@ -34,7 +34,7 @@ export const EXPORT_FORMATS = [
 ] as const;
 export type ExportFormat = (typeof EXPORT_FORMATS)[number]["id"];
 
-const VERDICT: Record<string, string> = { supported: "Supported", unsupported: "Unsupported", wrong: "Wrong", disputed: "Sources disagree" };
+export const VERDICT: Record<string, string> = { supported: "Matches the source", unsupported: "No source found", wrong: "Source says otherwise", disputed: "Sources give different values" };
 const DECISION: Record<string, string> = { accepted: "Fixed (used the source)", rejected: "Kept as written", edited: "Corrected", removed: "Removed", investigating: "Not decided", open: "Not decided" };
 
 /** Only the agent names Odysseus and Daedalus; never a vendor or model name. */
@@ -226,7 +226,7 @@ export function buildExportModel(input: {
 }
 
 export function flaggedClaims(m: ExportModel) {
-  return m.claims.filter((c) => c.verdict !== "Supported");
+  return m.claims.filter((c) => c.verdict !== VERDICT.supported);
 }
 
 export function factCheckLine(m: ExportModel) {

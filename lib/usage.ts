@@ -1,7 +1,7 @@
 import "server-only";
 
 import { TaskRunError } from "@/lib/errors";
-import { DAILY_MODEL_RUNS, MAX_RERUNS_PER_WORKFLOW, MAX_RUNS_PER_WORKFLOW, RUNS_PER_FULL_PASS, SITE_DAILY_MODEL_RUNS, dailyRunLimit, workflowsPerDay } from "@/lib/limits";
+import { DAILY_MODEL_RUNS, FINAL_FIX_RUNS, MAX_RERUNS_PER_WORKFLOW, MAX_RUNS_PER_WORKFLOW, RUNS_PER_FULL_PASS, SITE_DAILY_MODEL_RUNS, dailyRunLimit, workflowsPerDay } from "@/lib/limits";
 import { getPrisma } from "@/lib/prisma";
 
 export { DAILY_MODEL_RUNS, SITE_DAILY_MODEL_RUNS, dailyRunLimit };
@@ -152,8 +152,10 @@ export async function quotaFor(userId: string, projectId?: string) {
     resetsAt: nextUtcDay().toISOString(),
     runOpen: Boolean(open),
     // Estimate: steps of the full pass not used yet are reserved before redrafts.
-    rerunsLeft: open ? Math.max(0, Math.min(MAX_RERUNS_PER_WORKFLOW, MAX_RUNS_PER_WORKFLOW - Math.max(open.runs, RUNS_PER_FULL_PASS))) : MAX_RERUNS_PER_WORKFLOW,
+    rerunsLeft: open ? Math.max(0, Math.min(MAX_RERUNS_PER_WORKFLOW, MAX_RUNS_PER_WORKFLOW - FINAL_FIX_RUNS - Math.max(open.runs, RUNS_PER_FULL_PASS))) : MAX_RERUNS_PER_WORKFLOW,
     rerunsPerRun: MAX_RERUNS_PER_WORKFLOW,
+    /** Runs still possible in this workflow, the free final-screen rewrite included. */
+    runsInWorkflowLeft: open ? Math.max(0, MAX_RUNS_PER_WORKFLOW - open.runs) : MAX_RUNS_PER_WORKFLOW,
   };
 }
 

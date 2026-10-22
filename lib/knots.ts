@@ -139,7 +139,8 @@ export function buildKnots(data: ThreadData, steps: ThreadSteps): Knot[] {
   return knots;
 }
 
-export const VERDICT_LABEL: Record<ClaimVerdict, string> = { supported: "Supported", unsupported: "Not supported by sources", wrong: "Wrong", disputed: "Sources disagree" };
+/** Plain words (Oct 22): no "unsupported" / "disputed" jargon in the UI. */
+export const VERDICT_LABEL: Record<ClaimVerdict, string> = { supported: "Matches the source", unsupported: "No source found", wrong: "Source says otherwise", disputed: "Sources give different values" };
 
 export function verdictCounts(flags: Pick<CritiqueFlag, "verdict">[]) {
   const supported = flags.filter((f) => f.verdict === "supported").length;
@@ -151,7 +152,7 @@ export function verdictCounts(flags: Pick<CritiqueFlag, "verdict">[]) {
 
 /** "12 supported, 2 unsupported, 1 wrong, 1 where sources disagree" */
 export function verdictSummary(v: ReturnType<typeof verdictCounts>) {
-  return [`${v.supported} supported`, `${v.unsupported} not supported`, `${v.wrong} wrong`, v.disputed ? `${v.disputed} sources disagree` : ""].filter(Boolean).join(" · ");
+  return [`${v.supported} match the source`, `${v.unsupported} no source found`, `${v.wrong} source says otherwise`, v.disputed ? `${v.disputed} sources give different values` : ""].filter(Boolean).join(" · ");
 }
 
 export type DiffLine = { t: "same" | "add" | "del"; s: string };
