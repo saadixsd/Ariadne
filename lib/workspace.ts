@@ -276,3 +276,27 @@ export function finalConflicts(args: { finalText: string | null | undefined; fin
 export function conflictNote(conflicts: FinalConflict[]): string {
   return ["Rewrite the final answer to fix these problems. Keep everything else.", ...conflicts.map((c) => `- ${c.text}`)].join("\n").slice(0, 2_000);
 }
+
+/**
+ * Server decisions merged with choices made on this page that may not be saved yet: a local
+ * choice for a key wins (a refresh that raced a save must not undo what you just clicked).
+ */
+export function mergeDecisions(server: Decision[], local: Decision[], pendingKeys: Iterable<string>): Decision[] {
+  const pending = new Set(pendingKeys);
+  if (pending.size === 0) return server;
+  const localByKey = new Map(local.map((d) => [d.flagKey, d]));
+  const out = server.filter((d) => !pending.has(d.flagKey));
+  for (const key of pending) {
+    const mine = localByKey.get(key);
+    if (mine) out.push(mine);
+  }
+  return out;
+}
+
+/** Every choice on this page, ready to send with "Write the final answer" so none can be lost. */
+export function decisionsToSave(decisions: Decision[], taskId: string) {
+  return decisions
+    .filter((d) => d.state !== "open" && d.state !== "investigating" && !(d.state === "edited" && !d.edit?.trim()))
+    .slice(0, 40)
+    .map((d) => ({ flagKey: d.flagKey, taskId, state: d.state, ...(d.state === "edited" ? { edit: d.edit } : {}), ...(d.reason ? { reason: d.reason } : {}) }));
+}

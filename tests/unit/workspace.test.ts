@@ -81,3 +81,30 @@ test("goalLine skips a brief line that repeats the title", async () => {
   assert.equal(goalLine("What I need:\nOne page for my supervisor.", name), "One page for my supervisor.");
   assert.equal(goalLine("Summarise the pilot for my supervisor.", "Pilot effect"), "Summarise the pilot for my supervisor.");
 });
+
+import { mergeDecisions, decisionsToSave } from "../../lib/workspace";
+
+test("a refresh that races an unsaved choice keeps the choice (decision race)", () => {
+  const local = [{ flagKey: "iaaaaaaaa", state: "accepted" as const, edit: null, reason: null }];
+  // The server has not stored the choice yet.
+  assert.deepEqual(mergeDecisions([], local, ["iaaaaaaaa"]), local);
+  // No pending save: the server is the truth.
+  assert.deepEqual(mergeDecisions([], local, []), []);
+  // A pending "open" (undo) removes the server's stale choice.
+  assert.deepEqual(mergeDecisions(local, [], ["iaaaaaaaa"]), []);
+});
+
+test("all choices are sent with the write request", () => {
+  const list = decisionsToSave(
+    [
+      { flagKey: "i11111111", state: "removed", edit: null, reason: null },
+      { flagKey: "i22222222", state: "edited", edit: "My text", reason: null },
+      { flagKey: "i33333333", state: "open", edit: null, reason: null },
+    ],
+    "t1",
+  );
+  assert.deepEqual(list, [
+    { flagKey: "i11111111", taskId: "t1", state: "removed" },
+    { flagKey: "i22222222", taskId: "t1", state: "edited", edit: "My text" },
+  ]);
+});

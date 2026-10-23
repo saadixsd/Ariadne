@@ -27,7 +27,7 @@ import { citedUrls, hostOf, urlKey } from "@/lib/pages";
 import { changeSummary, openNeedsYou, PLAIN_VERDICT, triage, type Triaged } from "@/lib/simplify";
 import type { TaskDTO } from "@/lib/types";
 import type { WorkspaceData } from "@/lib/workspace-server";
-import { conflictNote, docState, documentOf, finalConflicts, goalLine, hashText, isResolved, issuesFrom, nextAction, threadSteps, type IssueState, type ThreadSteps } from "@/lib/workspace";
+import { conflictNote, decisionsToSave, docState, documentOf, finalConflicts, goalLine, hashText, isResolved, issuesFrom, mergeDecisions, nextAction, threadSteps, type IssueState, type ThreadSteps } from "@/lib/workspace";
 
 type Tab = "answer" | "you" | "sources" | "details";
 type Tone = "checked" | "needs" | "fixed";
@@ -188,6 +188,11 @@ export function Workspace({ initial, autoStart = false }: { initial: WorkspaceDa
   const started = useRef(false);
   // Choices still being saved: the run waits for them before it moves on (no stale read).
   const [saving] = useState(() => new Set<Promise<void>>());
+  // Keys with a save in flight, and the latest choices on this page (read by advance()).
+  const [pendingKeys] = useState(() => new Map<string, number>());
+  const [savingCount, setSavingCount] = useState(0);
+  // A mutable holder (like `saving`), read only in event handlers, never during render.
+  const [latest] = useState(() => new Map([["decisions", initial.decisions]]));
 
   const { project, quota } = data;
   const steps = useMemo(() => threadSteps(project), [project]);
@@ -216,12 +221,15 @@ export function Workspace({ initial, autoStart = false }: { initial: WorkspaceDa
   const refresh = useCallback(async () => {
     const res = await fetch(`/api/projects/${project.id}/workspace`, { cache: "no-store" });
     if (res.ok) {
-      const next = (await res.json()) as WorkspaceData;
+      const fetched = (await res.json()) as WorkspaceData;
+      // A save still in flight must not be undone by an older server copy.
+      const next = { ...fetched, decisions: mergeDecisions(fetched.decisions, (latest.get("decisions") ?? []), pendingKeys.keys()) };
+      latest.set("decisions", next.decisions);
       setData(next);
       return next;
     }
     return null;
-  }, [project.id]);
+  }, [project.id, pendingKeys, latest]);
 
   async function post<T = Record<string, unknown>>(url: string, body?: unknown): Promise<T> {
     const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
@@ -297,6 +305,13 @@ export function Workspace({ initial, autoStart = false }: { initial: WorkspaceDa
           return;
         }
         setBusy("Writing the final answer");
+        // Send every choice on this page again first, so none can be lost to a race.
+        const challengeId = s.challenge?.id;
+        const mine = challengeId ? decisionsToSave((latest.get("decisions") ?? []), challengeId) : [];
+        if (mine.length) {
+          const res = await fetch(`/api/projects/${project.id}/issues`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ decisions: mine }) });
+          if (!res.ok) throw new Error(((await res.json().catch(() => ({}))) as { error?: string }).error ?? "Could not save your choices. Try again.");
+        }
         await post(`/api/tasks/${a.task.id}/approve`, { approved: true });
       } else if (a.kind === "run" && a.task.id === s.tieOff?.id) {
         setBusy("Writing the final answer");
@@ -322,13 +337,14 @@ export function Workspace({ initial, autoStart = false }: { initial: WorkspaceDa
   }, [autoStart]);
 
   /** A choice on a claim shows at once; it is saved in the background and undone if saving fails. */
-  function decide(issue: Triaged, next: IssueState, extra?: { edit?: string }) {
-    const before = data.decisions;
+  function decide(issue: Triaged, next: IssueState, extra?: { edit?: string }): Promise<void> {
+    const before = (latest.get("decisions") ?? []);
     setError(null);
-    setData((d) => ({
-      ...d,
-      decisions: [...d.decisions.filter((x) => x.flagKey !== issue.key), ...(next === "open" ? [] : [{ flagKey: issue.key, state: next, edit: extra?.edit ?? null, reason: null }])],
-    }));
+    const decisions = [...before.filter((x) => x.flagKey !== issue.key), ...(next === "open" ? [] : [{ flagKey: issue.key, state: next, edit: extra?.edit ?? null, reason: null }])];
+    latest.set("decisions", decisions);
+    setData((d) => ({ ...d, decisions }));
+    pendingKeys.set(issue.key, (pendingKeys.get(issue.key) ?? 0) + 1);
+    setSavingCount((n) => n + 1);
     const job: Promise<void> = fetch(`/api/projects/${project.id}/issues`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -338,13 +354,19 @@ export function Workspace({ initial, autoStart = false }: { initial: WorkspaceDa
         if (!res.ok) throw new Error(((await res.json().catch(() => ({}))) as { error?: string }).error ?? "Could not save your choice");
       })
       .catch((e: Error) => {
+        latest.set("decisions", before);
         setData((d) => ({ ...d, decisions: before }));
         setError(`${e.message}. Your choice was undone; try again.`);
       })
       .finally(() => {
         saving.delete(job);
+        const left = (pendingKeys.get(issue.key) ?? 1) - 1;
+        if (left > 0) pendingKeys.set(issue.key, left);
+        else pendingKeys.delete(issue.key);
+        setSavingCount((n) => n - 1);
       });
     saving.add(job);
+    return job;
   }
 
   type VersionRun = { id: string; output: string | null; completedAt: string | null; createdAt: string };
@@ -537,7 +559,9 @@ export function Workspace({ initial, autoStart = false }: { initial: WorkspaceDa
     if (phase === 2) {
       return needsOpen > 0
         ? { label: "Write the final answer", disabled: true, why: `First choose for the ${needsOpen} claim${needsOpen === 1 ? "" : "s"} under Needs you.` }
-        : { label: "Write the final answer", onClick: () => void act("Writing the final answer", advance), why: null };
+        : savingCount > 0
+          ? { label: "Write the final answer", disabled: true, why: "Saving your choices…" }
+          : { label: "Write the final answer", onClick: () => void act("Writing the final answer", advance), why: null };
     }
     if (phase < 5) return { label: phase === 0 && !doc.text ? "Write the answer" : "Continue", onClick: () => void act("Continuing", advance), disabled: noRuns && !quota.runOpen, why: noRuns ? "Today's runs are used. A new one is available at the reset." : null };
     if (conflicts.length > 0 || finalCheckFailed) {
@@ -762,6 +786,7 @@ export function Workspace({ initial, autoStart = false }: { initial: WorkspaceDa
           <details className="relative">
             <summary className="cursor-pointer list-none px-1 text-lg text-ink-dim hover:text-ink" aria-label="More">⋯</summary>
             <div className="absolute right-0 z-20 mt-1 w-40 rounded-lg bg-raised p-2 text-sm ring-1 ring-line">
+              <Link className="block py-1 hover:text-thread" href="/dashboard">My projects</Link>
               <Link className="block py-1 hover:text-thread" href="/new">New question</Link>
               <Link className="block py-1 hover:text-thread" href={`/settings?project=${project.id}`}>Settings</Link>
               <Link className="block py-1 hover:text-thread" href={`/feedback?project=${project.id}`}>Feedback</Link>
