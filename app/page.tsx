@@ -146,8 +146,8 @@ export default function Landing() {
               </p>
             </div>
             <figure className="lp-shot" data-testid="sample-preview" style={{ background: "#fff", padding: 22, borderRadius: 16 }}>
-              {/* A real report, readable without an account (fix plan O1); the full one is at /sample. */}
-              <p className="lp-eyebrow" style={{ margin: 0 }}>Sample report</p>
+              {/* A hand-built example report, readable without an account; the full one is at /sample. */}
+              <p className="lp-eyebrow" style={{ margin: 0 }}>Sample report · hand-built example</p>
               <p style={{ fontWeight: 600, marginTop: 6 }}>{SAMPLE.question}</p>
               <p style={{ marginTop: 8, fontSize: 15 }} dangerouslySetInnerHTML={{ __html: SAMPLE.answer[0].replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>") }} />
               <ul style={{ marginTop: 12, listStyle: "none", padding: 0, fontSize: 13 }}>
