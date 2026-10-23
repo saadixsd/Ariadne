@@ -79,22 +79,31 @@ function assertConfigured(provider: string, model: string) {
   throw new Error(`Unknown provider "${provider}"`);
 }
 
-function today() {
-  return new Date().toISOString().slice(0, 10);
+/**
+ * The one access date for a project's whole run: the day the project was created (UTC). Every
+ * step (draft, fact-check, final answer, final check) uses it, so the answer and the checks
+ * never disagree about the date (a run that crosses midnight no longer gets two dates).
+ */
+export function accessDate(createdAt: Date | string | null | undefined): string {
+  const d = createdAt ? new Date(createdAt) : new Date();
+  return (Number.isNaN(d.getTime()) ? new Date() : d).toISOString().slice(0, 10);
 }
+
+const DATE_RULE = (date: string) =>
+  `Sources are accessed on ${date}: use that one date everywhere you mention when a page was read. Do not stamp the answer "As of <date>" with any other date; use a date only when a source shows its own as-of date (quote it as the source's), otherwise say "accessed ${date}".`;
 
 const READING_RULES =
   "Read the pages behind your facts in full with the fetch tool, not just search snippets. When a page loads its data from a linked data file (a .js, .json or .csv it references), fetch that file and read the numbers there. When credible sources give different values, report each value with its source and date instead of picking one. Never present a total you computed yourself as a source's figure: if you add numbers up, say it is your own count and quote the inputs.";
 
 /** Added to every writer call, so projects made before this rule get it too. */
-const WRITER_RULES = (tools: "fetch" | "search" | "none") =>
-  `\n\n(Today is ${today()}. ${
+const WRITER_RULES = (tools: "fetch" | "search" | "none", date: string) =>
+  `\n\n(${DATE_RULE(date)} ${
     tools === "fetch"
       ? `Web search and page fetch are available: use them to look up current facts before you answer. ${READING_RULES}`
       : tools === "search"
         ? "Web search is available: use it to look up current facts before you answer."
         : "Web search is not available for this run; answer from the brief, the sources and what you know."
-  } Use the whole brief (title, goal, need, deliverable and files) together; if anything is ambiguous, take the most reasonable reading in that context, state it in one line starting "Assumption:" at the top, then answer fully. Never ask clarifying questions instead of answering. Answer the question directly. Cite your sources inline, next to each claim, as Markdown links to the page you used. Say clearly when you are uncertain about a fact, and why. Never refuse or stop because you lack access to something: give your best sourced answer and mark what is uncertain. When a source gives the number or name asked for, state it with its as-of date and the source ("As of <date>, <source> lists <N> …"); when credible sources disagree, give each value with its source. Write that something cannot be determined only when no source could be read, and then say plainly which pages could not be read. If the shared context lists "Pages Ariadne read", use that text: never say you could not open a page marked READ, and do not quote a page marked COULD NOT READ. Commit to the best-supported answer: state one value (number or name) with its source and as-of date, then at most one short caveat; do not refuse, do not hedge with "it is unclear", and never call the pages "fragments" or "truncated" when they give the value. If the shared context has "What the fact-checker found", use those quotes: they are real page text. If it has "Decisions on the fact-checked claims", follow them exactly; a REMOVED claim must not appear anywhere, not even reworded. Use plain words; explain any technical term in a few words the first time (for example, say what a "site" or an "instance" means). If the shared context has "The user's latest instruction", follow it exactly. Do not mention which AI model or company is behind you.)`;
+  } Use the whole brief (title, goal, need, deliverable and files) together; if anything is ambiguous, take the most reasonable reading in that context, state it in one line starting "Assumption:" at the top, then answer fully. Never ask clarifying questions instead of answering. Answer the question directly. Cite your sources inline, next to each claim, as Markdown links to the page you used. Say clearly when you are uncertain about a fact, and why. Never refuse or stop because you lack access to something: give your best sourced answer and mark what is uncertain. When a source gives the number or name asked for, state it with its source and that source's own as-of date if it shows one (otherwise the access date); when credible sources disagree, give each value with its source. Write that something cannot be determined only when no source could be read, and then say plainly which pages could not be read. If the shared context lists "Pages Ariadne read", use that text: never say you could not open a page marked READ, and do not quote a page marked COULD NOT READ. Commit to the best-supported answer: state one value (number or name) with its source and as-of date, then at most one short caveat; do not refuse, do not hedge with "it is unclear", and never call the pages "fragments" or "truncated" when they give the value. If the shared context has "What the fact-checker found", use those quotes: they are real page text. If it has "Decisions on the fact-checked claims", follow them exactly; a REMOVED claim must not appear anywhere, not even reworded. Use plain words; explain any technical term in a few words the first time (for example, say what a "site" or an "instance" means). If the shared context has "The user's latest instruction", follow it exactly. Keep it short and plain: write only sentences that carry a fact the user needs, each with its source. Do not add unsourced filler, background or transitions (no "It is worth noting", no general statements you cannot cite). Do not mention which AI model or company is behind you.)`;
 
 const ANTHROPIC_SEARCH = { type: "web_search_20250305", name: "web_search", max_uses: 2 } as const;
 // Provider-side fetch: the page is read on the provider's servers. The cap keeps the
@@ -175,8 +184,8 @@ function anthropicEffort(): Anthropic.OutputConfig | undefined {
   return e === "off" ? undefined : { effort: e as NonNullable<Anthropic.OutputConfig["effort"]> };
 }
 
-async function anthropicWithTools(client: Anthropic, model: string, system: string, user: string, tools: Anthropic.ToolUnion[], mode: "fetch" | "search", deadline: number, usage: CallUsage): Promise<string> {
-  const messages: Anthropic.MessageParam[] = [{ role: "user", content: user + WRITER_RULES(mode) }];
+async function anthropicWithTools(client: Anthropic, model: string, system: string, user: string, tools: Anthropic.ToolUnion[], mode: "fetch" | "search", deadline: number, usage: CallUsage, date: string): Promise<string> {
+  const messages: Anthropic.MessageParam[] = [{ role: "user", content: user + WRITER_RULES(mode, date) }];
   const output_config = anthropicEffort();
   const create = (withTools: boolean) =>
     client.messages.create(
@@ -217,21 +226,21 @@ function isOutage(error: unknown) {
  * attempt: if fetch is refused (4xx) it retries with search only, then plain, but only
  * while time is left. ANTHROPIC_WEB_SEARCH=off skips both; ANTHROPIC_WEB_FETCH=off skips fetch.
  */
-async function callAnthropic(model: string, system: string, user: string): Promise<CallResult> {
+async function callAnthropic(model: string, system: string, user: string, date: string): Promise<CallResult> {
   const deadline = Date.now() + CALL_BUDGET_MS;
   const usage = emptyUsage();
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, maxRetries: 0, timeout: CALL_BUDGET_MS });
   if (process.env.ANTHROPIC_WEB_SEARCH !== "off") {
     if (process.env.ANTHROPIC_WEB_FETCH !== "off") {
       try {
-        return { text: await anthropicWithTools(client, model, system, user, [ANTHROPIC_SEARCH, ANTHROPIC_FETCH], "fetch", deadline, usage), usage };
+        return { text: await anthropicWithTools(client, model, system, user, [ANTHROPIC_SEARCH, ANTHROPIC_FETCH], "fetch", deadline, usage, date), usage };
       } catch (error) {
         if (isOutage(error) || left(deadline) < 60_000) throw error;
         console.warn("writer page fetch unavailable, trying search only:", error instanceof Error ? error.message.slice(0, 200) : "unknown");
       }
     }
     try {
-      return { text: await anthropicWithTools(client, model, system, user, [ANTHROPIC_SEARCH], "search", deadline, usage), usage };
+      return { text: await anthropicWithTools(client, model, system, user, [ANTHROPIC_SEARCH], "search", deadline, usage, date), usage };
     } catch (error) {
       if (isOutage(error) || left(deadline) < 45_000) throw error;
       console.warn("writer web search unavailable, using plain call:", error instanceof Error ? error.message.slice(0, 200) : "unknown");
@@ -243,7 +252,7 @@ async function callAnthropic(model: string, system: string, user: string): Promi
       model,
       max_tokens: MAX_OUTPUT_TOKENS_ANTHROPIC,
       system: cachedSystem(system),
-      messages: [{ role: "user", content: user + WRITER_RULES("none") }],
+      messages: [{ role: "user", content: user + WRITER_RULES("none", date) }],
       ...(output_config ? { output_config } : {}),
     },
     { timeout: Math.max(5_000, left(deadline)) },
@@ -255,8 +264,8 @@ async function callAnthropic(model: string, system: string, user: string): Promi
 }
 
 /** Added to every fact-check call (old projects included). */
-const CHECKER_RULES = (search: boolean) =>
-  `\n\n(Today is ${today()}. ${
+const CHECKER_RULES = (search: boolean, date: string) =>
+  `\n\n(${DATE_RULE(date)} ${
     search
       ? "Web search is available for this check, including opening pages: open the source pages and read them in full, not just snippets. When a page loads its data from a linked data file (.js, .json, .csv), open that file. Cite the URLs you used."
       : "Web search is not available for this check."
@@ -267,7 +276,8 @@ const CHECKER_RULES = (search: boolean) =>
 - Source: exactly one link per claim where possible: the page where your quoted words appear (several only for "sources disagree"). Never reuse a link for a claim its quote does not support, and never fill in a default link. If you found no source, write "Source: none" and the verdict is unsupported.
 - If the shared context lists "Pages Ariadne read", those are the exact pages the writer saw. Quote from that text when it covers the claim; never quote a page marked COULD NOT READ. Ariadne checks every supported quote against the page it read.
 - If the text makes more than 15 factual claims, check the 15 that matter most to the user's goal in full; then list the remaining claims briefly under "Not checked in full" with no verdict.
-- Start your reply with one line "Data checked: <the single as-of date or timestamp the source shows, or today's date>" and use that same date for every claim.
+- Only list real factual claims (a number, date, name, quote or cause the answer depends on). Do not list headings, connective or summary sentences, restatements of an earlier claim, the access date, or statements about the answer itself ("see the sources below"); fold a restatement into the claim it repeats.
+- Start your reply with one line "Data checked: <the as-of date the source shows, or ${date}>" and use that same date for every claim. Do not flag the access date ${date} as a date conflict.
 Do not mention which AI model or company is behind you.)`;
 
 /**
@@ -295,13 +305,13 @@ function openaiEffort() {
  * page reads run on OpenAI's side, so the Worker only waits. The searched check gets most
  * of the budget; the plain fallback only runs if enough time is left.
  */
-async function callOpenAIWithSearch(client: OpenAI, model: string, system: string, user: string, deadline: number, usage: CallUsage) {
+async function callOpenAIWithSearch(client: OpenAI, model: string, system: string, user: string, deadline: number, usage: CallUsage, date: string) {
   const effort = openaiEffort();
   const response = await client.responses.create(
     {
       model,
       instructions: system,
-      input: user + CHECKER_RULES(true),
+      input: user + CHECKER_RULES(true, date),
       tools: [{ type: "web_search" }],
       max_output_tokens: MAX_OUTPUT_TOKENS_OPENAI,
       ...(effort ? { reasoning: { effort } } : {}),
@@ -322,13 +332,13 @@ async function callOpenAIWithSearch(client: OpenAI, model: string, system: strin
   return text;
 }
 
-async function callOpenAI(model: string, system: string, user: string): Promise<CallResult> {
+async function callOpenAI(model: string, system: string, user: string, date: string): Promise<CallResult> {
   const deadline = Date.now() + CALL_BUDGET_MS;
   const usage = emptyUsage();
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, maxRetries: 0, timeout: CALL_BUDGET_MS });
   if (process.env.OPENAI_WEB_SEARCH !== "off") {
     try {
-      return { text: await callOpenAIWithSearch(client, model, system, user, deadline, usage), usage };
+      return { text: await callOpenAIWithSearch(client, model, system, user, deadline, usage, date), usage };
     } catch (error) {
       if (left(deadline) < 30_000) throw error;
       console.warn("web search check unavailable, using plain check:", error instanceof Error ? error.message.slice(0, 200) : "unknown");
@@ -341,7 +351,7 @@ async function callOpenAI(model: string, system: string, user: string): Promise<
       max_completion_tokens: MAX_OUTPUT_TOKENS_OPENAI,
       messages: [
         { role: "system", content: system },
-        { role: "user", content: user + CHECKER_RULES(false) },
+        { role: "user", content: user + CHECKER_RULES(false, date) },
       ],
       ...(effort ? { reasoning_effort: effort } : {}),
     },
@@ -354,9 +364,9 @@ async function callOpenAI(model: string, system: string, user: string): Promise<
 }
 
 /** The playbooks (agents/playbooks/*.md, compiled at build time) lead each agent's system prompt. */
-async function callProvider(provider: string, model: string, system: string, user: string) {
-  if (provider === "anthropic") return callAnthropic(model, `${WRITER_PLAYBOOK}\n\n${system}`, user);
-  if (provider === "openai") return callOpenAI(model, `${CHECKER_PLAYBOOK}\n\n${system}`, user);
+async function callProvider(provider: string, model: string, system: string, user: string, date: string) {
+  if (provider === "anthropic") return callAnthropic(model, `${WRITER_PLAYBOOK}\n\n${system}`, user, date);
+  if (provider === "openai") return callOpenAI(model, `${CHECKER_PLAYBOOK}\n\n${system}`, user, date);
   throw new Error(`Unknown provider "${provider}"`);
 }
 
@@ -402,7 +412,7 @@ async function commitIfOwned(claim: RunClaim, data: Prisma.TaskUpdateManyMutatio
 async function loadRunContext(taskId: string, userId: string) {
   const project = await prisma.project.findFirst({
     where: { userId, tasks: { some: { id: taskId } } },
-    select: { id: true, brief: true },
+    select: { id: true, brief: true, createdAt: true },
   });
   if (!project) return null;
   const tasks = await prisma.task.findMany({
@@ -605,7 +615,7 @@ export async function runTask(taskId: string, userId: string, dailyLimit?: numbe
   let usage: CallUsage | null = null;
   try {
     assertConfigured(task.agent.provider, model);
-    const result = await withOneRetry(() => callProvider(task.agent.provider, model, system, user));
+    const result = await withOneRetry(() => callProvider(task.agent.provider, model, system, user, accessDate(context.project.createdAt)));
     output = result.text;
     // Removed claims never come back (validated after generation, not only asked for).
     if (removed.length) {

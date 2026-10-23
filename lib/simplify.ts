@@ -120,13 +120,16 @@ export function decisionsBlock(list: Triaged[]): string {
     if (i.state === "removed") removed.push(`- "${claim}"`);
     else if (i.state === "accepted") fix.push(`- "${claim}" → ${i.flag.fix ?? "use what the source says"}${firstQuote(i.flag.evidence) ? ` (source: "${firstQuote(i.flag.evidence)!.slice(0, 200)}")` : ""}`);
     else if (i.state === "edited" && i.edit) own.push(`- "${claim}" → ${i.edit}`);
-    else if (i.state === "rejected" && i.flag.verdict === "unsupported") keep.push(`- "${claim}" (keep, and say in a few words that no source confirmed it)`);
+    else if (i.state === "rejected" && i.flag.verdict === "unsupported") keep.push(`- "${claim}"${i.auto ? " (may be left out if it is only filler)" : " (the user chose to keep it: it must stay)"}`);
   }
   const parts = ["## Decisions on the fact-checked claims (hard rules)"];
   if (removed.length) parts.push(`REMOVED: these claims must not appear in the final answer at all, not even reworded or in Sources or Open points:\n${removed.join("\n")}`);
   if (fix.length) parts.push(`Use the source's version:\n${fix.join("\n")}`);
   if (own.length) parts.push(`Use the user's wording:\n${own.join("\n")}`);
-  if (keep.length) parts.push(`Kept as written:\n${keep.join("\n")}`);
+  if (keep.length)
+    parts.push(
+      `Kept, but no source confirmed them. Keep each one in the answer without a note after each sentence; instead list them once, together, as one line under "Open points" ("Not confirmed by a source: …"). A claim marked "may be left out" can be dropped if the answer does not need it:\n${keep.join("\n")}`,
+    );
   return parts.length > 1 ? parts.join("\n\n") : "";
 }
 
