@@ -28,7 +28,7 @@ export const metadata: Metadata = {
 const JSON_LD = {
   "@context": "https://schema.org",
   "@graph": [
-    { "@type": "Organization", "@id": `${SITE_URL}/#org`, name: SITE_NAME, url: SITE_URL, logo: `${SITE_URL}/icon.png`, sameAs: SOCIAL, email: "saad@ariadneagents.si" },
+    { "@type": "Organization", "@id": `${SITE_URL}/#org`, name: SITE_NAME, url: SITE_URL, logo: `${SITE_URL}/icon.png`, sameAs: SOCIAL, email: "team@ariadneagents.si" },
     { "@type": "WebApplication", name: SITE_NAME, url: SITE_URL, applicationCategory: "ProductivityApplication", operatingSystem: "Web browser", description: DESCRIPTION, publisher: { "@id": `${SITE_URL}/#org` } },
     { "@type": "WebSite", name: SITE_NAME, url: SITE_URL, publisher: { "@id": `${SITE_URL}/#org` } },
   ],
@@ -256,7 +256,7 @@ export default function Landing() {
             <p className="lp-foot-note">Sourced research, key claims checked. Made by the Ariadne team.</p>
           </div>
           <div className="lp-foot-links">
-            <a href="mailto:saad@ariadneagents.si">saad@ariadneagents.si</a>
+            <a href="mailto:team@ariadneagents.si">team@ariadneagents.si</a>
             <a href="/privacy">Privacy</a>
             <a href="/privacy#cookies" data-consent-open>Cookie settings</a>
             <a href="/sign-in">Sign in</a>

@@ -1,22 +1,28 @@
 export const DAILY_MODEL_RUNS = 10;
 
-// Workflow quota (Oct 14 2026, confirmed by Saad): the per-account limit counts WORKFLOWS,
+/** Set ARIADNE_SELF_HOST=1 (or true) for local/self-host BYOK: hosted cost caps are lifted. */
+function selfHost(): boolean {
+  const v = (typeof process !== "undefined" ? process.env.ARIADNE_SELF_HOST : undefined)?.trim().toLowerCase();
+  return v === "1" || v === "true" || v === "yes";
+}
+
+// Workflow quota (Oct 14 2026, product decision): the per-account limit counts WORKFLOWS,
 // not model runs. A workflow is one Draft → Challenge → Judge → Tie Off pass on a project
 // (lib/usage.ts reserveModelRun). Each account may start WORKFLOWS_PER_DAY per UTC day.
 // Model runs inside an open workflow (reruns, Intervene, revisions) do not count, up to
 // MAX_RUNS_PER_WORKFLOW in total (a full pass is 3 runs + MAX_RERUNS_PER_WORKFLOW reruns). That cap is
 // not advertised in the UI; hitting it says to approve the deliverable or start a new project.
 // SITE_DAILY_MODEL_RUNS below still counts every model run across all accounts.
-// Oct 14 2026 (Saad, cost): one workflow per account per UTC day, and at most
+// Oct 14 2026 (cost): one workflow per account per UTC day, and at most
 // MAX_RERUNS_PER_WORKFLOW reruns (redrafts, revisions, re-checks) inside it.
-export const WORKFLOWS_PER_DAY = 1;
+export const WORKFLOWS_PER_DAY = selfHost() ? 10_000 : 1;
 // A full pass is 4 model calls since Oct 21 2026: draft, fact-check, final answer, and the
 // fact-check of the final answer (fix plan B2). Inside one run they are all included.
 export const RUNS_PER_FULL_PASS = 4;
 // Invited testers (fix plan O2): TESTER_RUNS_PER_DAY runs a day for TESTER_PERIOD_DAYS days
 // after sign-up with a code listed in TESTER_INVITE_CODES (User.testerUntil, migration 0013).
 // In the UI a "run" is one workflow: question → draft → fact-check → your review → final answer.
-export const TESTER_RUNS_PER_DAY = 3;
+export const TESTER_RUNS_PER_DAY = selfHost() ? 10_000 : 3;
 export const TESTER_PERIOD_DAYS = 14;
 
 export type QuotaAccount = { testerUntil?: Date | string | null };
@@ -38,7 +44,7 @@ export const MAX_RUNS_PER_WORKFLOW = RUNS_PER_FULL_PASS + MAX_RERUNS_PER_WORKFLO
 // Site-wide ceiling on successful model runs per UTC day, across every account. A cost
 // backstop while sign-up is open (email verification off); the per-account cap above is
 // unchanged and is checked first.
-export const SITE_DAILY_MODEL_RUNS = 200;
+export const SITE_DAILY_MODEL_RUNS = selfHost() ? 1_000_000 : 200;
 
 // Trial allowance. Sign-up is open to the internet (Turnstile, no email verification on the
 // free plan), so for its first 24 hours an account that signed up WITHOUT an invite code

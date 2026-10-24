@@ -60,7 +60,7 @@ Rules kept: nothing runs without a click, and every button that runs a model say
 
 - Ref codes carry no name or email. Only the outreach sheet maps a code to a person.
 - Original files are kept in R2 for 3 days under the owner's prefix, then deleted. The extracted text (up to 40k characters per file, 80k per project, 5 files) stays in D1 with the project and is deleted with it.
-- `/admin/feedback` shows no emails. A project behind a feedback row shows only its steps and counts unless the person ticked "Saad may open this project".
+- `/admin/feedback` shows no emails. A project behind a feedback row shows only its steps and counts unless the person ticked "an admin may open this project".
 - Feedback older than 12 months is anonymised (person and project links dropped) each time the admin page loads.
 - `scripts/metrics.sql` reads counts and states only, never briefs, outputs or source text.
 
@@ -74,7 +74,7 @@ Rules kept: nothing runs without a click, and every button that runs a model say
    All three are additive: new nullable columns, one boolean with a default, and three new tables (IssueDecision, SourceFile, Workflow).
    Then create the R2 bucket and its lifecycle rule (see the R2 section above).
 2. Secrets:
-   - `npx wrangler secret put ADMIN_EMAILS` with Saad's address. Without it, nobody can open the admin page.
+   - `npx wrangler secret put ADMIN_EMAILS` with an admin email. Without it, nobody can open the admin page.
    - `npx wrangler secret put REF_SECRET` with a long random value. Without it, ref codes are recorded but do not lift the trial cap.
 3. Make ref codes with `REF_SECRET=… node scripts/ref-codes.mjs 50 researchers-w1 > wave1.csv`. Keep the CSV outside the repo.
 
