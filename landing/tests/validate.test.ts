@@ -35,8 +35,8 @@ test("answers: other text only kept when Other is ticked; switching must be a kn
 });
 
 test("referrer is reduced to a host, and our own host is dropped", () => {
-  assert.equal(referrerHost("https://news.ycombinator.com/item?id=1", ["ariadneagents.si"]), "news.ycombinator.com");
-  assert.equal(referrerHost("https://ariadneagents.si/", ["ariadneagents.si"]), null);
+  assert.equal(referrerHost("https://news.ycombinator.com/item?id=1", ["example.com"]), "news.ycombinator.com");
+  assert.equal(referrerHost("https://example.com/", ["example.com"]), null);
   assert.equal(referrerHost("javascript:alert(1)", []), null);
   assert.equal(referrerHost("not a url", []), null);
 });

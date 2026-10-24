@@ -15,5 +15,5 @@ for (let i = 0; i < count; i++) {
   const id = [...randomBytes(6)].map((b) => alphabet[b % alphabet.length]).join("");
   const base = `r-${id}`;
   const ref = `${base}-${createHmac("sha256", secret).update(base).digest("hex").slice(0, 8)}`;
-  console.log(`${ref},https://ariadneagents.si/?ref=${ref}&utm_source=email&utm_campaign=${campaign}`);
+  console.log(`${ref},https://example.com/?ref=${ref}&utm_source=email&utm_campaign=${campaign}`);
 }

@@ -8,7 +8,7 @@ flowchart TB
   end
 
   subgraph CF["Cloudflare"]
-    Edge["ariadneagents.si and www<br/>(zone routes to this Worker)<br/>security headers on every response"]
+    Edge["example.com and www<br/>(zone routes to this Worker)<br/>security headers on every response"]
     subgraph Worker["Worker 'ariadne' (Next.js 16 via OpenNext)"]
       Proxy["proxy.ts<br/>/ public, cookie gate, door rewrite,<br/>cross-site API writes refused"]
       Pages["App Router pages<br/>app/page.tsx (static landing),<br/>app/dashboard, app/tree, app/settings"]

@@ -1,7 +1,7 @@
 # Architecture
 
 Ariadne is one Next.js 16 app compiled for Cloudflare Workers by OpenNext. The browser
-talks to a single Worker (`ariadne`) on ariadneagents.si. The Worker serves the landing
+talks to a single Worker (`ariadne`) on example.com. The Worker serves the landing
 page, sign-up and the dashboard, the JSON API, stores everything in one D1 database and
 calls Anthropic and OpenAI with server-side keys.
 
@@ -22,7 +22,7 @@ flowchart TB
   end
 
   subgraph CF["Cloudflare"]
-    Edge["ariadneagents.si and www<br/>(zone routes to this Worker)<br/>security headers on every response"]
+    Edge["example.com and www<br/>(zone routes to this Worker)<br/>security headers on every response"]
     subgraph Worker["Worker 'ariadne' (Next.js 16 via OpenNext)"]
       Proxy["proxy.ts<br/>/ public, cookie gate, door rewrite,<br/>cross-site API writes refused"]
       Pages["App Router pages<br/>app/page.tsx (static landing),<br/>app/dashboard, app/tree, app/settings"]
@@ -171,12 +171,12 @@ Rendered: [`docs/diagrams/05-sign-up-sequence.png`](diagrams/05-sign-up-sequence
 ```mermaid
 flowchart LR
   subgraph Before["Before the cutover"]
-    A1["ariadneagents.si, www"] --> LW["Worker ariadne-landing<br/>(early-access form)"]
+    A1["example.com, www"] --> LW["Worker ariadne-landing<br/>(early-access form)"]
     LW --> EA[("D1 ariadne-early-access")]
-    A2["app.ariadneagents.si<br/>(Cloudflare Access)"] --> AW1["Worker ariadne"]
+    A2["app.example.com<br/>(Cloudflare Access)"] --> AW1["Worker ariadne"]
   end
-  subgraph After["After the cutover (docs/CUTOVER.md)"]
-    B1["ariadneagents.si, www"] --> AW2["Worker ariadne<br/>landing, sign-up, /dashboard"]
+  subgraph After["After the cutover (historical; runbook removed)"]
+    B1["example.com, www"] --> AW2["Worker ariadne<br/>landing, sign-up, /dashboard"]
     AW2 --> AD[("D1 ariadne")]
     EA2[("D1 ariadne-early-access<br/>kept, exported:<br/>the first invite pool")]
   end
@@ -187,7 +187,7 @@ Rendered: [`docs/diagrams/06-hosting-cutover.png`](diagrams/06-hosting-cutover.p
 
 A route pattern can belong to only one Worker, so the order is: take the routes off
 `ariadne-landing`, then attach them to `ariadne`, then remove `app.` and its Access app.
-The steps, checks and rollback are in [CUTOVER.md](CUTOVER.md).
+Historical cutover notes were removed from this repo.
 
 ## 5. A run, step by step
 

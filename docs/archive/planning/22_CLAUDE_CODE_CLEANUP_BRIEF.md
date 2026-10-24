@@ -22,7 +22,7 @@ Everything below assumes you've read it.
 - Auth: email/password, hashed passwords, 30-day HttpOnly sessions. Signed-out users
   redirect to `/sign-in`.
 - 10 provider/model calls per account per UTC day. Human approvals/tasks don't count.
-- Live: https://ariadneagents.si (also https://ariadne.sr-labs.workers.dev)
+- Live: https://example.com (also https://ariadne.example.workers.dev)
 
 ## 2. What you're doing (and NOT doing)
 

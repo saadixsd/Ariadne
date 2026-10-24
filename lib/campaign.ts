@@ -1,6 +1,6 @@
 /*
   Campaign attribution (first touch). An outreach link looks like
-    https://ariadneagents.si/?ref=r-k7m2q9-3fa91c0e&utm_source=email&utm_campaign=researchers-w1
+    https://example.com/?ref=r-k7m2q9-3fa91c0e&utm_source=email&utm_campaign=researchers-w1
   proxy.ts keeps these in a first-party cookie for 30 days; sign-up saves them on the User.
   A ref code carries no name or email: which person got which code lives only in the
   outreach sheet, outside the app.

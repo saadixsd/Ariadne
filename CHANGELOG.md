@@ -30,7 +30,7 @@ Detailed notes and how each change was verified: [docs/PROJECT_LOG.md](docs/PROJ
 - Brief experiment widening past researchers; superseded the same day by Phase 0.2.
 - Introduced the hero eyebrow "Agents draft. Agents challenge. You judge." (kept in 0.2).
 
-## 2026-10-06: Phase 0 — back to ariadneagents.si, no waitlist
+## 2026-10-06: Phase 0 — back to example.com, no waitlist
 - Researcher one-liner and wedge (Draft → Challenge → Judge → Tie Off). `CLAUDE.md` §6 now
   allows challenger web search, human input mid-way, and a different model as challenger.
 - A static landing page at `/` (the Door, the red thread, how the four steps work, who it's
@@ -40,7 +40,7 @@ Detailed notes and how each change was verified: [docs/PROJECT_LOG.md](docs/PROJ
 - Open sign-up with Cloudflare Turnstile, an `INVITE_CODES` switch for invite-only mode,
   and a first-day trial of 6 model runs. Migration `0004` adds `User.inviteCode`.
 - The first-run dialog uses the new one-liner.
-- Docs: request routing, sign-up and hosting diagrams; `docs/CUTOVER.md` for moving the
+- Docs: request routing, sign-up and hosting diagrams; cutover notes (since removed) for moving the
   domain (not yet executed).
 
 ## 2026-10-03: Presentation cleanup and hardening
@@ -64,7 +64,7 @@ Detailed notes and how each change was verified: [docs/PROJECT_LOG.md](docs/PROJ
 
 ## 2026-10-01: V1 hardening for real users
 - Standing project brief (`CLAUDE.md`) and cleanup brief added (`e0e1af9`).
-- Intro card removed, internal wording kept out of the UI, `www.ariadneagents.si` routed,
+- Intro card removed, internal wording kept out of the UI, `www.example.com` routed,
   and every failure path ends on a readable message (`8e780ce`).
 - Tree detail rail opens as a full-screen sheet on phones (`9b0d2a0`). Production checks logged (`c7c1d83`, `34cdc97`).
 

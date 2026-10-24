@@ -104,7 +104,7 @@ The coordination loop is unchanged. Seed, page load, and reset only write SQLite
 
 These sessions were not logged at the time. This entry is rebuilt from the commits; see `git log` for the detail.
 
-- **Accounts and Cloudflare (Sep 27).** Email/password auth with hashed sessions, the D1-backed Worker on `ariadne.sr-labs.workers.dev` via OpenNext and Workers Builds, preview-branch bindings, the mandatory "What are you making?" project dialog for new accounts, and the first-page CPU fix for error 1102.
+- **Accounts and Cloudflare (Sep 27).** Email/password auth with hashed sessions, the D1-backed Worker on `ariadne.example.workers.dev` via OpenNext and Workers Builds, preview-branch bindings, the mandatory "What are you making?" project dialog for new accounts, and the first-page CPU fix for error 1102.
 - **Tree view (Sep 29).** A live Board ⇄ Tree switch, a node detail rail, hover previews and a next-step line. The green-and-white theme shipped here was replaced the same night (below). The "Beta" badge was removed.
 - **Ship-blockers (Sep 29).** `migrations/0001`–`0002` (baseline, `TaskRun`, structured event columns, `RateLimit`); per-IP rate limits on sign-up, sign-in and verify; no more claiming of unowned projects; server-side input caps (brief 5,000, title 200, instructions 5,000, note 2,000); immutable run history; a success-only atomic daily quota of 10 model runs; lazy stuck-run recovery after 5 minutes; UI parsers that read structured event columns instead of message text; the `tests/ship-blockers` suite.
 - **Red Thread redesign (Sep 29–30).** Linen paper, serif type, a red thread and gold knots. The Board is one thread with handoff beads, and a single knot panel replaced the duplicate Activity cards. The Tree is drawn as a labyrinth from the door to the deliverable. Times print only after hydration.
@@ -124,7 +124,7 @@ Baseline before any change: lib 13/13, Phase 2 17/17, migrations 4/4, dev-server
 - **Intro card removed.** `components/WelcomeOverlay.tsx` ("You hold the thread.", the 3-step checklist) is deleted, along with every `ariadne.welcome.*` localStorage read and write, the step auto-complete wiring (the agents-met flag, ran-task and approved checks), the "Show me the first step" Run pulse (`pulseRunId`, `.pulse-run`), and the checkbox helpers in `client-storage.ts` that only it used. None of it was load-bearing. The "What are you making?" dialog is unchanged.
 - **Internal copy out of user UI.** The feedback success dialog no longer names the `/feedback` route. The missing-keys banner no longer tells users to edit `.env` and restart `npm run dev`. The "Project unavailable" and "No project yet" screens no longer say "run the seed again"; both now have working buttons.
 - **Brief cap is 5,000 everywhere.** Onboarding used 4,000; it now uses `MAX_BRIEF_CHARS` and `assertMaxLength` like every other route, and the project dialogs cap their inputs at the same limits.
-- **Domain.** `ariadneagents.si` was already routed to the Worker (`ariadneagents.si/*`); `www.ariadneagents.si` showed the registrar's parking page and now has its own route. Both routes are recorded in `wrangler.jsonc`.
+- **Domain.** `example.com` was already routed to the Worker (`example.com/*`); `www.example.com` showed the registrar's parking page and now has its own route. Both routes are recorded in `wrangler.jsonc`.
 - **Email verification stays off.** The founder decided not to set up company email or a paid plan yet. The code is ready: add a `send_email` binding named `EMAIL` and an `EMAIL_FROM` var once the domain is onboarded to Cloudflare Email Service (Workers Paid is required to email arbitrary sign-ups). A rejected send now rolls the sign-up back with a readable 503 instead of leaving a half-created account behind a 500.
 - **Failure paths.** An expired session sends the board or Tree to `/sign-in`; a deleted project sends it to the user's next project; coming back online polls at once. A provider failure (502) shows "Claude or GPT returned an error instead of an answer" in the toast while the raw error stays on the frayed step beside Copy error. A used-up quota no longer says "press Retry", names midnight UTC, and drops the runs meter to 0. Error bodies that are not JSON no longer masquerade as "could not reach the server". A root `app/global-error.tsx` covers a crash in the root layout.
 - **No decorative controls.** The active Board/Tree segment is a label, not a link that reloads the page. The failed step's button is announced as "Respin", matching what it shows.
@@ -142,7 +142,7 @@ Untouched: the run pipeline (`lib/agents.ts`), board and tree logic, quota seman
   - **Dead ends:** every button, link, menu item and tab on the board, Tree and Settings (fresh and finished projects) does something visible.
   - **Full workflow:** research → draft → review → knot → produce, with produce locked until you tie off.
   - **Failure paths:** model failure, quota at 10/10, offline and reconnect, expired session and deleted project all end on a readable message or the right page, never a blank screen. No console errors throughout.
-- Deployed preview (`https://cleanup-v1-hardening-ariadne.sr-labs.workers.dev`, Workers Builds, production D1), real models, 22/22:
+- Deployed preview (`https://cleanup-v1-hardening-ariadne.example.workers.dev`, Workers Builds, production D1), real models, 22/22:
   - **Sign-up and board:** fresh sign-up → "What are you making?" → board with no intro card and no missing-keys banner.
   - **Full workflow:** research, draft and review each spun with a real Claude or GPT call (about 8s each). The knot opened by itself and produce stayed locked until tie-off. Tying off used no daily run; produce spun; the meter read 6/10 (4 model runs).
   - **Navigation and errors:** Board ⇄ Tree works both ways. No banned words; no page or console errors.
@@ -151,7 +151,7 @@ Untouched: the run pipeline (`lib/agents.ts`), board and tree logic, quota seman
 
 ### What is left
 
-- Email verification: when there is company email, onboard `ariadneagents.si` to Cloudflare Email Service (Workers Paid is required for arbitrary recipients), then add `"send_email": [{ "name": "EMAIL" }]` and `EMAIL_FROM` to `wrangler.jsonc` (production and previews).
+- Email verification: when there is company email, onboard `example.com` to Cloudflare Email Service (Workers Paid is required for arbitrary recipients), then add `"send_email": [{ "name": "EMAIL" }]` and `EMAIL_FROM` to `wrangler.jsonc` (production and previews).
 - The repo lives under iCloud-synced `~/Documents`, which leaves " 2" conflict copies in `.next/cache/turbopack` and breaks `next build` until that folder is deleted. Moving the repo out of iCloud (or excluding `.next`) fixes it for good.
 - Not fixed in this pass: the midnight-UTC edge case in the stuck-run test.
 
@@ -172,8 +172,8 @@ Untouched: the run pipeline (`lib/agents.ts`), board and tree logic, quota seman
 ### Shipped
 
 - `cleanup/v1-hardening` fast-forwarded to `main` (`9b0d2a0`). Workers Builds deployed it to production at 2026-10-02 00:32 UTC.
-- The same 390px check against `https://ariadneagents.si`, with real models: 38/38. The check covers sign-up, the board with no intro card, the knot, and the Tree rail as a full-screen sheet with its footer on screen. `www.ariadneagents.si` and `ariadne.sr-labs.workers.dev` also serve the app.
-- All six `smoke-test-v1-…@ariadneagents.si` accounts created during this pass were deleted from production D1 by exact id. The cascade left no orphaned tasks, runs, agents or events, and the real accounts are untouched.
+- The same 390px check against `https://example.com`, with real models: 38/38. The check covers sign-up, the board with no intro card, the knot, and the Tree rail as a full-screen sheet with its footer on screen. `www.example.com` and `ariadne.example.workers.dev` also serve the app.
+- All six `smoke-test-v1-…@example.com` accounts created during this pass were deleted from production D1 by exact id. The cascade left no orphaned tasks, runs, agents or events, and the real accounts are untouched.
 - Today's checks also tripped the sign-up throttle (5 sign-ups per IP per hour); it answered 429 with Retry-After, as designed.
 
 ## 2026-10-02 (afternoon) — Review features and free-plan performance

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { PRIVACY_CONTACT, PRIVACY_POLICY_EFFECTIVE, PRIVACY_POLICY_VERSION } from "@/lib/policy";
+import { PRIVACY_CONTACT, PRIVACY_CONTACT_HREF, PRIVACY_POLICY_EFFECTIVE, PRIVACY_POLICY_VERSION } from "@/lib/policy";
 import "../landing.css";
 
 export const metadata: Metadata = {
@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/privacy" },
 };
 
-const mail = `mailto:${PRIVACY_CONTACT}`;
+const mail = PRIVACY_CONTACT_HREF;
 
 // Static. Describes only what the app does today (see lib/, proxy.ts, public/consent.js).
 // Keep in step with the code; bump PRIVACY_POLICY_VERSION in lib/policy.ts on material changes.
@@ -35,7 +35,7 @@ export default function Privacy() {
           <h2>Who is responsible</h2>
           <p>
             Ariadne is operated by the Ariadne team. The person in charge of the protection of personal information is the Ariadne team&apos;s privacy lead,
-            reachable at <a href={mail}>{PRIVACY_CONTACT}</a>. Write to this address for any question, request or complaint about your personal information.
+            reachable via <a href={mail}>{PRIVACY_CONTACT}</a>. Use that link for any question, request or complaint about your personal information.
           </p>
 
           <h2>What we collect, and why</h2>
@@ -79,7 +79,7 @@ export default function Privacy() {
           </ul>
 
           <h2>Your rights</h2>
-          <p>You can ask us, by writing to <a href={mail}>{PRIVACY_CONTACT}</a>, to:</p>
+          <p>You can ask us, via <a href={mail}>{PRIVACY_CONTACT}</a>, to:</p>
           <ul>
             <li>confirm what personal information we hold about you and give you a copy (access);</li>
             <li>correct information that is inaccurate, incomplete or equivocal (rectification);</li>
@@ -94,7 +94,7 @@ export default function Privacy() {
 
           <h2>Complaints</h2>
           <p>
-            Please write to us first at <a href={mail}>{PRIVACY_CONTACT}</a>; we will look into it and reply. You may also complain to the{" "}
+            Please contact us first via <a href={mail}>{PRIVACY_CONTACT}</a>; we will look into it and reply. You may also complain to the{" "}
             <a href="https://www.cai.gouv.qc.ca/" target="_blank" rel="noopener noreferrer">Commission d&apos;accès à l&apos;information du Québec</a> or the{" "}
             <a href="https://www.priv.gc.ca/" target="_blank" rel="noopener noreferrer">Office of the Privacy Commissioner of Canada</a>.
           </p>

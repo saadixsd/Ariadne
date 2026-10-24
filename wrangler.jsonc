@@ -1,16 +1,14 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "ariadne",
-  "account_id": "7a89d9dae3714c68933b37664f2b3d71",
+  // Optional Cloudflare deploy template. Replace account_id, D1/R2 ids, and routes with yours.
+  "account_id": "YOUR_CLOUDFLARE_ACCOUNT_ID",
   "main": ".open-next/worker.js",
-  // Hosted Ariadne (ariadneagents.si) is discontinued. This file is a template for
-  // optional self-host deploys: replace account_id, D1/R2 ids, and routes with yours.
   // No *.workers.dev URL by default; set workers_dev / routes for your own domain.
   "workers_dev": false,
   "preview_urls": false,
   "compatibility_date": "2026-09-26",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
-  // Workers Logs, so errors like 1102 (exceeded resource limits) can be traced.
   "observability": { "enabled": true },
   "assets": {
     "directory": ".open-next/assets",
@@ -20,13 +18,12 @@
     {
       "binding": "DB",
       "database_name": "ariadne",
-      "database_id": "4c3b880c-68e7-427b-af68-43710ec3f863",
+      "database_id": "YOUR_D1_DATABASE_ID",
       "migrations_dir": "migrations"
     }
   ],
   // Original uploaded files (PDF/DOCX/MD), one prefix per user: u/<userId>/<projectId>/<sourceId>.
-  // A bucket lifecycle rule deletes every object 3 days after upload (docs/WORKSPACE.md has
-  // the setup commands). Create the bucket BEFORE deploying, or the deploy fails.
+  // Create the bucket BEFORE deploying, or the deploy fails. See docs/WORKSPACE.md.
   "r2_buckets": [
     { "binding": "FILES", "bucket_name": "ariadne-uploads" }
   ],
@@ -43,27 +40,15 @@
       "fallthrough": true
     }
   ],
-  // Phase 0 cutover: the product serves ariadneagents.si and www (landing at /, sign-up,
-  // /dashboard). Zone routes, because the zone already has proxied apex and www records.
-  // A route belongs to one Worker only: take these off ariadne-landing BEFORE deploying this
-  // (docs/CUTOVER.md). app.ariadneagents.si is no longer listed; deleting this line does not
-  // detach it, so remove that custom domain in the dashboard after the switch.
-  "routes": [
-    { "pattern": "ariadneagents.si/*", "zone_name": "ariadneagents.si" },
-    { "pattern": "www.ariadneagents.si/*", "zone_name": "ariadneagents.si" }
-  ],
+  // Add your own routes when you deploy, e.g.:
+  // "routes": [{ "pattern": "your.domain/*", "zone_name": "your.domain" }],
   "vars": {
-    "ANTHROPIC_MODEL": "claude-sonnet-5-5",
-    "OPENAI_MODEL": "gpt-6-luna",
+    "ANTHROPIC_MODEL": "claude-sonnet-4-6",
+    "OPENAI_MODEL": "gpt-4o-mini",
+    "ARIADNE_SELF_HOST": "1",
     // Turnstile tokens are only accepted when issued on these hostnames (lib/signup-guard.ts).
-    "TURNSTILE_HOSTNAMES": "ariadneagents.si,www.ariadneagents.si"
-  },
-  // No "previews" block on purpose. It used to hand every branch preview the production
-  // D1 database, and the preview environment held real model API keys, so any pushed
-  // branch could read and write production data and spend money. Without the block a
-  // branch preview has no DB binding and fails to build instead of touching prod.
-  // Non-production branch builds should also be off in Workers Builds settings.
-  // If previews are wanted again, create a separate D1 (`wrangler d1 create ariadne-preview`),
-  // apply migrations to it, and bind only that here, with no paid API keys.
-  // https://developers.cloudflare.com/workers/previews/configuration/
+    "TURNSTILE_HOSTNAMES": ""
+  }
+  // No "previews" block on purpose: a shared preview DB + paid API keys is unsafe.
+  // If you want previews, create a separate D1 and bind only that, with no paid API keys.
 }

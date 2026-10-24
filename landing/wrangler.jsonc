@@ -4,7 +4,7 @@
   // Worker at all (zero Worker CPU). Only /api/* reaches src/worker.ts.
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "ariadne-landing",
-  "account_id": "7a89d9dae3714c68933b37664f2b3d71",
+  "account_id": "YOUR_CLOUDFLARE_ACCOUNT_ID",
   "main": "src/worker.ts",
   "compatibility_date": "2026-09-26",
   "workers_dev": true,
@@ -27,7 +27,7 @@
       "binding": "DB",
       "database_name": "ariadne-early-access",
       // Replace with the id printed by `wrangler d1 create ariadne-early-access` before deploying.
-      "database_id": "9b4babaf-864d-4cea-84e2-8915adec0de7",
+      "database_id": "YOUR_D1_DATABASE_ID",
       "migrations_dir": "migrations"
     }
   ],
@@ -37,17 +37,17 @@
     "RATE_LIMIT_PER_HOUR": "8",
     // Browsers on other sites cannot post the form. Requests without an Origin header
     // (curl, scripts) still have to pass Turnstile and the rate limit.
-    "ALLOWED_ORIGINS": "https://ariadneagents.si,https://www.ariadneagents.si",
+    "ALLOWED_ORIGINS": "http://127.0.0.1:8787,http://localhost:8787",
     // Hostnames a Turnstile token must have been issued on (comma list; empty = skip).
-    "TURNSTILE_HOSTNAMES": "ariadneagents.si,www.ariadneagents.si"
+    "TURNSTILE_HOSTNAMES": "localhost"
   },
 
   // Secrets (never in this file): TURNSTILE_SECRET, HASH_SALT, TOKEN_SECRET.
   // Local values live in .dev.vars (copy .dev.vars.example).
 
-  // Retired by the Phase 0 cutover (docs/CUTOVER.md): ariadneagents.si and www now belong to
+  // Optional waitlist worker. Routes are off by default; add your own domain if needed.
   // the product Worker ("ariadne"). No routes here, so a stray deploy of this Worker can't
   // claim them back. Removing routes from this file does not detach them: that is done in
   // the dashboard. The D1 database "ariadne-early-access" is kept (the first invite pool).
-  // To roll back, re-add the two zone routes (ariadneagents.si/*, www.ariadneagents.si/*).
+  // To roll back, re-add the two zone routes (example.com/*, www.example.com/*).
 }

@@ -40,7 +40,7 @@ test("turnstile: no secret outside production skips the check; in production it 
 
 test("turnstile: a passing token is ok; secret, token and IP are sent to siteverify", async () => {
   setEnv({ TURNSTILE_SECRET: "sekrit", NODE_ENV: "production", TURNSTILE_VERIFY_URL: "http://127.0.0.1:1/ignored-in-production" });
-  const { fetcher, calls } = stub(200, { success: true, hostname: "ariadneagents.si" });
+  const { fetcher, calls } = stub(200, { success: true, hostname: "example.com" });
   assert.equal(await verifyTurnstile("tok", "203.0.113.9", fetcher), "ok");
   assert.equal(calls[0].url, "https://challenges.cloudflare.com/turnstile/v0/siteverify", "the override is ignored in production");
   assert.equal(calls[0].body.get("secret"), "sekrit");
@@ -55,9 +55,9 @@ test("turnstile: missing, oversized or rejected tokens fail; wrong hostname fail
   assert.equal(await verifyTurnstile("x".repeat(2049), "1.1.1.1", ok.fetcher), "failed");
   assert.equal(ok.calls.length, 0);
   assert.equal(await verifyTurnstile("tok", "1.1.1.1", stub(200, { success: false, "error-codes": ["invalid-input-response"] }).fetcher), "failed");
-  setEnv({ TURNSTILE_HOSTNAMES: "ariadneagents.si, www.ariadneagents.si" });
+  setEnv({ TURNSTILE_HOSTNAMES: "example.com, www.example.com" });
   assert.equal(await verifyTurnstile("tok", "1.1.1.1", ok.fetcher), "failed");
-  assert.equal(await verifyTurnstile("tok", "1.1.1.1", stub(200, { success: true, hostname: "www.ariadneagents.si" }).fetcher), "ok");
+  assert.equal(await verifyTurnstile("tok", "1.1.1.1", stub(200, { success: true, hostname: "www.example.com" }).fetcher), "ok");
 });
 
 test("turnstile: our misconfiguration or Cloudflare being down is 'unreachable', never a pass", async () => {

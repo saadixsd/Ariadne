@@ -142,7 +142,7 @@ test("L1. signed out: / is the public landing page; /dashboard and other app pag
   assert.match(landing.text, /checks the key claims/, "copy matches the checker's claim cap");
   assert.doesNotMatch(landing.text, /every claim/i);
   assert.doesNotMatch(landing.text, /Daedalus drafts|Odysseus challenges|\bScout\b|\bMaker\b/);
-  assert.doesNotMatch(landing.text.replaceAll("saad@ariadneagents.si", ""), /try to break|tries to break|prove (it|the draft) wrong|\bBoard\b|Saad/i, "no adversarial or stale wording");
+  assert.doesNotMatch(landing.text.replaceAll("user@example.com", ""), /try to break|tries to break|prove (it|the draft) wrong|\bBoard\b|Saad/i, "no adversarial or stale wording");
   assert.doesNotMatch(landing.text, /eliminates hallucinations|hallucination-free|guaranteed accura/i, "no reliability claims");
   for (const path of ["/dashboard", "/dashboard?project=abc", "/tree", "/settings"]) {
     const res = await call("GET", path, { from: ip(40) });

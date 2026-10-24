@@ -178,7 +178,7 @@ function foreignOrigin(req: Request, env: Env): boolean {
 }
 
 async function start(req: Request, env: Env): Promise<Response> {
-  if (foreignOrigin(req, env)) return reply(403, "forbidden", "This form only works on the Ariadne site. Open ariadneagents.si in your browser and try again.");
+  if (foreignOrigin(req, env)) return reply(403, "forbidden", "This form only works from an allowed origin. Open the Ariadne site in your browser and try again.");
 
   const read = await readBody(req);
   if (read instanceof Response) return read;
@@ -231,7 +231,7 @@ async function start(req: Request, env: Env): Promise<Response> {
 }
 
 async function update(req: Request, env: Env): Promise<Response> {
-  if (foreignOrigin(req, env)) return reply(403, "forbidden", "This form only works on the Ariadne site. Open ariadneagents.si in your browser and try again.");
+  if (foreignOrigin(req, env)) return reply(403, "forbidden", "This form only works from an allowed origin. Open the Ariadne site in your browser and try again.");
   const read = await readBody(req);
   if (read instanceof Response) return read;
   if (read.form) return reply(415, "bad_request", "Send the answer as JSON.");

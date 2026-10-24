@@ -6,9 +6,9 @@ import { OG_IMAGE, SITE_NAME, SITE_URL, SOCIAL } from "@/lib/site";
 import { SAMPLE } from "@/lib/sample-report";
 import "./landing.css";
 
-// The public front door at ariadneagents.si. Fully static: built once at deploy, so a visit
-// costs the Worker no rendering, and it never reads a cookie. /landing/auth.js swaps the
-// account links when the non-secret "ariadne_in" marker cookie says you are signed in.
+// Marketing front door for a local / self-hosted build. Fully static: built once, so a
+// visit costs the Worker no rendering, and it never reads a cookie. /landing/auth.js swaps
+// the account links when the non-secret "ariadne_in" marker cookie says you are signed in.
 // Only what works today is described. No testimonials, logos, counts or results.
 
 const TITLE = "Ariadne";
@@ -28,7 +28,7 @@ export const metadata: Metadata = {
 const JSON_LD = {
   "@context": "https://schema.org",
   "@graph": [
-    { "@type": "Organization", "@id": `${SITE_URL}/#org`, name: SITE_NAME, url: SITE_URL, logo: `${SITE_URL}/icon.png`, sameAs: SOCIAL, email: "team@ariadneagents.si" },
+    { "@type": "Organization", "@id": `${SITE_URL}/#org`, name: SITE_NAME, url: SITE_URL, logo: `${SITE_URL}/icon.png`, sameAs: SOCIAL },
     { "@type": "WebApplication", name: SITE_NAME, url: SITE_URL, applicationCategory: "ProductivityApplication", operatingSystem: "Web browser", description: DESCRIPTION, publisher: { "@id": `${SITE_URL}/#org` } },
     { "@type": "WebSite", name: SITE_NAME, url: SITE_URL, publisher: { "@id": `${SITE_URL}/#org` } },
   ],
@@ -256,7 +256,7 @@ export default function Landing() {
             <p className="lp-foot-note">Sourced research, key claims checked. Made by the Ariadne team.</p>
           </div>
           <div className="lp-foot-links">
-            <a href="mailto:team@ariadneagents.si">team@ariadneagents.si</a>
+            <a href="https://github.com/saadixsd/Ariadne/issues" target="_blank" rel="noopener noreferrer">GitHub Issues</a>
             <a href="/privacy">Privacy</a>
             <a href="/privacy#cookies" data-consent-open>Cookie settings</a>
             <a href="/sign-in">Sign in</a>

@@ -35,15 +35,15 @@ const DB = {
     return stmt;
   },
 };
-const env = { DB, TURNSTILE_SECRET: "x", HASH_SALT: "bench", TOKEN_SECRET: "bench-token-secret", RATE_LIMIT_PER_HOUR: "1000000", ALLOWED_ORIGINS: "https://ariadneagents.si", TURNSTILE_HOSTNAMES: "ariadneagents.si" };
-const verifyBody = JSON.stringify({ success: true, hostname: "ariadneagents.si" });
+const env = { DB, TURNSTILE_SECRET: "x", HASH_SALT: "bench", TOKEN_SECRET: "bench-token-secret", RATE_LIMIT_PER_HOUR: "1000000", ALLOWED_ORIGINS: "https://example.com", TURNSTILE_HOSTNAMES: "example.com" };
+const verifyBody = JSON.stringify({ success: true, hostname: "example.com" });
 globalThis.fetch = async () => new Response(verifyBody, { headers: { "content-type": "application/json" } });
 
 let ipSeq = 0;
 function request(method, body) {
-  return new Request("https://ariadneagents.si/api/early-access", {
+  return new Request("https://example.com/api/early-access", {
     method,
-    headers: { "content-type": "application/json", origin: "https://ariadneagents.si", "cf-connecting-ip": `203.0.113.${ipSeq++ % 250}`, "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_6) AppleWebKit/605.1.15 Safari/605.1.15" },
+    headers: { "content-type": "application/json", origin: "https://example.com", "cf-connecting-ip": `203.0.113.${ipSeq++ % 250}`, "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_6) AppleWebKit/605.1.15 Safari/605.1.15" },
     body: JSON.stringify(body),
   });
 }

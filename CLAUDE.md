@@ -98,12 +98,12 @@ Phase B dogfood shape, not the template.
 - Workers **free plan**: 10 ms CPU per request is the limit that matters (error 1102).
   Keep per-request CPU low; Workers Logs (observability) is on to trace it.
 - Email-verification code exists but is **disabled** (no `send_email` binding).
-  Enabling it needs company email, `ariadneagents.si` onboarded to Cloudflare
+  Enabling it needs company email, `example.com` onboarded to Cloudflare
   Email Service, and the Workers Paid plan. Steps: `docs/PROJECT_LOG.md`.
-- Hosting: until the Phase 0C cutover the product is on **https://app.ariadneagents.si**
+- Hosting: until the Phase 0C cutover the product is on **https://app.example.com**
   (custom domain, Cloudflare Access in front) and the apex/`www` serve the old
   early-access Worker in `landing/`. After the cutover the `ariadne` Worker serves
-  **ariadneagents.si** and **www** (landing at `/`, product at `/dashboard`), Access and
+  **example.com** and **www** (landing at `/`, product at `/dashboard`), Access and
   the `app.` domain are removed, and `ariadne-landing` stays deployed with no routes
   (its D1 `ariadne-early-access` is kept: it is the first invite pool). Never redeploy
   `landing/` onto the apex. `workers_dev` and preview URLs stay off.
@@ -179,7 +179,7 @@ researchers, starting from the early-access list. Ask the founder before anythin
 Turnstile + invite switch + first-day trial cap, migration `0004_invite_code.sql`, this
 file's section 6 rewritten. The domain cutover (apex + www onto the `ariadne` Worker,
 remove Access and `app.`) is a separate, last commit that must only ship in the cutover
-window; the runbook is kept with the founder (CUTOVER.md).
+window; historical cutover notes were removed from the public repo.
 
 **Presentation cleanup (Oct 3 2026), branch `presentation/cleanup`:** repo tidy
 (planning docs archived, dead code removed, `lib/demo.ts` → `lib/starter-thread.ts`,
@@ -232,7 +232,7 @@ Task detail (historical): `docs/archive/planning/22_CLAUDE_CODE_CLEANUP_BRIEF.md
   (`9f841e6`).
 - **Oct 1:** V1 cleanup/hardening pass merged to `main` (`9b0d2a0`, `34cdc97`):
   intro card removed, internal copy out of the UI, brief cap 5,000 everywhere,
-  readable failure paths, `www.ariadneagents.si` route, Tree detail rail as a
+  readable failure paths, `www.example.com` route, Tree detail rail as a
   full-screen sheet on phones. See `docs/PROJECT_LOG.md`.
 - **Sep 30:** thread re-theme (cream/serif/red-thread) shipped; agents renamed
   Scout→Odysseus, Maker→Daedalus; ship-blockers reliability pass (immutable run

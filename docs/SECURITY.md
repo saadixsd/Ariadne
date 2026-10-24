@@ -32,8 +32,8 @@ vulnerability** on this repository, rather than in a public issue.
   email address isn't proven to belong to the person. Turnstile, the per-IP sign-up limit,
   the first-day trial (6 runs) and the site-wide cap (200 runs a day) bound what an
   automated sign-up wave can spend.
-- After the cutover the product is public on ariadneagents.si; Cloudflare Access no longer
-  sits in front of it (see `docs/CUTOVER.md`).
+- After the cutover the product is public on example.com; Cloudflare Access no longer
+  sits in front of it (historical cutover notes were removed).
 - No password reset and no account deletion yet.
 - PBKDF2 at 100k iterations is below today's OWASP guidance (600k). It's kept there
   because of the Workers free-plan CPU limit, and will be raised when the plan changes.
